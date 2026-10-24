@@ -13,7 +13,7 @@
   const NS = "http://www.w3.org/2000/svg";
   const $ = id => document.getElementById(id);
   const svg = $("graph");
-  const state = { graph: null, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, hidden: new Set(["archive"]), hiddenMastery: new Set(), query: "", selected: null };
+  const state = { graph: null, nodes: [], edges: [], view: { x: 0, y: 0, k: 1 }, hidden: new Set(["archive"]), hiddenMastery: new Set(), hideRaw: false, query: "", selected: null };
 
   const el = (tag, attrs, parent) => {
     const e = document.createElementNS(NS, tag);
@@ -22,7 +22,7 @@
     return e;
   };
   const bucketOf = n => n.bucket || "none";
-  const visible = n => !state.hidden.has(bucketOf(n)) && !state.hiddenMastery.has(n.mastery);
+  const visible = n => !state.hidden.has(bucketOf(n)) && !state.hiddenMastery.has(n.mastery) && !(state.hideRaw && n.raw);
   const matches = n => !state.query || (n.title + " " + n.id).toLowerCase().includes(state.query);
 
   /* Force layout: pairwise repulsion, link springs, and a pull towards each bucket's
@@ -81,8 +81,16 @@
       if (!shown.has(n.id)) continue;
       const r = 5 + Math.min(6, degree.get(n.id) || 0);
       const g = el("g", { class: "node" + (matches(n) ? "" : " dim"), transform: `translate(${n.x},${n.y})`, tabindex: 0 }, root);
-      if (RING[n.mastery]) el("circle", { r: r + 4, fill: "none", stroke: RING[n.mastery], "stroke-width": 3, "stroke-dasharray": n.mastery === "attempted" ? "3 2" : "" }, g);
-      el("circle", { r, fill: `var(--${bucketOf(n)})`, stroke: state.selected === n ? "var(--text)" : "var(--bg)", "stroke-width": state.selected === n ? 2.5 : 1.5 }, g);
+      const ring = { fill: "none", stroke: RING[n.mastery], "stroke-width": 3, "stroke-dasharray": n.mastery === "attempted" ? "3 2" : "" };
+      const body = { fill: `var(--${bucketOf(n)})`, stroke: state.selected === n ? "var(--text)" : "var(--bg)", "stroke-width": state.selected === n ? 2.5 : 1.5 };
+      if (n.raw) {
+        const s = r + 2;
+        if (RING[n.mastery]) el("rect", { x: -s - 4, y: -s - 4, width: 2 * s + 8, height: 2 * s + 8, rx: 3, ...ring }, g);
+        el("rect", { x: -s, y: -s, width: 2 * s, height: 2 * s, rx: 2, ...body }, g);
+      } else {
+        if (RING[n.mastery]) el("circle", { r: r + 4, ...ring }, g);
+        el("circle", { r, ...body }, g);
+      }
       if (shown.size <= 60 || state.view.k > 1.3 || state.selected === n || (state.query && matches(n))) el("text", { x: r + 6, y: 4 }, g).textContent = n.title;
       const title = el("title", {}, g); title.textContent = `${n.title}\n${n.id}`;
       g.addEventListener("click", ev => { ev.stopPropagation(); select(n); });
@@ -99,7 +107,7 @@
     const h = document.createElement("h2"); h.textContent = n.title; h.style.textTransform = "none"; h.style.fontSize = "15px"; h.style.color = "var(--text)";
     const dl = document.createElement("dl");
     const label = (list, key) => (list.find(([k]) => k === key) || [key, key])[1];
-    const rows = [["Path", n.id], ["Bucket", label(BUCKETS, bucketOf(n))], ["Container", n.container || "—"], ["Mastery", label(MASTERY, n.mastery)], ["Next review", n.nextReview || "—"],
+    const rows = [["Path", n.id], ["Bucket", label(BUCKETS, bucketOf(n)) + (n.raw ? " · raw resource" : "")], ["Container", n.container || "—"], ["Mastery", label(MASTERY, n.mastery)], ["Next review", n.nextReview || "—"],
       ["Links", String(state.links.filter(([a, b]) => a === n || b === n).length)]];
     for (const [k, v] of rows) { const dt = document.createElement("dt"); dt.textContent = k; const dd = document.createElement("dd"); dd.textContent = v; dl.append(dt, dd); }
     const open = document.createElement("a");
@@ -124,6 +132,13 @@
       }
     };
     build($("buckets"), BUCKETS, state.hidden, bucketOf, key => { const s = document.createElement("span"); s.className = "swatch"; s.style.background = `var(--${key})`; return s; });
+    const rawLabel = document.createElement("label");
+    const rawBox = document.createElement("input"); rawBox.type = "checkbox"; rawBox.checked = !state.hideRaw;
+    rawBox.addEventListener("change", () => { state.hideRaw = !rawBox.checked; render(); });
+    const sq = document.createElement("span"); sq.className = "swatch"; sq.style.borderRadius = "2px"; sq.style.background = "var(--resources)";
+    const rc = document.createElement("span"); rc.className = "count"; rc.textContent = state.nodes.filter(n => n.raw).length;
+    rawLabel.append(rawBox, sq, document.createTextNode("Raw resources (square)"), rc);
+    $("buckets").appendChild(rawLabel);
     build($("mastery"), MASTERY, state.hiddenMastery, n => n.mastery, key => {
       const s = document.createElement("span"); s.className = "ring";
       s.style.borderColor = RING[key] || "var(--line)"; if (key === "attempted") s.style.borderStyle = "dashed"; return s;
