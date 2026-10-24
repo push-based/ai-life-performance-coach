@@ -34,6 +34,7 @@ Every note lives under five fixed folders at the vault root: 0.Inbox, 1.Projects
 Show the user a filing preview before executing it: moves change where their notes live.
 
 - 'list_raw', 'convert_raw' — raw resources (whole books and articles) under 3.Resources/0.Raw; convert a PDF once, then read it by page range with read_note's pages. Raw resources are reference material and are never sparred
+- 'reading_progress', 'mark_read', 'write_summary' — a book's stages: read, the user's own notes, distilling each chapter (the user bolds and highlights in Obsidian; a chapter summary completes it), then concepts
 - 'find_passages', 'create_concept' — find the pages of raw text a reading note came from, and write a concept note (the unit that is sparred) whose quotes are checked against that text; preview first, execute: true writes
 
 Only notes under 3.Resources are sparred, raw resources included. Sessions live in Coach/sessions/; a note's coach_id ties it to its sessions wherever it moves.

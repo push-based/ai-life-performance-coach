@@ -37,8 +37,8 @@ afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 describe("vault tool registry", () => {
   it("lists every tool, with the writers marked as such", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "create_concept"]);
-    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept"]);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "create_concept", "reading_progress", "mark_read", "write_summary"]);
+    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept", "mark_read", "write_summary"]);
   });
 });
 
@@ -101,7 +101,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "create_concept", "due_for_review", "file_note", "find_passages", "init_vault", "list_notes", "list_raw", "read_note", "record_session", "search", "tier2_payload", "vault_graph"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "create_concept", "due_for_review", "file_note", "find_passages", "init_vault", "list_notes", "list_raw", "mark_read", "read_note", "reading_progress", "record_session", "search", "tier2_payload", "vault_graph", "write_summary"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
@@ -219,6 +219,35 @@ describe("concept tools", () => {
     const { res } = await call("create_concept", { title: "X", summary: "x", core_assertions: ["x"], passages: [{ note: CH, quote: "Macrotasks run before everything" }] });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain(`passages[0]: not found in ${CH}`);
+  });
+});
+
+describe("reading tools", () => {
+  const WORK = "3.Resources/0.Raw/Books/A/Book";
+  const CH = `${WORK}/chapters/01 One.md`;
+  beforeEach(() => {
+    put(`${WORK}/text.md`, '---\ntitle: "Book"\nraw_role: "index"\n---\n# Book\n');
+    put(CH, '---\ntitle: "Chapter 1: One"\nraw_role: "chapter"\npages: "4-5"\n---\n# One\n\n## Page 4\n\nSome **bold** text.\n\n## Page 5\n\nMore.\n');
+  });
+
+  it("mark_read and write_summary preview then write; reading_progress and read_note show the result", async () => {
+    expect((await call("mark_read", { book: WORK })).data).toMatchObject({ executed: false, path: `${WORK}/text.md` });
+    expect((await call("mark_read", { book: WORK, date: "2026-10-20", execute: true })).data.executed).toBe(true);
+    expect((await call("write_summary", { path: CH, text: "Mine.", execute: true })).data.executed).toBe(true);
+
+    const [book] = (await call("reading_progress", { book: WORK, chapters: false })).data;
+    expect(book).toMatchObject({ index: `${WORK}/text.md`, stage: "distilled", steps: { readOn: "2026-10-20", chaptersComplete: 1, chapters: 1 } });
+    expect(book.chapters).toBeUndefined();
+    expect((await call("read_note", { path: CH })).data.distillation).toEqual({
+      summary: true, state: "complete",
+      pages: [{ page: 4, mark: "bold", summary: false, empty: false }, { page: 5, mark: "none", summary: false, empty: false }],
+    });
+  });
+
+  it("reports refusals as errors", async () => {
+    const { res } = await call("write_summary", { path: `${WORK}/text.md`, text: "x" });
+    expect(res.isError).toBe(true);
+    expect((await call("reading_progress", { book: "nope" })).res.isError).toBe(true);
   });
 });
 

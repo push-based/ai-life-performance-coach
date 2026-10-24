@@ -8,6 +8,7 @@
 import { Document, Charset, type DocumentData } from "flexsearch";
 import type { ParaBucket } from "./para.js";
 import type { VaultNote } from "./scan.js";
+import { withoutSummaries } from "./distill.js";
 
 export interface NoteHit {
   path: string;
@@ -130,10 +131,10 @@ export async function searchPassages(notes: VaultNote[], query: string, opts: Pa
   const units = new Map<string, { note: VaultNote; page: number | null; body: string }>();
   for (const n of raw) {
     const pages = n.body.split(/^(?=## Page \d+\s*$)/m).filter(s => /^## Page \d+/.test(s));
-    if (!pages.length) units.set(n.path, { note: n, page: null, body: n.body });
+    if (!pages.length) units.set(n.path, { note: n, page: null, body: withoutSummaries(n.body) });
     for (const s of pages) {
       const page = Number(s.match(/^## Page (\d+)/)![1]);
-      units.set(`${n.path}#${page}`, { note: n, page, body: s.replace(/^## Page \d+\s*\n/, "") });
+      units.set(`${n.path}#${page}`, { note: n, page, body: withoutSummaries(s.replace(/^## Page \d+\s*\n/, "")) });
     }
   }
   const scores = await rank([...units].map(([id, u]) => ({ id, title: u.note.title, body: u.body })), query, limit);

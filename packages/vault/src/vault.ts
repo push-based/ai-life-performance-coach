@@ -17,6 +17,7 @@ import { tier2Payload, type Tier2Payload } from "./payload.js";
 import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan } from "./filing.js";
 import { listRaw, planConvert, executeConvert, type RawItem, type ConvertPlan, type ConvertOptions } from "./convert.js";
 import { planConcept, executeConcept, conceptOf, type ConceptInput, type ConceptPlan } from "./concept.js";
+import { bookProgress, planMarkRead, planSummary, executeWrite, type BookProgress, type WritePlan } from "./distill.js";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 
 export interface VaultOptions {
@@ -69,6 +70,21 @@ export interface Vault {
   /** Concept notes (ADR-KI-0060): page-level search over raw text, and writing a verified concept note. */
   findPassages(query: string, opts?: PassageSearchOptions): Promise<PassageHit[]>;
   createConcept(input: ConceptInput, execute: boolean): Promise<Omit<ConceptPlan, "content"> & { executed: boolean }>;
+  /** Reading progress (ADR-KI-0061): each converted book's stage and each chapter's distilling. */
+  readingProgress(): Promise<BookProgress[]>;
+  /** Mark a book read, by its index or work folder; the date defaults to today. */
+  markRead(book: string, date: string | undefined, execute: boolean): Promise<WriteResult>;
+  /** Add a summary callout to a chapter, or to one of its pages. */
+  writeSummary(path: string, text: string, page: number | undefined, execute: boolean): Promise<WriteResult>;
+}
+
+export type WriteResult = Omit<WritePlan, "content" | "before"> & { executed: boolean };
+
+async function applyWrite(root: string, plan: WritePlan, execute: boolean): Promise<WriteResult> {
+  const { content: _content, before: _before, ...shown } = plan;
+  if (!execute || plan.errors.length) return { ...shown, executed: false };
+  await executeWrite(root, plan);
+  return { ...shown, executed: true };
 }
 
 export type FilingResult = Omit<FilingPlan, "contents"> & { executed: boolean };
@@ -178,6 +194,12 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
       await executeConvert(root, plan);
       return { ...shown, executed: true };
+    },
+    readingProgress: async () => bookProgress(await scanVault(root)),
+    markRead: async (book, date, execute) => applyWrite(root, await planMarkRead(root, await scanVault(root), book, date ?? localDate(now())), execute),
+    async writeSummary(path, text, page, execute) {
+      const rel = notePathOf(root, path) ?? path;
+      return applyWrite(root, await planSummary(root, await scanVault(root), rel, text, page), execute);
     },
     findPassages: async (query, opts) => searchPassages(await scanVault(root), query, opts),
     async createConcept(input, execute) {

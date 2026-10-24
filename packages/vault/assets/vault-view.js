@@ -3,7 +3,9 @@
  * A converted book (ADR-KI-0059) shows as one node until it is opened; its chapters
  * then sit in reading order on a ring around it. Concept notes (ADR-KI-0060), the notes
  * that are sparred, are diamonds; their links to the chapters they quote show which
- * books ground them. */
+ * books ground them. Raw text is coloured by how far it is distilled (ADR-KI-0061): an
+ * open chapter shows its pages, each coloured by its deepest mark and ringed when it has
+ * a summary; a chapter turns green once its chapter summary is written. */
 (function () {
   "use strict";
   const BUCKETS = [
@@ -14,13 +16,26 @@
     ["unsparred", "Unsparred"], ["attempted", "Attempted"], ["tier1_passed", "Tier 1 passed"], ["tier2_passed", "Tier 2 passed"],
   ];
   const RING = { attempted: "var(--attempted)", tier1_passed: "var(--tier1)", tier2_passed: "var(--tier2)" };
+  const STAGES = [
+    ["unread", "Not read yet"], ["read", "Read"], ["notes", "Notes taken"], ["distilling", "Distilling"], ["distilled", "Distilled"], ["concepts", "Concepts written"],
+  ];
+  const STAGE_FILL = { unread: "var(--untouched)", read: "var(--resources)", notes: "var(--resources)", distilling: "var(--bold)", distilled: "var(--complete)", concepts: "var(--complete)" };
+  const MARK_FILL = { none: "var(--untouched)", bold: "var(--bold)", highlight: "var(--highlight)" };
+  const MARKS = [["none", "Not marked"], ["bold", "Bolded"], ["highlight", "Highlighted"]];
+  /** A chapter's colour: green when complete, else its deepest mark so far. */
+  const chapterFill = c => {
+    const d = c.distill;
+    if (!d) return null;
+    if (d.state === "complete") return "var(--complete)";
+    return MARK_FILL[d.pages.some(p => p.mark === "highlight") ? "highlight" : d.pages.some(p => p.mark === "bold") ? "bold" : "none"];
+  };
   const NS = "http://www.w3.org/2000/svg";
   const $ = id => document.getElementById(id);
   const svg = $("graph");
   const state = {
     graph: null, nodes: [], byId: new Map(), chaptersOf: new Map(), links: [],
     view: { x: 0, y: 0, k: 1 }, hidden: new Set(["archive"]), hiddenMastery: new Set(), hideRaw: false,
-    expanded: new Set(), query: "", selected: null,
+    expanded: new Set(), openChapters: new Set(), query: "", selected: null,
   };
 
   const el = (tag, attrs, parent) => {
@@ -39,7 +54,7 @@
   const folded = n => n.book && !state.expanded.has(n.book);
   const visible = n => !folded(n) && !state.hidden.has(bucketOf(n)) && !state.hiddenMastery.has(n.mastery) && !(state.hideRaw && n.raw);
   const matches = n => !state.query || (n.title + " " + n.id).toLowerCase().includes(state.query);
-  const labelOf = n => (n.rawRole === "index" && n.chapterCount ? `${n.label} · ${n.chapterCount}` : n.label);
+  const labelOf = n => (n.rawRole === "index" && n.chapterCount ? `${n.label} · ${n.chaptersComplete || 0}/${n.chapterCount}` : n.label);
   /** Where an edge end is drawn: a folded chapter's edges attach to its book. */
   const anchor = n => (folded(n) ? state.byId.get(n.book) : n);
   /** Concept notes that link to a note, or for a book to any of its chapters. */
@@ -108,6 +123,22 @@
     }
   }
 
+  const pageRingOf = count => 16 + count * 2.6;
+
+  /**
+   * An open chapter's pages, in order on a small ring just inside the book's ring, between
+   * the chapter and its book: chapter labels point outward, so the inside is free of them.
+   */
+  function pagesOf(c) {
+    const pages = (c.distill && c.distill.pages) || [];
+    const r = pageRingOf(pages.length);
+    const a = c.angle || 0, cx = c.x - Math.cos(a) * (r + 22), cy = c.y - Math.sin(a) * (r + 22);
+    return { cx, cy, r, pages: pages.map((p, i) => {
+      const t = a + ((i + 0.5) / pages.length) * Math.PI * 2;
+      return Object.assign({ chapter: c, x: cx + Math.cos(t) * r, y: cy + Math.sin(t) * r }, p);
+    }) };
+  }
+
   function render() {
     placeChapters();
     svg.textContent = "";
@@ -133,7 +164,8 @@
       const r = n.rawRole === "index" ? 9 : n.book ? 5 : 5 + Math.min(6, degree.get(n.id) || 0);
       const g = el("g", { class: "node" + (matches(n) ? "" : " dim"), transform: `translate(${n.x},${n.y})`, tabindex: 0 }, root);
       const ring = { fill: "none", stroke: RING[n.mastery], "stroke-width": 3, "stroke-dasharray": n.mastery === "attempted" ? "3 2" : "" };
-      const body = { fill: `var(--${bucketOf(n)})`, stroke: state.selected === n ? "var(--text)" : "var(--bg)", "stroke-width": state.selected === n ? 2.5 : 1.5 };
+      const fill = n.rawRole === "index" && n.stage ? STAGE_FILL[n.stage] : chapterFill(n) || `var(--${bucketOf(n)})`;
+      const body = { fill, stroke: state.selected === n ? "var(--text)" : "var(--bg)", "stroke-width": state.selected === n ? 2.5 : 1.5 };
       if (n.raw) {
         const s = r + 2;
         if (RING[n.mastery]) el("rect", { x: -s - 4, y: -s - 4, width: 2 * s + 8, height: 2 * s + 8, rx: 3, ...ring }, g);
@@ -157,16 +189,54 @@
           y: steep ? (sin < 0 ? -(r + 4) : r + 12) : 4,
           "text-anchor": cos < 0 ? "end" : "start",
         };
-        // Keep labels the same size on screen when zoomed out.
-        if (state.view.k < 1) at["font-size"] = (11 / state.view.k).toFixed(1);
+        // Keep labels the same size on screen when zoomed out, and grow them only a little when zoomed in.
+        // An inline style, because the stylesheet's font-size would win over the attribute.
+        if (state.view.k !== 1) at.style = `font-size:${((11 * Math.min(1.25, Math.max(1, state.view.k))) / state.view.k).toFixed(1)}px`;
         el("text", at, g).textContent = labelOf(n);
       }
-      el("title", {}, g).textContent = `${n.title}\n${n.id}${n.rawRole === "index" ? "\nClick to open or close the book" : ""}`;
-      g.addEventListener("click", ev => { ev.stopPropagation(); if (n.rawRole === "index") toggle(n.id); select(n); });
-      g.addEventListener("keydown", ev => { if (ev.key === "Enter") { if (n.rawRole === "index") toggle(n.id); select(n); } });
+      const hint = n.rawRole === "index" ? "\nClick to open or close the book" : n.distill ? "\nClick to show or hide its pages" : "";
+      el("title", {}, g).textContent = `${n.title}\n${n.id}${hint}`;
+      const open = () => { if (n.rawRole === "index") toggle(n.id); else if (n.distill) togglePages(n); select(n); };
+      g.addEventListener("click", ev => { ev.stopPropagation(); open(); });
+      g.addEventListener("keydown", ev => { if (ev.key === "Enter") open(); });
     }
-    $("status").textContent = `${shown.size} of ${state.nodes.length} notes shown · click a book to open it · scroll to zoom, drag to pan`;
+    for (const id of state.openChapters) {
+      const c = state.byId.get(id);
+      if (!c || !shown.has(c.id)) continue;
+      const { cx, cy, r, pages } = pagesOf(c);
+      el("circle", { cx, cy, r, fill: "none", stroke: "var(--edge)", "stroke-dasharray": "2 3" }, root);
+      el("line", { x1: c.x, y1: c.y, x2: cx + (c.x - cx) * (1 - r / Math.hypot(c.x - cx, c.y - cy)), y2: cy + (c.y - cy) * (1 - r / Math.hypot(c.x - cx, c.y - cy)), stroke: "var(--edge)", "stroke-dasharray": "2 3" }, root);
+      for (const p of pages) {
+        const g = el("g", { class: "node", transform: `translate(${p.x},${p.y})`, tabindex: 0 }, root);
+        if (p.summary) el("circle", { r: 6.5, fill: "none", stroke: "var(--text)", "stroke-width": 1.5 }, g);
+        const isSel = state.selected && state.selected.chapter === c && state.selected.page === p.page;
+        el("circle", { r: 4, fill: p.empty ? "none" : MARK_FILL[p.mark], stroke: isSel ? "var(--text)" : p.empty ? "var(--untouched)" : "var(--bg)", "stroke-width": isSel ? 2 : 1 }, g);
+        if (state.view.k > 1.6 || pages.length <= 12) {
+          const out = Math.atan2(p.y - cy, p.x - cx);
+          const at = { x: Math.cos(out) * 8, y: Math.sin(out) * 8 + 3, "text-anchor": Math.cos(out) < -0.3 ? "end" : Math.cos(out) > 0.3 ? "start" : "middle" };
+          // Page numbers stay 11px on screen at any zoom.
+          at.style = `font-size:${(11 / state.view.k).toFixed(1)}px`;
+          el("text", at, g).textContent = String(p.page);
+        }
+        el("title", {}, g).textContent = `Page ${p.page} · ${p.empty ? "no text" : label(MARKS, p.mark)}${p.summary ? " · summary" : ""}`;
+        g.addEventListener("click", ev => { ev.stopPropagation(); select(p); });
+      }
+    }
+    $("status").textContent = `${shown.size} of ${state.nodes.length} notes shown · click a book to open it, a chapter to see its pages · scroll to zoom, drag to pan`;
   }
+
+  function togglePages(c) {
+    if (state.openChapters.has(c.id)) { state.openChapters.delete(c.id); return; }
+    state.openChapters.add(c.id);
+    const { cx, cy, r } = pagesOf(c);
+    const box = svg.getBoundingClientRect();
+    const w = box.width || 900, h = box.height || 700;
+    state.view.k = Math.max(state.view.k, Math.min(1.8, (Math.min(w, h) / 2 - 60) / (r + 40)));
+    state.view.x = w / 2 - ((cx + c.x) / 2) * state.view.k;
+    state.view.y = h / 2 - ((cy + c.y) / 2) * state.view.k;
+  }
+
+  const label = (list, key) => (list.find(([k]) => k === key) || [key, key])[1];
 
   function toggle(book) {
     if (state.expanded.has(book)) { state.expanded.delete(book); return; }
@@ -188,24 +258,62 @@
     state.view.y = h / 2 - n.y * state.view.k;
   }
 
+  /** A page of an open chapter: its marks and summary, and a link to it in Obsidian. */
+  function selectPage(p) {
+    const d = $("detail");
+    const h = html("h2", { textContent: `${p.chapter.label} · page ${p.page}` });
+    h.style.textTransform = "none"; h.style.fontSize = "15px"; h.style.color = "var(--text)";
+    const dl = html("dl");
+    for (const [k, v] of [["Chapter", p.chapter.title], ["Marked", p.empty ? "No text on this page" : label(MARKS, p.mark)], ["Page summary", p.summary ? "Yes" : "No (optional)"]]) dl.append(html("dt", { textContent: k }), html("dd", { textContent: v }));
+    const file = `${p.chapter.id.replace(/\.md$/, "")}#Page ${p.page}`;
+    const open = html("a", { href: `obsidian://open?vault=${encodeURIComponent(state.graph.vaultName)}&file=${encodeURIComponent(file)}`, textContent: "Open the page in Obsidian" });
+    d.append(h, dl, html("p", {}, open), html("p", { className: "empty", textContent: "Bold with **…**, then highlight the best of it with ==…==. Write the chapter summary to complete the chapter." }));
+    render();
+  }
+
   function select(n) {
     state.selected = n;
     const d = $("detail");
     d.textContent = "";
+    if (n && n.chapter) return selectPage(n);
     if (!n) { d.appendChild(html("p", { className: "empty", textContent: "Select a note to see its PARA location and sparring state. Click a book to open its chapters." })); render(); return; }
-    const label = (list, key) => (list.find(([k]) => k === key) || [key, key])[1];
     const h = html("h2", { textContent: n.title });
     h.style.textTransform = "none"; h.style.fontSize = "15px"; h.style.color = "var(--text)";
     const dl = html("dl");
     const rows = [["Path", n.id], ["Bucket", label(BUCKETS, bucketOf(n)) + (n.raw ? " · raw resource" : n.concept ? " · concept" : "")]];
-    if (n.rawRole === "index") rows.push(["Chapters", String(n.chapterCount)]);
+    if (n.rawRole === "index") rows.push(["Stage", label(STAGES, n.stage)], ["Chapters complete", `${n.chaptersComplete || 0} of ${n.chapterCount}`]);
+    if (n.distill) {
+      const ps = n.distill.pages.filter(p => !p.empty);
+      rows.push(
+        ["Distilling", n.distill.state === "complete" ? "Complete" : n.distill.state === "in_progress" ? "In progress" : "Not started"],
+        ["Pages bolded", `${ps.filter(p => p.mark !== "none").length} of ${ps.length}`],
+        ["Highlighted", String(ps.filter(p => p.mark === "highlight").length)],
+        ["Page summaries", String(ps.filter(p => p.summary).length)],
+        ["Chapter summary", n.distill.summary ? "Written" : "Not yet"],
+      );
+    }
     if (n.raw) rows.push(["Quoted by", `${conceptsCiting(n).length} concept note(s)`]);
     else rows.push(["Mastery", label(MASTERY, n.mastery)], ["Next review", n.nextReview || "—"]);
     rows.push(["Links", String(state.links.filter(([a, b]) => a === n || b === n).length)]);
     for (const [k, v] of rows) dl.append(html("dt", { textContent: k }), html("dd", { textContent: v }));
     const open = html("a", { href: `obsidian://open?vault=${encodeURIComponent(state.graph.vaultName)}&file=${encodeURIComponent(n.id.replace(/\.md$/, ""))}`, textContent: "Open in Obsidian" });
     d.append(h, dl, html("p", {}, open));
+    if (n.distill) {
+      const btn = html("button", { type: "button", textContent: state.openChapters.has(n.id) ? "Hide pages" : "Show pages" });
+      btn.addEventListener("click", () => { togglePages(n); select(n); });
+      d.append(html("p", {}, btn));
+    }
     if (n.rawRole === "index") {
+      const steps = html("ol");
+      steps.style.paddingLeft = "18px";
+      const reached = STAGES.findIndex(([k]) => k === n.stage);
+      for (const [k, name] of STAGES.slice(1)) {
+        const i = STAGES.findIndex(([x]) => x === k);
+        const li = html("li", { textContent: `${i <= reached ? "✓" : "·"} ${name}` });
+        li.style.color = i <= reached ? "var(--text)" : "var(--muted)";
+        steps.append(li);
+      }
+      d.append(steps);
       const chapters = state.chaptersOf.get(n.id) || [];
       const concepts = conceptsCiting(n);
       d.append(html("p", { textContent: concepts.length
@@ -233,8 +341,9 @@
         const a = html("a", { href: "#", textContent: c.label });
         a.addEventListener("click", ev => { ev.preventDefault(); state.expanded.add(n.id); select(c); });
         const quoted = conceptsCiting(c).length;
-        const li = html("li", {}, a, quoted ? ` · quoted by ${quoted}` : "");
-        li.style.color = "var(--muted)";
+        const progress = c.distill ? (c.distill.state === "complete" ? "complete" : c.distill.state === "in_progress" ? "in progress" : "") : "";
+        const li = html("li", {}, a, [progress, quoted ? `quoted by ${quoted}` : ""].filter(Boolean).map(s => ` · ${s}`).join(""));
+        li.style.color = chapterFill(c) || "var(--muted)";
         a.style.color = "var(--text)";
         list.append(li);
       }
@@ -260,6 +369,13 @@
     $("buckets").appendChild(html("label", {}, rawBox, sq, document.createTextNode("Raw resources (square)"), html("span", { className: "count", textContent: state.nodes.filter(n => n.raw).length })));
     const dia = html("span", { className: "swatch" }); dia.style.background = "var(--resources)"; dia.style.transform = "rotate(45deg) scale(0.8)";
     $("buckets").appendChild(html("label", {}, html("span", { style: "display:inline-block;width:13px" }), dia, document.createTextNode("Concept notes (diamond)"), html("span", { className: "count", textContent: state.nodes.filter(n => n.concept).length })));
+    const legend = $("distill");
+    legend.textContent = "";
+    for (const [fill, name, ring] of [["var(--untouched)", "Not marked"], ["var(--bold)", "Bolded"], ["var(--highlight)", "Highlighted"], ["none", "Has a summary", true], ["var(--complete)", "Chapter complete"]]) {
+      const s = html("span", { className: ring ? "ring" : "swatch" });
+      if (ring) { s.style.borderColor = "var(--text)"; s.style.borderWidth = "2px"; } else s.style.background = fill;
+      legend.appendChild(html("label", {}, s, document.createTextNode(name)));
+    }
     build($("mastery"), MASTERY, state.hiddenMastery, n => n.mastery, key => {
       const s = html("span", { className: "ring" });
       s.style.borderColor = RING[key] || "var(--line)"; if (key === "attempted") s.style.borderStyle = "dashed"; return s;
@@ -283,13 +399,20 @@
     layout(box.width || 900, box.height || 700);
     state.view = { x: 0, y: 0, k: 1 };
     if (state.expanded.size === 1) centre(state.byId.get([...state.expanded][0]));
+    // #open=<chapter path> opens the chapter's book and its pages: a link to one chapter.
+    const deep = location.hash.startsWith("#open=") ? state.byId.get(decodeURIComponent(location.hash.slice(6))) : null;
     const by = m => state.nodes.filter(n => n.mastery === m && !n.raw).length;
     const books = state.nodes.filter(n => n.rawRole === "index").length;
     const concepts = state.nodes.filter(n => n.concept).length;
     $("title").textContent = `${graph.vaultName} — vault graph`;
     $("stats").textContent = `${state.nodes.length} notes · ${graph.edges.length} links · ${books} book${books === 1 ? "" : "s"} · ${concepts} concept${concepts === 1 ? "" : "s"} · ${by("tier2_passed")} Tier 2 passed · ${by("tier1_passed")} Tier 1 passed · ${by("attempted")} attempted`;
     filters();
-    select(null);
+    if (deep && deep.distill) {
+      state.expanded.add(deep.book);
+      placeChapters();
+      togglePages(deep);
+      select(deep);
+    } else select(null);
   }
 
   let drag = null;

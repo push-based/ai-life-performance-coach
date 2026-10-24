@@ -16,6 +16,7 @@ import { yamlString } from "@docs-mcp/core/kernel/md/yaml.js";
 import { classify, PARA_FOLDERS } from "./para.js";
 import { safeName } from "./filing.js";
 import type { VaultNote } from "./scan.js";
+import { withoutSummaries } from "./distill.js";
 
 export const CONCEPT_TYPE = "concept";
 export const CONCEPTS_FOLDER = posix.join(PARA_FOLDERS.resources, "Concepts");
@@ -49,14 +50,16 @@ export interface ConceptFields {
 const isConcept = (fm: Record<string, unknown>) => fm.type === CONCEPT_TYPE;
 
 /**
- * Text as compared for a quote: escapes the conversion added removed, typographic quotes,
- * dashes and ellipses folded, words broken across a line rejoined, whitespace collapsed,
- * case ignored. Copying from a PDF reader or retyping a quote should still match.
+ * Text as compared for a quote: escapes the conversion added removed, the user's bold and
+ * highlight marks removed (ADR-KI-0061), typographic quotes, dashes and ellipses folded,
+ * words broken across a line rejoined, whitespace collapsed, case ignored. Copying from a
+ * PDF reader or retyping a quote should still match.
  */
 export function fold(text: string): string {
   return text
     .normalize("NFKC")
     .replace(/^\\/gm, "")
+    .replace(/\*\*|__|==/g, "")
     .replace(/[‘’ʼ′`]/g, "'")
     .replace(/[“”„″]/g, '"')
     .replace(/[‐‑‒–—―]/g, "-")
@@ -85,7 +88,7 @@ function inOrder(text: string, parts: string[]): boolean {
 function pagesIn(body: string): { page: number; text: string }[] {
   return body
     .split(/^(?=## Page \d+\s*$)/m)
-    .map(s => ({ page: Number(s.match(/^## Page (\d+)/)?.[1]), text: s.replace(/^## Page \d+\s*\n/, "") }))
+    .map(s => ({ page: Number(s.match(/^## Page (\d+)/)?.[1]), text: withoutSummaries(s.replace(/^## Page \d+\s*\n/, "")) }))
     .filter(s => Number.isInteger(s.page) && s.page > 0);
 }
 
@@ -99,7 +102,7 @@ export function locateQuote(note: VaultNote, quote: string, pages?: string): { f
   const sections = pagesIn(note.body);
   if (!sections.length) {
     if (pages) return { found: false, problem: `${note.path} has no page headings, so pages cannot be given` };
-    return inOrder(fold(note.body), parts) ? { found: true } : { found: false, problem: `not found in ${note.path}` };
+    return inOrder(fold(withoutSummaries(note.body)), parts) ? { found: true } : { found: false, problem: `not found in ${note.path}` };
   }
   const text = (from: number, to: number) => fold(sections.filter(s => s.page >= from && s.page <= to).map(s => s.text).join("\n"));
   const label = (from: number, to: number) => (from === to ? String(from) : `${from}-${to}`);

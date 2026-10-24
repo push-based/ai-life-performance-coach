@@ -17,6 +17,7 @@ import { recordSessionTool } from "./vault/record-session.js";
 import { initVaultTool, captureTool, fileNoteTool, archiveProjectTool } from "./vault/filing-tools.js";
 import { listRawTool, convertRawTool } from "./vault/raw-tools.js";
 import { findPassagesTool, createConceptTool } from "./vault/concept-tools.js";
+import { readingProgressTool, markReadTool, writeSummaryTool } from "./vault/reading-tools.js";
 
 export function createVaultTools(vault: Vault): ToolDef[] {
   return [
@@ -35,5 +36,8 @@ export function createVaultTools(vault: Vault): ToolDef[] {
     convertRawTool(vault),
     findPassagesTool(vault),
     createConceptTool(vault),
+    readingProgressTool(vault),
+    markReadTool(vault),
+    writeSummaryTool(vault),
   ];
 }

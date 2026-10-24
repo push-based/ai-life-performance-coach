@@ -16,6 +16,7 @@ import type { Mastery } from "./mastery.js";
 import type { Vault } from "./vault.js";
 import type { VaultNote } from "./scan.js";
 import { RAW_TEXT } from "./convert.js";
+import { bookProgress, type ChapterState, type PageMark, type ReadingStage } from "./distill.js";
 
 export const GRAPH_FILE = posix.join(COACH_ROOT, "graph.json");
 
@@ -37,6 +38,11 @@ export interface VaultViewGraph {
     book: string | null;
     /** For a book index, how many chapter notes it has. */
     chapterCount: number | null;
+    /** For a book index, its reading stage and how many chapters are complete (ADR-KI-0061). */
+    stage: ReadingStage | null;
+    chaptersComplete: number | null;
+    /** For a chapter, its distilling: the chapter state and each page's mark and summary. */
+    distill: { state: ChapterState; summary: boolean; pages: { page: number; mark: PageMark; summary: boolean; empty: boolean }[] } | null;
     mastery: Mastery;
     nextReview: string | null;
   }[];
@@ -67,6 +73,8 @@ export async function writeViewGraph(vault: Vault, now: Date = new Date()): Prom
   const history = new Map(notes.map(n => [n.path, n.history]));
   const byPath = new Map(notes.map(n => [n.path, n]));
   const g = buildVaultGraph(notes);
+  const books = new Map(bookProgress(notes).map(b => [b.index, b]));
+  const chapters = new Map([...books.values()].flatMap(b => b.chapters.map(c => [c.path, c] as const)));
   const graph: VaultViewGraph = {
     generatedAt: now.toISOString(),
     vaultName: posix.basename(vault.root.split("\\").join("/")),
@@ -77,6 +85,9 @@ export async function writeViewGraph(vault: Vault, now: Date = new Date()): Prom
         id: n.id, title: n.title, label: shortLabel(note), bucket: n.bucket, container: n.container, raw: n.raw,
         rawRole: note.rawRole, concept: note.concept, book: book && byPath.has(book) ? book : null,
         chapterCount: note.rawRole === "index" ? notes.filter(c => c.rawRole === "chapter" && posix.dirname(posix.dirname(c.path)) === posix.dirname(n.id)).length : null,
+        stage: books.get(n.id)?.stage ?? null,
+        chaptersComplete: books.get(n.id)?.steps.chaptersComplete ?? null,
+        distill: (c => (c ? { state: c.state, summary: c.summary, pages: c.pages } : null))(chapters.get(n.id)),
         mastery: history.get(n.id)!.mastery, nextReview: history.get(n.id)!.nextReview,
       };
     }),
