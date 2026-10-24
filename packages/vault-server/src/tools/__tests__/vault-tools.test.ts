@@ -35,10 +35,10 @@ beforeEach(() => {
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 describe("vault tool registry", () => {
-  it("is read-only in Phase 1", () => {
+  it("lists the Phase 2 tools, with record_session the only writer", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph"]);
-    for (const t of tools) expect(t.annotations?.readOnlyHint, t.name).toBe(true);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session"]);
+    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session"]);
   });
 });
 
@@ -101,7 +101,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["list_notes", "read_note", "search", "vault_graph"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["due_for_review", "list_notes", "read_note", "record_session", "search", "tier2_payload", "vault_graph"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
@@ -112,6 +112,45 @@ describe("vault server over MCP", () => {
       await client.close();
       await server.close();
     }
+  });
+});
+
+describe("sparring tools", () => {
+  const session = (execute: boolean) => call("record_session", {
+    tier: 1,
+    items: [{ note: "3.Resources/TypeScript/Promises.md", challenge: "Why microtasks?", answer: "They drain first.", verdict: "pass", next_review: "2000-01-01" }],
+    execute,
+  });
+
+  it("record_session previews, then writes; read tools then show the history", async () => {
+    const preview = await session(false);
+    expect(preview.data).toMatchObject({ executed: false, new_coach_ids: [{ path: "3.Resources/TypeScript/Promises.md" }] });
+    expect((await call("read_note", { path: "3.Resources/TypeScript/Promises.md" })).data.coachId).toBeNull();
+
+    const written = (await session(true)).data;
+    expect(written.executed).toBe(true);
+    const note = (await call("read_note", { path: "3.Resources/TypeScript/Promises.md" })).data;
+    expect(note.coachId).toBe(written.items[0].coach_id);
+    expect(note.history).toMatchObject({ mastery: "tier1_passed", sessions: 1, nextReview: "2000-01-01" });
+    const listed = (await call("list_notes", { bucket: "resources" })).data.notes;
+    expect(listed.find((n: { path: string }) => n.path.endsWith("Promises.md")).mastery).toBe("tier1_passed");
+    const graph = (await call("vault_graph", { bucket: "resources" })).data;
+    expect(graph.nodes.map((n: { mastery: string }) => n.mastery).sort()).toEqual(["tier1_passed", "unsparred"]);
+  });
+
+  it("record_session reports refusals as an error", async () => {
+    const { res } = await call("record_session", { tier: 1, items: [{ note: "1.Projects/DevFest2026/Talk.md", challenge: "c", answer: "a", verdict: "fail", next_review: "2026-11-01" }], execute: true });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/not under 3\.Resources/);
+  });
+
+  it("due_for_review and tier2_payload work off recorded sessions", async () => {
+    const { session_id } = (await session(true)).data;
+    const due = (await call("due_for_review", { today: "2026-10-24" })).data;
+    expect(due.due.map((n: { path: string }) => n.path)).toEqual(["3.Resources/TypeScript/Promises.md"]);
+    expect(due.unsparred.map((n: { path: string }) => n.path)).toEqual(["3.Resources/TypeScript/Event loop.md"]);
+    expect((await call("tier2_payload", { session_id })).data).toEqual({ items: [{ challenge: "Why microtasks?", answer: "They drain first." }] });
+    expect((await call("tier2_payload", { session_id: "nope" })).res.isError).toBe(true);
   });
 });
 

@@ -7,14 +7,14 @@ import { json } from "./json.js";
 export function listNotesTool(vault: Vault): ToolDef {
   return defineTool({
   name: "list_notes",
-  description: "List the vault's notes with their PARA bucket and container (the project, area or resource folder they sit in). Filter by bucket, or pass 'out_of_place' for notes outside the fixed PARA folders. Returns counts per bucket plus the matching notes.",
+  description: "List the vault's notes with their PARA bucket and container (the project, area or resource folder they sit in). Filter by bucket, or pass 'out_of_place' for notes outside the fixed PARA folders. Returns counts per bucket plus the matching notes, each with its mastery (unsparred, attempted, tier1_passed, tier2_passed).",
   annotations: { readOnlyHint: true, idempotentHint: true },
   schema: {
     bucket: z.enum([...PARA_BUCKETS, "out_of_place"]).optional().describe("Only notes in this PARA bucket, or 'out_of_place'"),
     container: z.string().optional().describe("Only notes in this project, area or resource folder"),
   },
   handler: async (args) => {
-    const notes = await vault.notes();
+    const { notes, invalidSessions } = await vault.notesWithHistory();
     const counts: Record<string, number> = Object.fromEntries([...PARA_BUCKETS, "out_of_place"].map(b => [b, 0]));
     for (const n of notes) counts[n.bucket ?? "out_of_place"]++;
     const matching = notes.filter(n =>
@@ -23,7 +23,8 @@ export function listNotesTool(vault: Vault): ToolDef {
     return json({
       total: notes.length,
       counts,
-      notes: matching.map(n => ({ path: n.path, title: n.title, bucket: n.bucket, container: n.container, coachId: n.coachId })),
+      notes: matching.map(n => ({ path: n.path, title: n.title, bucket: n.bucket, container: n.container, coachId: n.coachId, mastery: n.history.mastery, nextReview: n.history.nextReview })),
+      invalidSessions,
     });
   },
   });
