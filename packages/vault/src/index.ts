@@ -15,7 +15,7 @@ export { searchNotes, type NoteHit, type NoteSearchOptions } from "./search.js";
 export { type VaultOptions, type NoteWithHistory, type DueReport, type FilingResult } from "./vault.js";
 export { SESSIONS_DIR, renderSession, parseSession, loadSessions, sessionPath, type SessionRecord, type SessionItem, type Tier, type Verdict, type InvalidSession } from "./sessions.js";
 export { insertCoachId, declaresCoachId } from "./identity.js";
-export { histories, type Mastery, type NoteHistory } from "./mastery.js";
+export { histories, type Mastery, type NoteHistory, type HistoryEntry } from "./mastery.js";
 export { planSession, type RecordSessionInput, type SessionItemInput, type RecordPlan } from "./record.js";
 export { tier2Payload, PAYLOAD_ITEM_KEYS, type Tier2Payload } from "./payload.js";
 export { planInit, planCapture, planFileNote, planArchiveProject, OLD_NOTES, type FilingPlan, type FilingAction } from "./filing.js";
