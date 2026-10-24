@@ -35,10 +35,10 @@ beforeEach(() => {
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 describe("vault tool registry", () => {
-  it("lists every tool, with the five writers marked as such", () => {
+  it("lists every tool, with the writers marked as such", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project"]);
-    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project"]);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw"]);
+    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw"]);
   });
 });
 
@@ -101,7 +101,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "due_for_review", "file_note", "init_vault", "list_notes", "read_note", "record_session", "search", "tier2_payload", "vault_graph"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "due_for_review", "file_note", "init_vault", "list_notes", "list_raw", "read_note", "record_session", "search", "tier2_payload", "vault_graph"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([

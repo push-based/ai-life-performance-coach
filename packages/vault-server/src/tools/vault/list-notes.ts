@@ -12,6 +12,7 @@ export function listNotesTool(vault: Vault): ToolDef {
   schema: {
     bucket: z.enum([...PARA_BUCKETS, "out_of_place"]).optional().describe("Only notes in this PARA bucket, or 'out_of_place'"),
     container: z.string().optional().describe("Only notes in this project, area or resource folder"),
+    raw: z.boolean().optional().describe("Only raw resources (true) or only distilled notes (false)"),
   },
   handler: async (args) => {
     const { notes, invalidSessions } = await vault.notesWithHistory();
@@ -19,11 +20,12 @@ export function listNotesTool(vault: Vault): ToolDef {
     for (const n of notes) counts[n.bucket ?? "out_of_place"]++;
     const matching = notes.filter(n =>
       (!args.bucket || (n.bucket ?? "out_of_place") === args.bucket) &&
-      (!args.container || n.container === args.container));
+      (!args.container || n.container === args.container) &&
+      (args.raw === undefined || n.raw === args.raw));
     return json({
       total: notes.length,
       counts,
-      notes: matching.map(n => ({ path: n.path, title: n.title, bucket: n.bucket, container: n.container, coachId: n.coachId, mastery: n.history.mastery, nextReview: n.history.nextReview })),
+      notes: matching.map(n => ({ path: n.path, title: n.title, bucket: n.bucket, container: n.container, raw: n.raw, coachId: n.coachId, mastery: n.history.mastery, nextReview: n.history.nextReview })),
       invalidSessions,
     });
   },

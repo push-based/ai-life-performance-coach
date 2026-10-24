@@ -20,7 +20,7 @@ export const GRAPH_FILE = posix.join(COACH_ROOT, "graph.json");
 export interface VaultViewGraph {
   generatedAt: string;
   vaultName: string;
-  nodes: { id: string; title: string; bucket: ParaBucket | null; container: string | null; mastery: Mastery; nextReview: string | null }[];
+  nodes: { id: string; title: string; bucket: ParaBucket | null; container: string | null; raw: boolean; mastery: Mastery; nextReview: string | null }[];
   edges: { source: string; target: string; kind: "wikilink" | "markdown" }[];
   unresolved: number;
 }
@@ -34,7 +34,7 @@ export async function writeViewGraph(vault: Vault, now: Date = new Date()): Prom
     generatedAt: now.toISOString(),
     vaultName: posix.basename(vault.root.split("\\").join("/")),
     nodes: g.nodes.map(n => ({
-      id: n.id, title: n.title, bucket: n.bucket, container: n.container,
+      id: n.id, title: n.title, bucket: n.bucket, container: n.container, raw: n.raw,
       mastery: history.get(n.id)!.mastery, nextReview: history.get(n.id)!.nextReview,
     })),
     edges: g.edges,

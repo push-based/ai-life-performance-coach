@@ -19,6 +19,8 @@ export interface VaultNote extends ParaLocation {
   body: string;
   /** `coach_id` from frontmatter, when the note has been sparred. */
   coachId: string | null;
+  /** `converted_from` from frontmatter: the raw file (e.g. a PDF) this note was converted from. */
+  convertedFrom: string | null;
   links: RawLink[];
 }
 
@@ -56,7 +58,8 @@ export async function readNote(root: string, path: string): Promise<VaultNote> {
   const frontmatter = (parseFrontmatter(content) ?? {}) as Record<string, unknown>;
   const body = Object.keys(frontmatter).length ? extractBody(content) : content;
   const coachId = typeof frontmatter.coach_id === "string" ? frontmatter.coach_id : null;
-  return { path, title: titleOf(path, frontmatter, body), frontmatter, body, coachId, links: extractLinks(body), ...classify(path) };
+  const convertedFrom = typeof frontmatter.converted_from === "string" ? frontmatter.converted_from : null;
+  return { path, title: titleOf(path, frontmatter, body), frontmatter, body, coachId, convertedFrom, links: extractLinks(body), ...classify(path) };
 }
 
 export async function scanVault(root: string): Promise<VaultNote[]> {

@@ -9,7 +9,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { link, mkdir, readdir, rename, rmdir, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 import { classify, COACH_ROOT, PARA_BUCKETS, PARA_FOLDERS, type ParaBucket } from "./para.js";
-import { extractLinks, LinkResolver } from "./links.js";
+import { noteResolver } from "./graph.js";
 import { listNotePaths, type VaultNote } from "./scan.js";
 
 export const OLD_NOTES = posix.join(PARA_FOLDERS.archive, "old notes");
@@ -140,8 +140,8 @@ export function planCapture(root: string, title: string, body: string): FilingPl
 
 /** Relative markdown links that a move would break, in the note and pointing at it. */
 function brokenByMove(notes: VaultNote[], from: string, to: string): string[] {
-  const before = new LinkResolver(notes.map(n => n.path));
-  const after = new LinkResolver(notes.map(n => (n.path === from ? to : n.path)));
+  const before = noteResolver(notes);
+  const after = noteResolver(notes, { from, to });
   const out: string[] = [];
   for (const n of notes) {
     for (const l of n.links.filter(l => l.kind === "markdown")) {
