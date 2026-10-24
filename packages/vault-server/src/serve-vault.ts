@@ -11,7 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
 import { createVault } from "@docs-mcp/vault/vault.js";
-import { defaultVaultConfigFile, resolveVaultRoot } from "@docs-mcp/vault/root.js";
+import { defaultVaultConfigFile, resolveVaultRoot, type ResolvedVaultRoot } from "@docs-mcp/vault/root.js";
 import { createVaultServer } from "./server/vault.js";
 
 export interface ServeVaultOptions {
@@ -43,10 +43,11 @@ export function workspaceRootsAbove(cwd: string): string[] {
   }
 }
 
-export async function serveVault({ cwd, argv, env }: ServeVaultOptions): Promise<void> {
+/** Resolve the vault root from a process's flags, environment and config file. */
+export function resolveVaultForProcess({ cwd, argv, env }: ServeVaultOptions): ResolvedVaultRoot {
   const flags = parseVaultFlags(argv);
   const home = env.HOME ?? homedir();
-  const { root, source } = resolveVaultRoot({
+  return resolveVaultRoot({
     flag: flags.vault,
     env: env.DOCS_MCP_VAULT,
     configFile: flags.vaultConfig ? resolve(cwd, flags.vaultConfig) : defaultVaultConfigFile(home, env.XDG_CONFIG_HOME),
@@ -54,6 +55,10 @@ export async function serveVault({ cwd, argv, env }: ServeVaultOptions): Promise
     cwd,
     protectedRoots: workspaceRootsAbove(cwd),
   });
+}
+
+export async function serveVault(opts: ServeVaultOptions): Promise<void> {
+  const { root, source } = resolveVaultForProcess(opts);
   // The server names itself, not the directory it was launched from: a consumer app
   // starts it from its own repository.
   const { version } = createRequire(import.meta.url)("@docs-mcp/vault/package.json") as { version: string };
