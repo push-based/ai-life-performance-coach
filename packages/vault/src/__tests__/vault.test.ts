@@ -82,7 +82,7 @@ describe("resolveVaultRoot", () => {
 
 describe("classify", () => {
   it("maps the five fixed folders and names the container", () => {
-    const at = (bucket: string, container: string | null) => ({ bucket, container, raw: false, rawKind: null });
+    const at = (bucket: string, container: string | null) => ({ bucket, container, raw: false, rawKind: null, rawAuthor: null, rawWork: null });
     expect(classify("0.Inbox/x.md")).toEqual(at("inbox", null));
     expect(classify("1.Projects/DevFest2026/IP/x.md")).toEqual(at("projects", "DevFest2026"));
     expect(classify("2.Areas/Health/x.md")).toEqual(at("areas", "Health"));
@@ -91,14 +91,17 @@ describe("classify", () => {
   });
 
   it("marks 3.Resources/0.Raw as raw, with its kind folder", () => {
-    expect(classify("3.Resources/0.Raw/Books/BASB.md")).toEqual({ bucket: "resources", container: "0.Raw", raw: true, rawKind: "Books" });
-    expect(classify("3.Resources/0.Raw/Loose.md")).toEqual({ bucket: "resources", container: "0.Raw", raw: true, rawKind: null });
+    const raw = (rawKind: string | null, rawAuthor: string | null, rawWork: string | null) => ({ bucket: "resources", container: "0.Raw", raw: true, rawKind, rawAuthor, rawWork });
+    expect(classify("3.Resources/0.Raw/Books/Tiago Forte/Building a Second Brain/BASB.md")).toEqual(raw("Books", "Tiago Forte", "Building a Second Brain"));
+    expect(classify("3.Resources/0.Raw/Books/Tiago Forte/BASB.md")).toEqual(raw("Books", "Tiago Forte", null));
+    expect(classify("3.Resources/0.Raw/Books/BASB.md")).toEqual(raw("Books", null, null));
+    expect(classify("3.Resources/0.Raw/Loose.md")).toEqual(raw(null, null, null));
     expect(classify("4.Archive/0.Raw/Books/x.md").raw).toBe(false);
   });
 
   it("leaves everything else out of place", () => {
     for (const p of ["x.md", "1.Projects", "Projects/a/x.md", "Notes/1.Projects/x.md", "PARA/1.Projects/x.md"]) {
-      expect(classify(p), p).toEqual({ bucket: null, container: null, raw: false, rawKind: null });
+      expect(classify(p), p).toEqual({ bucket: null, container: null, raw: false, rawKind: null, rawAuthor: null, rawWork: null });
     }
   });
 });

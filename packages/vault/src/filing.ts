@@ -125,11 +125,17 @@ export async function planInit(root: string): Promise<FilingPlan> {
 
 const UNSAFE = /[\\/:*?"<>|#^[\]]/g;
 
+/** A file or folder name Obsidian accepts, or null when nothing usable is left. */
+export function safeName(name: string): string | null {
+  const s = name.replace(UNSAFE, "-").replace(/\s+/g, " ").trim().replace(/^\.+/, "");
+  return /[^\s-]/.test(s) ? s : null;
+}
+
 /** `capture`: a new note in `0.Inbox`, named from its title. */
 export function planCapture(root: string, title: string, body: string): FilingPlan {
   const plan = empty();
-  const name = title.replace(UNSAFE, "-").replace(/\s+/g, " ").trim().replace(/^\.+/, "");
-  if (!/[^\s-]/.test(name)) { plan.errors.push("title is empty once characters Obsidian forbids in file names are removed"); return plan; }
+  const name = safeName(title);
+  if (!name) { plan.errors.push("title is empty once characters Obsidian forbids in file names are removed"); return plan; }
   const to = posix.join(PARA_FOLDERS.inbox, `${name}.md`);
   if (!existsSync(join(root, PARA_FOLDERS.inbox))) plan.actions.push({ op: "create", to: PARA_FOLDERS.inbox });
   if (existsSync(join(root, to))) plan.collisions.push(to);

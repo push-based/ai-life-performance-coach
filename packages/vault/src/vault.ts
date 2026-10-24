@@ -15,7 +15,7 @@ import { histories, historyOf, type NoteHistory } from "./mastery.js";
 import { planSession, executeSession, localDate, type RecordPlan, type RecordSessionInput } from "./record.js";
 import { tier2Payload, type Tier2Payload } from "./payload.js";
 import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan } from "./filing.js";
-import { listRaw, planConvert, executeConvert, type RawItem, type ConvertPlan } from "./convert.js";
+import { listRaw, planConvert, executeConvert, type RawItem, type ConvertPlan, type ConvertOptions } from "./convert.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -60,7 +60,7 @@ export interface Vault {
   archiveProject(project: string, execute: boolean): Promise<FilingResult>;
   /** Raw resources (ADR-KI-0059): every file under 3.Resources/0.Raw, and one-time PDF conversion. */
   listRaw(): Promise<RawItem[]>;
-  convertRaw(path: string, execute: boolean): Promise<Omit<ConvertPlan, "content"> & { executed: boolean }>;
+  convertRaw(path: string, execute: boolean, opts?: ConvertOptions): Promise<Omit<ConvertPlan, "content"> & { executed: boolean }>;
 }
 
 export type FilingResult = Omit<FilingPlan, "contents"> & { executed: boolean };
@@ -157,8 +157,8 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     },
     archiveProject: async (project, execute) => apply(root, planArchiveProject(root, project), execute),
     listRaw: async () => listRaw(root, await scanVault(root)),
-    async convertRaw(path, execute) {
-      const plan = await planConvert(root, posix.normalize(path.split(sep).join("/").replace(/^\/+/, "")), localDate(now()));
+    async convertRaw(path, execute, opts) {
+      const plan = await planConvert(root, posix.normalize(path.split(sep).join("/").replace(/^\/+/, "")), localDate(now()), opts);
       const { content: _content, ...shown } = plan;
       if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
       await executeConvert(root, plan);

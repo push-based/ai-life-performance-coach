@@ -34,6 +34,10 @@ export interface ParaLocation {
   raw: boolean;
   /** The kind folder under `0.Raw` (Books, Articles …), when the item sits in one. */
   rawKind: string | null;
+  /** The author folder under the kind: `0.Raw/<kind>/<author>/<work>/` (ADR-KI-0059). */
+  rawAuthor: string | null;
+  /** The work folder under the author, one per book or article. */
+  rawWork: string | null;
 }
 
 const BY_FOLDER = new Map<string, ParaBucket>(PARA_BUCKETS.map(b => [PARA_FOLDERS[b], b]));
@@ -42,8 +46,9 @@ const BY_FOLDER = new Map<string, ParaBucket>(PARA_BUCKETS.map(b => [PARA_FOLDER
 export function classify(relPath: string): ParaLocation {
   const parts = relPath.split("/");
   const bucket = parts.length > 1 ? BY_FOLDER.get(parts[0]) ?? null : null;
-  if (!bucket) return { bucket: null, container: null, raw: false, rawKind: null };
+  if (!bucket) return { bucket: null, container: null, raw: false, rawKind: null, rawAuthor: null, rawWork: null };
   const container = parts.length > 2 ? parts[1] : null;
   const raw = bucket === "resources" && container === RAW_FOLDER;
-  return { bucket, container, raw, rawKind: raw && parts.length > 3 ? parts[2] : null };
+  const level = (n: number) => (raw && parts.length > n + 1 ? parts[n] : null);
+  return { bucket, container, raw, rawKind: level(2), rawAuthor: level(3), rawWork: level(4) };
 }
