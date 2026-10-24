@@ -1,0 +1,109 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { request } from "node:http";
+import type { Server } from "node:http";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { createVault, type Vault } from "../vault.js";
+import { createVaultViewServer, listenOnLoopback, writeViewGraph, GRAPH_FILE } from "../view.js";
+
+let dir: string;
+let vault: Vault;
+let server: Server;
+let base: string;
+
+function put(rel: string, content: string): void {
+  const abs = join(dir, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, content);
+}
+
+function get(path: string, method = "GET"): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = request(new URL(path, base), { method }, res => {
+      let body = "";
+      res.on("data", c => (body += c));
+      res.on("end", () => resolve({ status: res.statusCode!, headers: res.headers, body }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+beforeEach(async () => {
+  dir = mkdtempSync(join(tmpdir(), "vault-view-"));
+  put("3.Resources/TS/Event loop.md", "Private body line. [[Promises]]\n");
+  put("3.Resources/TS/Promises.md", "Promises.\n");
+  put("4.Archive/old notes/Old.md", "Old.\n");
+  vault = createVault(dir);
+  await vault.recordSession({ tier: 1, items: [{ note: "3.Resources/TS/Event loop.md", challenge: "c", answer: "a", verdict: "pass", next_review: "2026-11-01" }] }, true);
+  server = createVaultViewServer(vault);
+  base = await listenOnLoopback(server, 0);
+});
+afterEach(async () => {
+  await new Promise(r => server.close(r));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+describe("vault view server", () => {
+  it("listens on loopback only", () => {
+    expect(base).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
+    expect((server.address() as { address: string }).address).toBe("127.0.0.1");
+  });
+
+  it("serves the page and its script with a CSP that forbids anything off the machine", async () => {
+    const page = await get("/");
+    expect(page.status).toBe(200);
+    expect(page.body).toContain('<script src="vault-view.js">');
+    expect(page.headers["content-security-policy"]).toMatch(/default-src 'none'; script-src 'self';.*connect-src 'self'/);
+    expect(page.headers["referrer-policy"]).toBe("no-referrer");
+    const script = await get("/vault-view.js");
+    expect(script.status).toBe(200);
+    expect(script.headers["content-type"]).toMatch(/javascript/);
+  });
+
+  it("serves the graph with PARA buckets and mastery, written to Coach/graph.json, and no note body", async () => {
+    const res = await get("/graph.json");
+    expect(res.status).toBe(200);
+    const graph = JSON.parse(res.body);
+    expect(graph.vaultName).toMatch(/^vault-view-/);
+    expect(graph.nodes.map((n: { id: string; bucket: string; mastery: string }) => [n.id, n.bucket, n.mastery])).toEqual([
+      ["3.Resources/TS/Event loop.md", "resources", "tier1_passed"],
+      ["3.Resources/TS/Promises.md", "resources", "unsparred"],
+      ["4.Archive/old notes/Old.md", "archive", "unsparred"],
+    ]);
+    expect(graph.edges).toEqual([{ source: "3.Resources/TS/Event loop.md", target: "3.Resources/TS/Promises.md", kind: "wikilink" }]);
+    expect(res.body).not.toContain("Private body line");
+    expect(JSON.parse(readFileSync(join(dir, GRAPH_FILE), "utf-8")).nodes).toHaveLength(3);
+    expect(existsSync(join(dir, `${GRAPH_FILE}.tmp`))).toBe(false);
+  });
+
+  it("answers nothing else: no notes, no sessions, no traversal, no writes", async () => {
+    for (const path of ["/3.Resources/TS/Event%20loop.md", "/Coach/graph.json", "/Coach/sessions/", "/..%2f..%2fetc%2fpasswd", "/graph.json/../vault-view.js.map", "/favicon.ico"]) {
+      expect((await get(path)).status, path).toBe(404);
+    }
+    expect((await get("/graph.json", "POST")).status).toBe(405);
+  });
+
+  it("regenerates the graph on every load", async () => {
+    expect(JSON.parse((await get("/graph.json")).body).nodes).toHaveLength(3);
+    put("0.Inbox/New.md", "new");
+    expect(JSON.parse((await get("/graph.json")).body).nodes).toHaveLength(4);
+  });
+});
+
+describe("view assets", () => {
+  it("reference nothing off the machine", () => {
+    for (const file of ["vault-view.html", "vault-view.js"]) {
+      const text = readFileSync(new URL(`../../assets/${file}`, import.meta.url), "utf-8");
+      const urls = (text.match(/\b(?:https?:)?\/\/[\w.-]+\.[a-z]{2,}[^\s"'`)]*/gi) ?? []).filter(u => u !== "http://www.w3.org/2000/svg");
+      expect(urls, file).toEqual([]);
+    }
+  });
+
+  it("writeViewGraph replaces the previous file", async () => {
+    put(GRAPH_FILE, "stale");
+    await writeViewGraph(vault, new Date("2026-10-24T00:00:00Z"));
+    expect(JSON.parse(readFileSync(join(dir, GRAPH_FILE), "utf-8")).generatedAt).toBe("2026-10-24T00:00:00.000Z");
+  });
+});
