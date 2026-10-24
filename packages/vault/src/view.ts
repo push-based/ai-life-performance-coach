@@ -1,9 +1,10 @@
 /**
  * The vault view (ADR-KI-0058 Decision 11): a loopback HTTP server rooted at the vault,
- * separate from this repository's view server. It serves exactly three things: the
- * page, its script, and the graph, regenerated into `Coach/graph.json` on every
- * request. Note bodies are never served, and the page may load nothing from off the
- * machine (Content-Security-Policy), so it works offline and leaks nothing.
+ * separate from this repository's view server. It serves exactly four things: the
+ * page, its script, the graph, regenerated into `Coach/graph.json` on every request,
+ * and one page of a converted book's chapter (ADR-KI-0061), to read while distilling.
+ * No other note body is ever served, and the page may load nothing from off the machine
+ * (Content-Security-Policy), so it works offline and leaks nothing.
  */
 
 import { readFileSync } from "node:fs";
@@ -15,7 +16,7 @@ import { buildVaultGraph } from "./graph.js";
 import type { Mastery } from "./mastery.js";
 import type { Vault } from "./vault.js";
 import type { VaultNote } from "./scan.js";
-import { RAW_TEXT } from "./convert.js";
+import { RAW_TEXT, pagesOf } from "./convert.js";
 import { bookProgress, type ChapterState, type PageMark, type ReadingStage } from "./distill.js";
 
 export const GRAPH_FILE = posix.join(COACH_ROOT, "graph.json");
@@ -111,10 +112,34 @@ const HEADERS = {
   "Cache-Control": "no-store",
 };
 
-/** The vault view server. Answers `/`, `/vault-view.js` and `/graph.json`; everything else is 404. */
+export interface BookPage {
+  note: string;
+  title: string;
+  page: number;
+  /** The page as it stands in the chapter note: the author's text with the user's marks and summary. */
+  text: string;
+}
+
+/**
+ * One page of a converted book's chapter, or null for anything else: a note that is not
+ * a chapter, a page it does not hold, or a path outside the vault.
+ */
+export async function bookPage(vault: Vault, path: string, page: number): Promise<BookPage | null> {
+  if (!Number.isInteger(page) || page < 1) return null;
+  const note = await vault.note(path);
+  if (!note || note.rawRole !== "chapter") return null;
+  const section = pagesOf(note.body, String(page));
+  return section === null ? null : { note: note.path, title: note.title, page, text: section.replace(/^## Page \d+[ \t]*\n+/, "").trimEnd() };
+}
+
+/**
+ * The vault view server. Answers `/`, `/vault-view.js`, `/graph.json` and
+ * `/page.json?note=<chapter>&page=<N>`; everything else is 404.
+ */
 export function createVaultViewServer(vault: Vault): Server {
   return createServer(async (req, res) => {
-    const path = (req.url ?? "/").split("?")[0];
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    const path = url.pathname;
     const send = (status: number, type: string, body: string | Buffer) => {
       res.writeHead(status, { ...HEADERS, "Content-Type": type });
       res.end(body);
@@ -124,6 +149,10 @@ export function createVaultViewServer(vault: Vault): Server {
       if (path === "/" || path === "/index.html") return send(200, "text/html; charset=utf-8", asset("vault-view.html"));
       if (path === "/vault-view.js") return send(200, "text/javascript; charset=utf-8", asset("vault-view.js"));
       if (path === "/graph.json") return send(200, "application/json; charset=utf-8", JSON.stringify(await writeViewGraph(vault)));
+      if (path === "/page.json") {
+        const page = await bookPage(vault, url.searchParams.get("note") ?? "", Number(url.searchParams.get("page")));
+        return page ? send(200, "application/json; charset=utf-8", JSON.stringify(page)) : send(404, "text/plain; charset=utf-8", "Not found");
+      }
       return send(404, "text/plain; charset=utf-8", "Not found");
     } catch (err) {
       return send(500, "text/plain; charset=utf-8", err instanceof Error ? err.message : String(err));
