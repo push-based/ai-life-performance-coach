@@ -11,7 +11,8 @@ export { classify, RAW_FOLDER, PARA_FOLDERS, PARA_BUCKETS, COACH_ROOT, type Para
 export { scanVault, readNote, listNotePaths, type VaultNote } from "./scan.js";
 export { extractLinks, LinkResolver, type RawLink } from "./links.js";
 export { buildVaultGraph, noteResolver, type VaultGraph, type VaultGraphNode, type VaultGraphEdge } from "./graph.js";
-export { searchNotes, type NoteHit, type NoteSearchOptions } from "./search.js";
+export { searchNotes, searchPassages, type NoteHit, type NoteSearchOptions, type PassageHit, type PassageSearchOptions } from "./search.js";
+export { planConcept, conceptOf, checkPassages, locateQuote, fold, renderConcept, CONCEPT_TYPE, CONCEPTS_FOLDER, MAX_ASSERTIONS, MAX_BUZZWORDS, MAX_PASSAGES, MIN_QUOTE_CHARS, type ConceptInput, type ConceptPlan, type ConceptFields, type Passage, type PassageCheck } from "./concept.js";
 export { type VaultOptions, type NoteWithHistory, type DueReport, type FilingResult } from "./vault.js";
 export { SESSIONS_DIR, renderSession, parseSession, loadSessions, sessionPath, type SessionRecord, type SessionItem, type Tier, type Verdict, type InvalidSession } from "./sessions.js";
 export { insertCoachId, declaresCoachId } from "./identity.js";

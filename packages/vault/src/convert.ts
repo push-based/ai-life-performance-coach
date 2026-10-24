@@ -3,12 +3,13 @@
  * PDF once, offline (pdf.js), into notes in its `<kind>/<author>/<work>/` folder:
  *
  *   e-book.pdf                 the original, never changed
- *   text.md                    the book's index: one link per chapter, not sparred
+ *   text.md                    the book's index: one link per chapter
  *   chapters/NN <title>.md     the text, one note per chapter, a long chapter in parts
  *
- * A book is far larger than a local model's context, so the chapter is the unit that is
- * sparred and scheduled. Chapters come from the PDF's outline; a book without one is cut
- * into blocks of pages. Every unit stays under a size limit, splitting at page boundaries.
+ * A book is far larger than a local model's context, so the chapter is the unit an agent
+ * reads when it checks a concept note against the book (ADR-KI-0060); none of these notes
+ * is sparred. Chapters come from the PDF's outline; a book without one is cut into blocks
+ * of pages. Every unit stays under a size limit, splitting at page boundaries.
  */
 
 import { existsSync } from "node:fs";
@@ -275,7 +276,7 @@ export function renderIndex(book: Book, plan: UnitPlan, paths: string[], pdf: Pd
     "",
     `# ${book.title}`,
     "",
-    `Converted from [[${book.pdfPath}]] by docs-mcp. The text is in the chapter notes below; each is sparred and scheduled on its own. A link to a page of the PDF, such as [[${book.pdfPath}#page=12]], resolves to the chapter holding that page.`,
+    `Converted from [[${book.pdfPath}]] by docs-mcp. The text is in the chapter notes below, the reference concept notes quote and are checked against. A link to a page of the PDF, such as [[${book.pdfPath}#page=12]], resolves to the chapter holding that page.`,
   ];
   let part: string | null | undefined;
   plan.units.forEach((u, i) => {

@@ -119,6 +119,11 @@ describe("graph labels and book folding", () => {
     expect(shortLabel({ title: "A note with a rather long title that keeps going", rawRole: null, frontmatter: {} })).toBe("A note with a rather long t…");
   });
 
+  it("marks concept notes", async () => {
+    put("3.Resources/Concepts/Idea.md", "---\ntitle: \"Idea\"\ntype: \"concept\"\n---\n");
+    expect((await writeViewGraph(vault)).nodes.find(n => n.id === "3.Resources/Concepts/Idea.md")).toMatchObject({ concept: true, label: "Idea" });
+  });
+
   it("ties each chapter to its book's index and counts a book's chapters", async () => {
     const home = "3.Resources/0.Raw/Books/A/B";
     put(`${home}/text.md`, "---\ntitle: \"B\"\nraw_role: \"index\"\n---\n# B\n");
@@ -128,6 +133,6 @@ describe("graph labels and book folding", () => {
     const node = (id: string) => graph.nodes.find(n => n.id === id)!;
     expect(node(`${home}/text.md`)).toMatchObject({ rawRole: "index", chapterCount: 2, book: null, label: "B" });
     expect(node(`${home}/chapters/02 Two.md`)).toMatchObject({ rawRole: "chapter", book: `${home}/text.md`, label: "2. Two (1/2)" });
-    expect(node("3.Resources/TS/Promises.md")).toMatchObject({ rawRole: null, book: null, chapterCount: null });
+    expect(node("3.Resources/TS/Promises.md")).toMatchObject({ rawRole: null, book: null, chapterCount: null, concept: false });
   });
 });

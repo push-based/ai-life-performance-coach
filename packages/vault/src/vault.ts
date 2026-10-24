@@ -16,6 +16,8 @@ import { planSession, executeSession, localDate, type RecordPlan, type RecordSes
 import { tier2Payload, type Tier2Payload } from "./payload.js";
 import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan } from "./filing.js";
 import { listRaw, planConvert, executeConvert, type RawItem, type ConvertPlan, type ConvertOptions } from "./convert.js";
+import { planConcept, executeConcept, type ConceptInput, type ConceptPlan } from "./concept.js";
+import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -31,10 +33,10 @@ export interface NoteWithHistory extends VaultNote {
 
 export interface DueReport {
   today: string;
-  /** Resources notes whose latest session's next review date is on or before today. */
-  due: { path: string; title: string; coachId: string; nextReview: string; mastery: NoteHistory["mastery"] }[];
-  /** Resources notes no session covers. */
-  unsparred: { path: string; title: string }[];
+  /** Sparrable notes (Resources outside 0.Raw) whose latest session's next review date is on or before today. */
+  due: { path: string; title: string; concept: boolean; coachId: string; nextReview: string; mastery: NoteHistory["mastery"] }[];
+  /** Sparrable notes no session covers. */
+  unsparred: { path: string; title: string; concept: boolean }[];
   /** Sessions naming a coach_id no note carries any more. */
   orphaned: { coachId: string; lastSession: string | null }[];
   invalidSessions: InvalidSession[];
@@ -61,6 +63,9 @@ export interface Vault {
   /** Raw resources (ADR-KI-0059): every file under 3.Resources/0.Raw, and one-time PDF conversion. */
   listRaw(): Promise<RawItem[]>;
   convertRaw(path: string, execute: boolean, opts?: ConvertOptions): Promise<Omit<ConvertPlan, "writes"> & { executed: boolean }>;
+  /** Concept notes (ADR-KI-0060): page-level search over raw text, and writing a verified concept note. */
+  findPassages(query: string, opts?: PassageSearchOptions): Promise<PassageHit[]>;
+  createConcept(input: ConceptInput, execute: boolean): Promise<Omit<ConceptPlan, "content"> & { executed: boolean }>;
 }
 
 export type FilingResult = Omit<FilingPlan, "contents"> & { executed: boolean };
@@ -131,15 +136,15 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     async dueForReview(today) {
       const day = today ?? localDate(now());
       const { notes, invalidSessions, map } = await notesWithHistory();
-      const resources = notes.filter(n => n.bucket === "resources");
+      const resources = notes.filter(n => n.bucket === "resources" && !n.raw);
       const carried = new Set(notes.map(n => n.coachId).filter(Boolean));
       return {
         today: day,
         due: resources
           .filter(n => n.history.nextReview !== null && n.history.nextReview <= day)
           .sort((a, b) => (a.history.nextReview! < b.history.nextReview! ? -1 : a.history.nextReview! > b.history.nextReview! ? 1 : 0))
-          .map(n => ({ path: n.path, title: n.title, coachId: n.coachId!, nextReview: n.history.nextReview!, mastery: n.history.mastery })),
-        unsparred: resources.filter(n => n.history.mastery === "unsparred" && n.rawRole !== "index").map(n => ({ path: n.path, title: n.title })),
+          .map(n => ({ path: n.path, title: n.title, concept: n.concept, coachId: n.coachId!, nextReview: n.history.nextReview!, mastery: n.history.mastery })),
+        unsparred: resources.filter(n => n.history.mastery === "unsparred").map(n => ({ path: n.path, title: n.title, concept: n.concept })),
         orphaned: [...map.entries()].filter(([id]) => !carried.has(id)).map(([coachId, h]) => ({ coachId, lastSession: h.lastSession })),
         invalidSessions,
       };
@@ -162,6 +167,14 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       const { writes: _writes, ...shown } = plan;
       if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
       await executeConvert(root, plan);
+      return { ...shown, executed: true };
+    },
+    findPassages: async (query, opts) => searchPassages(await scanVault(root), query, opts),
+    async createConcept(input, execute) {
+      const plan = planConcept(root, await scanVault(root), input, localDate(now()));
+      const { content: _content, ...shown } = plan;
+      if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
+      await executeConcept(root, plan);
       return { ...shown, executed: true };
     },
   };

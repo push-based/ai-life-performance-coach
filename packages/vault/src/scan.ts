@@ -23,6 +23,8 @@ export interface VaultNote extends ParaLocation {
   convertedFrom: string | null;
   /** `raw_role` from frontmatter: a converted book's `index` (text.md) or one of its `chapter`s. */
   rawRole: "index" | "chapter" | null;
+  /** True for a concept note, `type: "concept"` (ADR-KI-0060): the unit that is sparred. */
+  concept: boolean;
   /** For a chapter, the PDF pages it holds, from its `pages: "a-b"`. */
   pageRange: [number, number] | null;
   links: RawLink[];
@@ -66,7 +68,8 @@ export async function readNote(root: string, path: string): Promise<VaultNote> {
   const rawRole = frontmatter.raw_role === "index" || frontmatter.raw_role === "chapter" ? frontmatter.raw_role : null;
   const range = rawRole === "chapter" && typeof frontmatter.pages === "string" ? frontmatter.pages.match(/^(\d+)-(\d+)$/) : null;
   const pageRange: [number, number] | null = range ? [Number(range[1]), Number(range[2])] : null;
-  return { path, title: titleOf(path, frontmatter, body), frontmatter, body, coachId, convertedFrom, rawRole, pageRange, links: extractLinks(body), ...classify(path) };
+  const concept = frontmatter.type === "concept";
+  return { path, title: titleOf(path, frontmatter, body), frontmatter, body, coachId, convertedFrom, rawRole, concept, pageRange, links: extractLinks(body), ...classify(path) };
 }
 
 export async function scanVault(root: string): Promise<VaultNote[]> {
