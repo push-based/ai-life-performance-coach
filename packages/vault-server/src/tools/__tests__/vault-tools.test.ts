@@ -35,10 +35,10 @@ beforeEach(() => {
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 describe("vault tool registry", () => {
-  it("lists the Phase 2 tools, with record_session the only writer", () => {
+  it("lists every tool, with the five writers marked as such", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session"]);
-    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session"]);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project"]);
+    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project"]);
   });
 });
 
@@ -101,7 +101,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["due_for_review", "list_notes", "read_note", "record_session", "search", "tier2_payload", "vault_graph"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "due_for_review", "file_note", "init_vault", "list_notes", "read_note", "record_session", "search", "tier2_payload", "vault_graph"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
@@ -151,6 +151,20 @@ describe("sparring tools", () => {
     expect(due.unsparred.map((n: { path: string }) => n.path)).toEqual(["3.Resources/TypeScript/Event loop.md"]);
     expect((await call("tier2_payload", { session_id })).data).toEqual({ items: [{ challenge: "Why microtasks?", answer: "They drain first." }] });
     expect((await call("tier2_payload", { session_id: "nope" })).res.isError).toBe(true);
+  });
+});
+
+describe("filing tools", () => {
+  it("preview by default, write on execute, and report refusals as errors", async () => {
+    const preview = (await call("file_note", { path: "Stray.md", to: "3.Resources" })).data;
+    expect(preview).toMatchObject({ executed: false, actions: [{ op: "move", from: "Stray.md", to: "3.Resources/Stray.md" }] });
+    expect((await call("file_note", { path: "Stray.md", to: "3.Resources", execute: true })).data.executed).toBe(true);
+    expect((await call("list_notes", { bucket: "out_of_place" })).data.notes).toEqual([]);
+    expect((await call("capture", { title: "Idea", body: "x", execute: true })).data.executed).toBe(true);
+    expect((await call("archive_project", { project: "DevFest2026", execute: true })).data.executed).toBe(true);
+    expect((await call("init_vault", {})).data.actions).toEqual([{ op: "create", to: "2.Areas" }]);
+    const refused = await call("file_note", { path: "3.Resources/Stray.md", to: "Elsewhere", execute: true });
+    expect(refused.res.isError).toBe(true);
   });
 });
 

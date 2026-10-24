@@ -14,6 +14,7 @@ import { loadSessions, type InvalidSession, type SessionRecord } from "./session
 import { histories, historyOf, type NoteHistory } from "./mastery.js";
 import { planSession, executeSession, localDate, type RecordPlan, type RecordSessionInput } from "./record.js";
 import { tier2Payload, type Tier2Payload } from "./payload.js";
+import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan } from "./filing.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -51,6 +52,20 @@ export interface Vault {
   dueForReview(today?: string): Promise<DueReport>;
   /** The judge-tier payload for one session; null when no such session exists. */
   tier2Payload(sessionId: string): Promise<Tier2Payload | null>;
+  /** Filing (Phase 3): each previews, and with `execute` applies a clean plan. */
+  initVault(execute: boolean): Promise<FilingResult>;
+  capture(title: string, body: string, execute: boolean): Promise<FilingResult>;
+  fileNote(path: string, toFolder: string, execute: boolean): Promise<FilingResult>;
+  archiveProject(project: string, execute: boolean): Promise<FilingResult>;
+}
+
+export type FilingResult = Omit<FilingPlan, "contents"> & { executed: boolean };
+
+async function apply(root: string, plan: FilingPlan, execute: boolean): Promise<FilingResult> {
+  const { contents: _contents, ...shown } = plan;
+  if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
+  await executeFiling(root, plan);
+  return { ...shown, executed: true };
 }
 
 /**
@@ -130,5 +145,12 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       const session = sessions.find(s => s.session_id === sessionId);
       return session ? tier2Payload(session) : null;
     },
+    initVault: async execute => apply(root, await planInit(root), execute),
+    capture: async (title, body, execute) => apply(root, planCapture(root, title, body), execute),
+    async fileNote(path, toFolder, execute) {
+      const rel = notePathOf(root, path) ?? path;
+      return apply(root, planFileNote(root, await scanVault(root), rel, toFolder), execute);
+    },
+    archiveProject: async (project, execute) => apply(root, planArchiveProject(root, project), execute),
   };
 }
