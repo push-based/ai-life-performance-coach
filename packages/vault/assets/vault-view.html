@@ -9,10 +9,11 @@
       --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --muted: #8b949e;
       --inbox: #db61a2; --projects: #f0883e; --areas: #a371f7; --resources: #58a6ff; --archive: #6e7681; --none: #c9d1d9;
       --attempted: #f85149; --tier1: #e3b341; --tier2: #3fb950; --edge: #3d444d;
+      --untouched: #484f58; --bold: #79c0ff; --highlight: #f2cc60; --complete: #3fb950;
     }
     @media (prefers-color-scheme: light) {
       :root { --bg: #ffffff; --panel: #f6f8fa; --line: #d0d7de; --text: #1f2328; --muted: #59636e;
-        --archive: #8c959f; --none: #424a53; --edge: #c8d1da; }
+        --archive: #8c959f; --none: #424a53; --edge: #c8d1da; --untouched: #afb8c1; --bold: #0969da; --highlight: #d4a72c; --complete: #1a7f37; }
     }
     * { box-sizing: border-box; }
     body { margin: 0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text);
@@ -59,6 +60,8 @@
     <div id="buckets"></div>
     <h2>Mastery</h2>
     <div id="mastery"></div>
+    <h2>Distilling a book</h2>
+    <div id="distill"></div>
   </aside>
   <main>
     <svg id="graph" role="img" aria-label="Link graph of the vault's notes"></svg>
