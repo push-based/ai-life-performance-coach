@@ -132,6 +132,7 @@ describe("sparring tools", () => {
     const note = (await call("read_note", { path: "3.Resources/TypeScript/Promises.md" })).data;
     expect(note.coachId).toBe(written.items[0].coach_id);
     expect(note.history).toMatchObject({ mastery: "tier1_passed", sessions: 1, nextReview: "2000-01-01" });
+    expect(note.history.entries).toEqual([{ session_id: written.session_id, tier: 1, date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), verdict: "pass", gaps: [], next_review: "2000-01-01" }]);
     const listed = (await call("list_notes", { bucket: "resources" })).data.notes;
     expect(listed.find((n: { path: string }) => n.path.endsWith("Promises.md")).mastery).toBe("tier1_passed");
     const graph = (await call("vault_graph", { bucket: "resources" })).data;
@@ -142,6 +143,24 @@ describe("sparring tools", () => {
     const { res } = await call("record_session", { tier: 1, items: [{ note: "1.Projects/DevFest2026/Talk.md", challenge: "c", answer: "a", verdict: "fail", next_review: "2026-11-01" }], execute: true });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/not under 3\.Resources/);
+  });
+
+  it("read_note history lists every session oldest first, so a scheduler can read the run at one tier", async () => {
+    const t1 = (await session(true)).data;
+    const coach_id = t1.items[0].coach_id;
+    const t2 = (verdict: string, next_review: string) => call("record_session", {
+      tier: 2, items: [{ coach_id, challenge: "Why microtasks?", answer: "They drain first.", verdict, gaps: verdict === "fail" ? ["ordering"] : [], next_review }], execute: true,
+    });
+    await t2("pass", "2026-11-07");
+    await t2("fail", "2026-11-02");
+    const { history } = (await call("read_note", { path: "3.Resources/TypeScript/Promises.md" })).data;
+    expect(history.entries.map((e: { tier: number; verdict: string; next_review: string }) => [e.tier, e.verdict, e.next_review])).toEqual([
+      [1, "pass", "2000-01-01"], [2, "pass", "2026-11-07"], [2, "fail", "2026-11-02"],
+    ]);
+    expect(history.entries[2].gaps).toEqual(["ordering"]);
+    expect(history.entries[0].session_id).toBe(t1.session_id);
+    const unsparred = (await call("read_note", { path: "3.Resources/TypeScript/Event loop.md" })).data.history;
+    expect(unsparred).toMatchObject({ mastery: "unsparred", entries: [] });
   });
 
   it("due_for_review and tier2_payload work off recorded sessions", async () => {

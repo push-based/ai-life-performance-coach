@@ -105,7 +105,13 @@ describe("histories", () => {
 
   it("takes the next review date from the latest session at any tier", () => {
     const h = histories([s("a", 1, "2026-01-01T00:00:00Z", "pass", "2026-02-01"), s("b", 2, "2026-01-02T00:00:00Z", "pass", "2026-03-01")]).get("c-1")!;
-    expect(h).toEqual({ mastery: "tier2_passed", nextReview: "2026-03-01", lastSession: "b", sessions: 2 });
+    expect(h).toEqual({
+      mastery: "tier2_passed", nextReview: "2026-03-01", lastSession: "b", sessions: 2,
+      entries: [
+        { session_id: "a", tier: 1, date: "2026-01-01", verdict: "pass", gaps: [], next_review: "2026-02-01" },
+        { session_id: "b", tier: 2, date: "2026-01-02", verdict: "pass", gaps: [], next_review: "2026-03-01" },
+      ],
+    });
   });
 });
 
