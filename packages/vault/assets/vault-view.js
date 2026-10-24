@@ -267,8 +267,66 @@
     for (const [k, v] of [["Chapter", p.chapter.title], ["Marked", p.empty ? "No text on this page" : label(MARKS, p.mark)], ["Page summary", p.summary ? "Yes" : "No (optional)"]]) dl.append(html("dt", { textContent: k }), html("dd", { textContent: v }));
     const file = `${p.chapter.id.replace(/\.md$/, "")}#Page ${p.page}`;
     const open = html("a", { href: `obsidian://open?vault=${encodeURIComponent(state.graph.vaultName)}&file=${encodeURIComponent(file)}`, textContent: "Open the page in Obsidian" });
-    d.append(h, dl, html("p", {}, open), html("p", { className: "empty", textContent: "Bold with **…**, then highlight the best of it with ==…==. Write the chapter summary to complete the chapter." }));
+    const text = html("div", { className: "page-text" }, html("p", { className: "empty", textContent: "Loading the page…" }));
+    d.append(h, dl, html("p", {}, open), text, html("p", { className: "empty", textContent: "Bold with **…**, then highlight the best of it with ==…==. Write the chapter summary to complete the chapter." }));
     render();
+    fetch(`page.json?note=${encodeURIComponent(p.chapter.id)}&page=${p.page}`, { cache: "no-store" })
+      .then(res => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then(page => { if (state.selected === p) text.replaceChildren(...pageText(page.text)); })
+      .catch(() => { if (state.selected === p) text.replaceChildren(html("p", { className: "empty", textContent: "Could not load the page." })); });
+  }
+
+  /**
+   * A page's markdown as DOM, built from text nodes only: paragraphs (the PDF's hard line
+   * breaks joined), **bold** as <strong>, ==highlight== as <mark>, and a summary callout
+   * as a box. Nothing from the page is parsed as HTML.
+   */
+  function pageText(md) {
+    const out = [];
+    for (const block of md.split(/\n[ \t]*\n/)) {
+      const lines = block.split("\n").filter(l => l.trim());
+      if (!lines.length) continue;
+      if (/^>\s*\[!summary\]/i.test(lines[0])) {
+        const body = [lines[0].replace(/^>\s*\[!summary\][-+]?/i, ""), ...lines.slice(1).map(l => l.replace(/^>\s?/, ""))].join(" ").trim();
+        out.push(html("div", { className: "summary" }, html("b", { textContent: "My summary" }), ...inline(body)));
+        continue;
+      }
+      if (lines.length === 1 && lines[0].trim() === "_(no text on this page)_") { out.push(html("p", { className: "empty", textContent: "No text on this page." })); continue; }
+      // The PDF gives no blank lines between paragraphs, so a line well short of the
+      // page's full width ends one when it ends a sentence or reads as a Title Case heading.
+      const full = Math.max(...lines.map(l => l.length));
+      const heading = l => {
+        const words = l.split(/\s+/).filter(w => /\p{L}/u.test(w));
+        return words.length > 0 && !/[.,;:!?]["”’)]?$/.test(l) && words.filter(w => /^\p{Lu}/u.test(w) || w.length <= 3).length / words.length >= 0.8;
+      };
+      let para = [];
+      const flush = () => { if (para.length) out.push(html("p", {}, ...inline(para.join(" ")))); para = []; };
+      for (const raw of lines) {
+        const line = raw.replace(/^\\/, "");
+        const short = line.length < full * 0.7;
+        if (short && heading(line)) { flush(); out.push(html("p", {}, html("strong", {}, ...inline(line)))); continue; }
+        para.push(line);
+        if (short && /[.!?:]["”’)]?$/.test(line)) flush();
+      }
+      flush();
+    }
+    return out.length ? out : [html("p", { className: "empty", textContent: "No text on this page." })];
+  }
+
+  /** Split on ** / __ / == markers, toggling bold and highlight. */
+  function inline(text) {
+    const nodes = [];
+    let bold = false, high = false;
+    for (const part of text.split(/(\*\*|__|==)/)) {
+      if (part === "**" || part === "__") { bold = !bold; continue; }
+      if (part === "==") { high = !high; continue; }
+      if (!part) continue;
+      let node = document.createTextNode(part);
+      if (high) node = html("mark", {}, node);
+      if (bold) node = html("strong", {}, node);
+      nodes.push(node);
+    }
+    return nodes;
   }
 
   function select(n) {
@@ -399,8 +457,9 @@
     layout(box.width || 900, box.height || 700);
     state.view = { x: 0, y: 0, k: 1 };
     if (state.expanded.size === 1) centre(state.byId.get([...state.expanded][0]));
-    // #open=<chapter path> opens the chapter's book and its pages: a link to one chapter.
-    const deep = location.hash.startsWith("#open=") ? state.byId.get(decodeURIComponent(location.hash.slice(6))) : null;
+    // #open=<chapter path>[&page=N] opens the chapter's book and its pages, and selects a page.
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const deep = hash.has("open") ? state.byId.get(hash.get("open")) : null;
     const by = m => state.nodes.filter(n => n.mastery === m && !n.raw).length;
     const books = state.nodes.filter(n => n.rawRole === "index").length;
     const concepts = state.nodes.filter(n => n.concept).length;
@@ -411,7 +470,9 @@
       state.expanded.add(deep.book);
       placeChapters();
       togglePages(deep);
-      select(deep);
+      const page = deep.distill.pages.find(p => p.page === Number(hash.get("page")));
+      if (page) render();
+      select(page ? pagesOf(deep).pages.find(p => p.page === page.page) : deep);
     } else select(null);
   }
 

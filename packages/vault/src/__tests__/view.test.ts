@@ -85,6 +85,20 @@ describe("vault view server", () => {
     expect((await get("/graph.json", "POST")).status).toBe(405);
   });
 
+  it("serves one page of a book's chapter, with the user's marks, and no other note body", async () => {
+    const ch = "3.Resources/0.Raw/Books/A/B/chapters/01 One.md";
+    put(ch, '---\ntitle: "Chapter 1: One"\nraw_role: "chapter"\npages: "4-5"\n---\n# One\n\n## Page 4\n\n> [!summary]\n> Mine.\n\nThe **author\'s** ==text==.\n\n## Page 5\n\nNext page.\n');
+    const q = (note: string, page: number | string) => get(`/page.json?note=${encodeURIComponent(note)}&page=${page}`);
+    const res = await q(ch, 4);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-security-policy"]).toMatch(/default-src 'none'/);
+    expect(JSON.parse(res.body)).toEqual({ note: ch, title: "Chapter 1: One", page: 4, text: "> [!summary]\n> Mine.\n\nThe **author's** ==text==." });
+    for (const [note, page] of [[ch, 6], [ch, "x"], [ch, 0], ["3.Resources/TS/Event loop.md", 1], ["../../etc/passwd", 1], ["Coach/graph.json", 1]] as const) {
+      expect((await q(note, page)).status, `${note} ${page}`).toBe(404);
+    }
+    expect((await get("/page.json")).status).toBe(404);
+  });
+
   it("regenerates the graph on every load", async () => {
     expect(JSON.parse((await get("/graph.json")).body).nodes).toHaveLength(3);
     put("0.Inbox/New.md", "new");

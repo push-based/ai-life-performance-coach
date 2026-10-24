@@ -17,7 +17,7 @@
     }
     * { box-sizing: border-box; }
     body { margin: 0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text);
-      display: grid; grid-template-columns: 240px 1fr 280px; grid-template-rows: auto 1fr; height: 100vh; }
+      display: grid; grid-template-columns: 240px 1fr 340px; grid-template-rows: auto 1fr; height: 100vh; }
     header { grid-column: 1 / -1; display: flex; gap: 16px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
     header h1 { font-size: 16px; margin: 0; }
     .stat { color: var(--muted); }
@@ -42,6 +42,12 @@
     #detail dd { margin: 0; word-break: break-word; }
     #detail a { color: var(--resources); }
     .empty { color: var(--muted); }
+    .page-text { font: 13px/1.55 Georgia, "Iowan Old Style", serif; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+    .page-text p { margin: 0 0 10px; }
+    .page-text strong { font-weight: 700; }
+    .page-text mark { background: var(--highlight); color: #1f2328; border-radius: 2px; padding: 0 1px; }
+    .page-text .summary { border-left: 3px solid var(--complete); background: var(--bg); padding: 6px 10px; margin: 0 0 12px; font-family: system-ui, sans-serif; }
+    .page-text .summary b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 2px; }
     #status { position: absolute; left: 16px; bottom: 12px; color: var(--muted); font-size: 12px; }
     @media (max-width: 900px) { body { grid-template-columns: 1fr; grid-template-rows: auto auto 60vh auto; } }
   </style>
