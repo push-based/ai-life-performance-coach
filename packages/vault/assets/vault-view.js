@@ -1,7 +1,9 @@
 /* Vault graph view (ADR-KI-0058 Decision 11). Self-contained: no library and no
  * request beyond /graph.json, so it runs offline and its CSP can forbid the rest.
  * A converted book (ADR-KI-0059) shows as one node until it is opened; its chapters
- * then sit in reading order on a ring around it. */
+ * then sit in reading order on a ring around it. Concept notes (ADR-KI-0060), the notes
+ * that are sparred, are diamonds; their links to the chapters they quote show which
+ * books ground them. */
 (function () {
   "use strict";
   const BUCKETS = [
@@ -40,6 +42,11 @@
   const labelOf = n => (n.rawRole === "index" && n.chapterCount ? `${n.label} · ${n.chapterCount}` : n.label);
   /** Where an edge end is drawn: a folded chapter's edges attach to its book. */
   const anchor = n => (folded(n) ? state.byId.get(n.book) : n);
+  /** Concept notes that link to a note, or for a book to any of its chapters. */
+  const conceptsCiting = n => {
+    const targets = new Set([n, ...(state.chaptersOf.get(n.id) || [])]);
+    return [...new Set(state.links.filter(([a, b]) => a.concept && targets.has(b)).map(([a]) => a))];
+  };
 
   /* Force layout over everything but chapters: pairwise repulsion, link springs, and a
    * pull towards each bucket's anchor so PARA buckets form clusters. Chapters are placed
@@ -131,6 +138,10 @@
         const s = r + 2;
         if (RING[n.mastery]) el("rect", { x: -s - 4, y: -s - 4, width: 2 * s + 8, height: 2 * s + 8, rx: 3, ...ring }, g);
         el("rect", { x: -s, y: -s, width: 2 * s, height: 2 * s, rx: 2, ...body }, g);
+      } else if (n.concept) {
+        const s = r + 3, d = (k) => `M0,${-k} L${k},0 L0,${k} L${-k},0 Z`;
+        if (RING[n.mastery]) el("path", { d: d(s + 5), ...ring }, g);
+        el("path", { d: d(s), ...body }, g);
       } else {
         if (RING[n.mastery]) el("circle", { r: r + 4, ...ring }, g);
         el("circle", { r, ...body }, g);
@@ -186,8 +197,9 @@
     const h = html("h2", { textContent: n.title });
     h.style.textTransform = "none"; h.style.fontSize = "15px"; h.style.color = "var(--text)";
     const dl = html("dl");
-    const rows = [["Path", n.id], ["Bucket", label(BUCKETS, bucketOf(n)) + (n.raw ? " · raw resource" : "")]];
+    const rows = [["Path", n.id], ["Bucket", label(BUCKETS, bucketOf(n)) + (n.raw ? " · raw resource" : n.concept ? " · concept" : "")]];
     if (n.rawRole === "index") rows.push(["Chapters", String(n.chapterCount)]);
+    if (n.raw) rows.push(["Quoted by", `${conceptsCiting(n).length} concept note(s)`]);
     else rows.push(["Mastery", label(MASTERY, n.mastery)], ["Next review", n.nextReview || "—"]);
     rows.push(["Links", String(state.links.filter(([a, b]) => a === n || b === n).length)]);
     for (const [k, v] of rows) dl.append(html("dt", { textContent: k }), html("dd", { textContent: v }));
@@ -195,8 +207,23 @@
     d.append(h, dl, html("p", {}, open));
     if (n.rawRole === "index") {
       const chapters = state.chaptersOf.get(n.id) || [];
-      const sparred = chapters.filter(c => c.mastery !== "unsparred").length;
-      d.append(html("p", { textContent: `${sparred} of ${chapters.length} chapters sparred.` }));
+      const concepts = conceptsCiting(n);
+      d.append(html("p", { textContent: concepts.length
+        ? `Grounds ${concepts.length} concept note${concepts.length === 1 ? "" : "s"}. Raw text is not sparred; its concepts are.`
+        : "No concept note quotes this book yet. Raw text is not sparred; distil its ideas into concept notes." }));
+      if (concepts.length) {
+        const ul = html("ul");
+        ul.style.paddingLeft = "18px";
+        for (const c of concepts) {
+          const a = html("a", { href: "#", textContent: c.label });
+          a.addEventListener("click", ev => { ev.preventDefault(); select(c); });
+          const li = html("li", {}, a, ` · ${label(MASTERY, c.mastery)}`);
+          li.style.color = RING[c.mastery] || "var(--muted)";
+          a.style.color = "var(--text)";
+          ul.append(li);
+        }
+        d.append(ul);
+      }
       const btn = html("button", { type: "button", textContent: state.expanded.has(n.id) ? "Close book" : "Open book" });
       btn.addEventListener("click", () => { toggle(n.id); select(n); });
       d.append(html("p", {}, btn));
@@ -205,8 +232,9 @@
       for (const c of chapters) {
         const a = html("a", { href: "#", textContent: c.label });
         a.addEventListener("click", ev => { ev.preventDefault(); state.expanded.add(n.id); select(c); });
-        const li = html("li", {}, a, ` · ${label(MASTERY, c.mastery)}`);
-        li.style.color = RING[c.mastery] || "var(--muted)";
+        const quoted = conceptsCiting(c).length;
+        const li = html("li", {}, a, quoted ? ` · quoted by ${quoted}` : "");
+        li.style.color = "var(--muted)";
         a.style.color = "var(--text)";
         list.append(li);
       }
@@ -230,6 +258,8 @@
     rawBox.addEventListener("change", () => { state.hideRaw = !rawBox.checked; render(); });
     const sq = html("span", { className: "swatch" }); sq.style.borderRadius = "2px"; sq.style.background = "var(--resources)";
     $("buckets").appendChild(html("label", {}, rawBox, sq, document.createTextNode("Raw resources (square)"), html("span", { className: "count", textContent: state.nodes.filter(n => n.raw).length })));
+    const dia = html("span", { className: "swatch" }); dia.style.background = "var(--resources)"; dia.style.transform = "rotate(45deg) scale(0.8)";
+    $("buckets").appendChild(html("label", {}, html("span", { style: "display:inline-block;width:13px" }), dia, document.createTextNode("Concept notes (diamond)"), html("span", { className: "count", textContent: state.nodes.filter(n => n.concept).length })));
     build($("mastery"), MASTERY, state.hiddenMastery, n => n.mastery, key => {
       const s = html("span", { className: "ring" });
       s.style.borderColor = RING[key] || "var(--line)"; if (key === "attempted") s.style.borderStyle = "dashed"; return s;
@@ -253,10 +283,11 @@
     layout(box.width || 900, box.height || 700);
     state.view = { x: 0, y: 0, k: 1 };
     if (state.expanded.size === 1) centre(state.byId.get([...state.expanded][0]));
-    const by = m => state.nodes.filter(n => n.mastery === m && n.rawRole !== "index").length;
+    const by = m => state.nodes.filter(n => n.mastery === m && !n.raw).length;
     const books = state.nodes.filter(n => n.rawRole === "index").length;
+    const concepts = state.nodes.filter(n => n.concept).length;
     $("title").textContent = `${graph.vaultName} — vault graph`;
-    $("stats").textContent = `${state.nodes.length} notes · ${graph.edges.length} links · ${books} book${books === 1 ? "" : "s"} · ${by("tier2_passed")} Tier 2 passed · ${by("tier1_passed")} Tier 1 passed · ${by("attempted")} attempted`;
+    $("stats").textContent = `${state.nodes.length} notes · ${graph.edges.length} links · ${books} book${books === 1 ? "" : "s"} · ${concepts} concept${concepts === 1 ? "" : "s"} · ${by("tier2_passed")} Tier 2 passed · ${by("tier1_passed")} Tier 1 passed · ${by("attempted")} attempted`;
     filters();
     select(null);
   }

@@ -16,6 +16,7 @@ import { tier2PayloadTool } from "./vault/tier2-payload.js";
 import { recordSessionTool } from "./vault/record-session.js";
 import { initVaultTool, captureTool, fileNoteTool, archiveProjectTool } from "./vault/filing-tools.js";
 import { listRawTool, convertRawTool } from "./vault/raw-tools.js";
+import { findPassagesTool, createConceptTool } from "./vault/concept-tools.js";
 
 export function createVaultTools(vault: Vault): ToolDef[] {
   return [
@@ -32,5 +33,7 @@ export function createVaultTools(vault: Vault): ToolDef[] {
     archiveProjectTool(vault),
     listRawTool(vault),
     convertRawTool(vault),
+    findPassagesTool(vault),
+    createConceptTool(vault),
   ];
 }

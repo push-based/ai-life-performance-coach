@@ -18,7 +18,8 @@ export const PARA_BUCKETS = Object.keys(PARA_FOLDERS) as ParaBucket[];
 
 /**
  * Raw resources: full books, articles and other source material kept whole, under
- * `3.Resources/0.Raw/<kind>/` (ADR-KI-0059). They are Resources, so they can be sparred.
+ * `3.Resources/0.Raw/<kind>/` (ADR-KI-0059). They are the reference concept notes quote
+ * and are checked against, and are never sparred themselves (ADR-KI-0060).
  */
 export const RAW_FOLDER = "0.Raw";
 

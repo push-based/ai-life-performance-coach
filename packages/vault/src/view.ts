@@ -31,6 +31,8 @@ export interface VaultViewGraph {
     container: string | null;
     raw: boolean;
     rawRole: "index" | "chapter" | null;
+    /** A concept note (ADR-KI-0060), drawn as a diamond. */
+    concept: boolean;
     /** For a chapter, the id of its book's index, so the view can fold a book into one node. */
     book: string | null;
     /** For a book index, how many chapter notes it has. */
@@ -73,7 +75,7 @@ export async function writeViewGraph(vault: Vault, now: Date = new Date()): Prom
       const book = note.rawRole === "chapter" ? posix.join(posix.dirname(posix.dirname(n.id)), RAW_TEXT) : null;
       return {
         id: n.id, title: n.title, label: shortLabel(note), bucket: n.bucket, container: n.container, raw: n.raw,
-        rawRole: note.rawRole, book: book && byPath.has(book) ? book : null,
+        rawRole: note.rawRole, concept: note.concept, book: book && byPath.has(book) ? book : null,
         chapterCount: note.rawRole === "index" ? notes.filter(c => c.rawRole === "chapter" && posix.dirname(posix.dirname(c.path)) === posix.dirname(n.id)).length : null,
         mastery: history.get(n.id)!.mastery, nextReview: history.get(n.id)!.nextReview,
       };

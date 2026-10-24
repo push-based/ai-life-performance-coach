@@ -179,24 +179,19 @@ describe("converted books in the vault", () => {
     ]);
   });
 
-  it("spars chapters and refuses the index; due_for_review lists chapters, not the index", async () => {
+  it("spars no raw note, chapter or index; due_for_review lists only distilled notes", async () => {
     await vault.convertRaw(BOOK, true);
     const notes = await vault.notes();
     expect(notes.find(n => n.path === CH("02 Capture"))).toMatchObject({ rawRole: "chapter", pageRange: [4, 4], raw: true, rawWork: "Building a Second Brain" });
     expect(notes.find(n => n.path === INDEX)).toMatchObject({ rawRole: "index", pageRange: null });
 
-    const refused = await vault.recordSession({ tier: 1, items: [{ note: INDEX, challenge: "c", answer: "a", verdict: "pass", next_review: "2026-11-01" }] }, true);
-    expect(refused.errors.join()).toMatch(/is a book's index; spar one of its chapters/);
-    const ok = await vault.recordSession({ tier: 1, items: [{ note: CH("02 Capture"), challenge: "c", answer: "a", verdict: "pass", next_review: "2026-11-01" }] }, true);
-    expect(ok.errors).toEqual([]);
+    for (const note of [INDEX, CH("02 Capture"), "3.Resources/0.Raw/Articles/Clipped.md"]) {
+      const refused = await vault.recordSession({ tier: 1, items: [{ note, challenge: "c", answer: "a", verdict: "pass", next_review: "2026-11-01" }] }, true);
+      expect(refused.errors.join(), note).toMatch(/is a raw resource; .* spar a concept note that quotes it/);
+    }
 
     const due = await vault.dueForReview("2026-10-24");
-    expect(due.unsparred.map(n => n.path)).toEqual([
-      "3.Resources/0.Raw/Articles/Clipped.md",
-      CH("01 Introduction- The Promise"),
-      CH("03 Organize and Distill"),
-      "3.Resources/PKM/PARA.md",
-    ]);
+    expect(due.unsparred).toEqual([{ path: "3.Resources/PKM/PARA.md", title: "PARA", concept: false }]);
   });
 
   it("resolves a page link to the chapter holding that page, other PDF links and the title to the index", async () => {

@@ -37,8 +37,8 @@ afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 describe("vault tool registry", () => {
   it("lists every tool, with the writers marked as such", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw"]);
-    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw"]);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "create_concept"]);
+    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept"]);
   });
 });
 
@@ -101,7 +101,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "due_for_review", "file_note", "init_vault", "list_notes", "list_raw", "read_note", "record_session", "search", "tier2_payload", "vault_graph"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "create_concept", "due_for_review", "file_note", "find_passages", "init_vault", "list_notes", "list_raw", "read_note", "record_session", "search", "tier2_payload", "vault_graph"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
@@ -184,6 +184,40 @@ describe("filing tools", () => {
     expect((await call("init_vault", {})).data.actions).toEqual([{ op: "create", to: "2.Areas" }]);
     const refused = await call("file_note", { path: "3.Resources/Stray.md", to: "Elsewhere", execute: true });
     expect(refused.res.isError).toBe(true);
+  });
+});
+
+describe("concept tools", () => {
+  const CH = "3.Resources/0.Raw/Books/A/Book/chapters/01 One.md";
+  beforeEach(() => {
+    put(CH, '---\ntitle: "Chapter 1: One"\nraw_role: "chapter"\nbook: "Book"\npages: "4-5"\n---\n## Page 4\n\nMicrotasks run before the next macrotask.\n\n## Page 5\n\nRendering waits.\n');
+  });
+
+  it("find_passages, then create_concept; read_note returns the concept with its passages re-checked; list_notes filters concepts", async () => {
+    const hits = (await call("find_passages", { query: "microtasks macrotask" })).data;
+    expect(hits[0]).toMatchObject({ note: CH, page: 4, source: "Book" });
+
+    const args = { title: "Microtask queue", summary: "Microtasks drain first.", core_assertions: ["Microtasks run before the next macrotask."], passages: [{ note: CH, quote: "Microtasks run before the next macrotask" }] };
+    const preview = (await call("create_concept", args)).data;
+    expect(preview).toMatchObject({ executed: false, path: "3.Resources/Concepts/Microtask queue.md", passages: [{ pages: "4", found: true }] });
+    expect((await call("create_concept", { ...args, execute: true })).data.executed).toBe(true);
+
+    const note = (await call("read_note", { path: "3.Resources/Concepts/Microtask queue.md" })).data;
+    expect(note.concept).toEqual({
+      coreAssertions: ["Microtasks run before the next macrotask."],
+      forbiddenBuzzwords: [],
+      fromNotes: [],
+      passages: [{ note: CH, quote: "Microtasks run before the next macrotask", pages: "4", found: true }],
+      problems: [],
+    });
+    expect((await call("read_note", { path: "3.Resources/TypeScript/Promises.md" })).data.concept).toBeUndefined();
+    expect((await call("list_notes", { concept: true })).data.notes.map((n: { path: string }) => n.path)).toEqual(["3.Resources/Concepts/Microtask queue.md"]);
+  });
+
+  it("create_concept reports a misquote as an error", async () => {
+    const { res } = await call("create_concept", { title: "X", summary: "x", core_assertions: ["x"], passages: [{ note: CH, quote: "Macrotasks run before everything" }] });
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain(`passages[0]: not found in ${CH}`);
   });
 });
 

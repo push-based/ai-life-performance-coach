@@ -2,7 +2,8 @@
  * `record_session` (ADR-KI-0058 Decisions 5, 6 and 9): validate a finished sparring
  * session, preview what it would write, and write it only on `execute`. A note gains a
  * `coach_id` in the same step the first time it is sparred. Only notes under
- * `3.Resources` can be sparred, and no write ever overwrites an existing file.
+ * `3.Resources` outside `0.Raw` can be sparred (ADR-KI-0060), and no write ever
+ * overwrites an existing file.
  */
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
@@ -75,7 +76,7 @@ export function planSession(input: RecordSessionInput, ctx: RecordContext): Reco
     const note = it.note ? byPath.get(it.note) : byCoachId.get(it.coach_id!);
     if (!note) { errors.push(`${at}: no note ${it.note ?? `with coach_id ${it.coach_id}`}`); return; }
     if (note.bucket !== "resources") { errors.push(`${at}: ${note.path} is not under 3.Resources; only Resources notes are sparred`); return; }
-    if (note.rawRole === "index") { errors.push(`${at}: ${note.path} is a book's index; spar one of its chapters`); return; }
+    if (note.raw) { errors.push(`${at}: ${note.path} is a raw resource; raw resources are the reference concept notes are checked against and are not sparred, so spar a concept note that quotes it`); return; }
     if (seen.has(note.path)) { errors.push(`${at}: ${note.path} appears twice in one session`); return; }
     seen.add(note.path);
     if (typeof it.challenge !== "string" || !it.challenge.trim()) errors.push(`${at}: challenge is empty`);

@@ -8,7 +8,7 @@ const DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
 export function recordSessionTool(vault: Vault): ToolDef {
   return defineTool({
   name: "record_session",
-  description: "Record one finished sparring session covering one or more notes under 3.Resources. Writes Coach/sessions/<session_id>.md and, for a note sparred for the first time, inserts a coach_id frontmatter key into that note (its only edit). Previews by default; pass execute: true to write. Ids in a preview are provisional. Refuses notes outside 3.Resources, a note named twice, and any write onto an existing file.",
+  description: "Record one finished sparring session covering one or more notes under 3.Resources outside 0.Raw, concept notes above all. Writes Coach/sessions/<session_id>.md and, for a note sparred for the first time, inserts a coach_id frontmatter key into that note (its only edit). Previews by default; pass execute: true to write. Ids in a preview are provisional. Refuses notes outside 3.Resources and raw resources (spar a concept note that quotes them), a note named twice, and any write onto an existing file.",
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
   schema: {
     tier: z.union([z.literal(1), z.literal(2)]).describe("1 = local sparring tier, 2 = judge tier"),
