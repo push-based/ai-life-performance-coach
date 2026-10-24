@@ -14,6 +14,7 @@ import { vaultGraphTool } from "./vault/vault-graph.js";
 import { dueForReviewTool } from "./vault/due-for-review.js";
 import { tier2PayloadTool } from "./vault/tier2-payload.js";
 import { recordSessionTool } from "./vault/record-session.js";
+import { initVaultTool, captureTool, fileNoteTool, archiveProjectTool } from "./vault/filing-tools.js";
 
 export function createVaultTools(vault: Vault): ToolDef[] {
   return [
@@ -24,5 +25,9 @@ export function createVaultTools(vault: Vault): ToolDef[] {
     dueForReviewTool(vault),
     tier2PayloadTool(vault),
     recordSessionTool(vault),
+    initVaultTool(vault),
+    captureTool(vault),
+    fileNoteTool(vault),
+    archiveProjectTool(vault),
   ];
 }

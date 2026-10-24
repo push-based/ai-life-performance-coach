@@ -29,6 +29,9 @@ Every note lives under five fixed folders at the vault root: 0.Inbox, 1.Projects
 - 'due_for_review' — Resources notes due for review, and those never sparred
 - 'record_session' — record a finished sparring session (preview first; execute: true writes)
 - 'tier2_payload' — the only data that may go to the judge tier: challenges and answers
+- 'init_vault', 'capture', 'file_note', 'archive_project' — filing; each previews first and writes only with execute: true
+
+Show the user a filing preview before executing it: moves change where their notes live.
 
 Only notes under 3.Resources are sparred. Sessions live in Coach/sessions/; a note's coach_id ties it to its sessions wherever it moves.
 
