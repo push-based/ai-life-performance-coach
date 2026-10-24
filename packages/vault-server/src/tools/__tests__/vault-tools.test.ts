@@ -169,6 +169,7 @@ describe("sparring tools", () => {
     expect(due.due.map((n: { path: string }) => n.path)).toEqual(["3.Resources/TypeScript/Promises.md"]);
     expect(due.unsparred.map((n: { path: string }) => n.path)).toEqual(["3.Resources/TypeScript/Event loop.md"]);
     expect((await call("tier2_payload", { session_id })).data).toEqual({ items: [{ challenge: "Why microtasks?", answer: "They drain first." }] });
+    expect((await call("tier2_payload", { session_id, include_assertions: true })).data).toEqual({ items: [{ challenge: "Why microtasks?", answer: "They drain first.", core_assertions: [] }] });
     expect((await call("tier2_payload", { session_id: "nope" })).res.isError).toBe(true);
   });
 });
