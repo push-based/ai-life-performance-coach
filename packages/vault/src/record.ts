@@ -75,6 +75,7 @@ export function planSession(input: RecordSessionInput, ctx: RecordContext): Reco
     const note = it.note ? byPath.get(it.note) : byCoachId.get(it.coach_id!);
     if (!note) { errors.push(`${at}: no note ${it.note ?? `with coach_id ${it.coach_id}`}`); return; }
     if (note.bucket !== "resources") { errors.push(`${at}: ${note.path} is not under 3.Resources; only Resources notes are sparred`); return; }
+    if (note.rawRole === "index") { errors.push(`${at}: ${note.path} is a book's index; spar one of its chapters`); return; }
     if (seen.has(note.path)) { errors.push(`${at}: ${note.path} appears twice in one session`); return; }
     seen.add(note.path);
     if (typeof it.challenge !== "string" || !it.challenge.trim()) errors.push(`${at}: challenge is empty`);

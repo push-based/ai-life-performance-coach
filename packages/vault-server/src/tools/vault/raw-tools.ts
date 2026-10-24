@@ -16,16 +16,17 @@ export function listRawTool(vault: Vault): ToolDef {
 export function convertRawTool(vault: Vault): ToolDef {
   return defineTool({
   name: "convert_raw",
-  description: "Convert one PDF under 3.Resources/0.Raw into a markdown note beside it, once. A PDF not yet in its own folder first moves into <kind>/<author>/<title>/ (from the PDF's metadata unless author or title is given). The note has its text extracted offline, one '## Page N' heading per page, frontmatter with title, author, page count and converted_from. Links to the PDF then resolve to the note, and read_note can return a page range. The PDF is never changed; an existing note is never replaced. Previews by default (with the real page and character counts); pass execute: true to write.",
+  description: "Convert one PDF under 3.Resources/0.Raw into notes in its work folder, once and offline. A PDF not yet in its own folder first moves to <kind>/<author>/<title>/e-book.pdf (author and title from the PDF's metadata unless given). The text goes into chapters/NN <title>.md, one note per chapter from the PDF's outline (a book without one is cut into blocks of pages); a chapter over max_chars splits into parts at page boundaries; front and back matter stays in the PDF. text.md becomes the book's index, linking each chapter, and is not sparred. Each chapter is sparred and scheduled on its own. Links to the PDF resolve to the index, or with #page=N to the chapter holding that page. The PDF is never changed and no existing file is replaced. Previews by default with the real chapter list; pass execute: true to write.",
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
   schema: {
     path: z.string().describe("Vault-relative path of the PDF, e.g. 3.Resources/0.Raw/Books/Book.pdf"),
     author: z.string().optional().describe("Author folder; defaults to the folder the PDF is in, else the PDF's metadata author"),
     title: z.string().optional().describe("Work folder; defaults to the PDF's metadata title, else its file name"),
+    max_chars: z.number().int().min(1000).optional().describe("Largest sparring unit in characters before a chapter splits into parts (default 20000, about 5,000 tokens)"),
     execute: z.boolean().optional().describe("Write the note (default: preview only)"),
   },
   handler: async (args) => {
-    const r = await vault.convertRaw(args.path, args.execute === true, { author: args.author, title: args.title });
+    const r = await vault.convertRaw(args.path, args.execute === true, { author: args.author, title: args.title, maxChars: args.max_chars });
     return r.errors.length ? fail(`convert_raw refused:\n- ${r.errors.join("\n- ")}`) : json(r);
   },
   });

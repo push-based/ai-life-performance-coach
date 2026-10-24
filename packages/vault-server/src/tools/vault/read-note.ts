@@ -30,6 +30,7 @@ export function readNoteTool(vault: Vault): ToolDef {
       raw: note.raw,
       rawKind: note.rawKind,
       convertedFrom: note.convertedFrom,
+      rawRole: note.rawRole,
       coachId: note.coachId,
       history: note.history,
       frontmatter: note.frontmatter,

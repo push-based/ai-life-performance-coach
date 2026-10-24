@@ -60,7 +60,7 @@ export interface Vault {
   archiveProject(project: string, execute: boolean): Promise<FilingResult>;
   /** Raw resources (ADR-KI-0059): every file under 3.Resources/0.Raw, and one-time PDF conversion. */
   listRaw(): Promise<RawItem[]>;
-  convertRaw(path: string, execute: boolean, opts?: ConvertOptions): Promise<Omit<ConvertPlan, "content"> & { executed: boolean }>;
+  convertRaw(path: string, execute: boolean, opts?: ConvertOptions): Promise<Omit<ConvertPlan, "writes"> & { executed: boolean }>;
 }
 
 export type FilingResult = Omit<FilingPlan, "contents"> & { executed: boolean };
@@ -139,7 +139,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
           .filter(n => n.history.nextReview !== null && n.history.nextReview <= day)
           .sort((a, b) => (a.history.nextReview! < b.history.nextReview! ? -1 : a.history.nextReview! > b.history.nextReview! ? 1 : 0))
           .map(n => ({ path: n.path, title: n.title, coachId: n.coachId!, nextReview: n.history.nextReview!, mastery: n.history.mastery })),
-        unsparred: resources.filter(n => n.history.mastery === "unsparred").map(n => ({ path: n.path, title: n.title })),
+        unsparred: resources.filter(n => n.history.mastery === "unsparred" && n.rawRole !== "index").map(n => ({ path: n.path, title: n.title })),
         orphaned: [...map.entries()].filter(([id]) => !carried.has(id)).map(([coachId, h]) => ({ coachId, lastSession: h.lastSession })),
         invalidSessions,
       };
@@ -159,7 +159,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     listRaw: async () => listRaw(root, await scanVault(root)),
     async convertRaw(path, execute, opts) {
       const plan = await planConvert(root, posix.normalize(path.split(sep).join("/").replace(/^\/+/, "")), localDate(now()), opts);
-      const { content: _content, ...shown } = plan;
+      const { writes: _writes, ...shown } = plan;
       if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
       await executeConvert(root, plan);
       return { ...shown, executed: true };
