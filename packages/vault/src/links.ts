@@ -53,8 +53,18 @@ export class LinkResolver {
    * `conversions` maps a converted note's path to the vault path of the file it was
    * converted from, so `[[Book.pdf#page=42]]` resolves to the note (ADR-KI-0059).
    */
-  constructor(notePaths: string[], conversions: [notePath: string, sourcePath: string][] = []) {
+  /**
+   * `aliases` pairs a note with an Obsidian `aliases` entry, so `[[Building a Second Brain]]`
+   * reaches a book's `text.md`; a note's own name wins over an alias.
+   */
+  private readonly byAlias = new Map<string, string>();
+
+  constructor(notePaths: string[], conversions: [notePath: string, sourcePath: string][] = [], aliases: [notePath: string, alias: string][] = []) {
     this.paths = new Set(notePaths);
+    for (const [note, alias] of aliases) {
+      const key = alias.toLowerCase();
+      if (!this.byAlias.has(key)) this.byAlias.set(key, note);
+    }
     for (const [note, source] of conversions) {
       this.converted.set(source, note);
       const name = posix.basename(source).toLowerCase();
@@ -82,7 +92,7 @@ export class LinkResolver {
     }
     const target = link.target.replace(/\.md$/, "");
     const candidates = this.byName.get(posix.basename(target).toLowerCase()) ?? [];
-    if (!target.includes("/")) return candidates[0] ?? null;
+    if (!target.includes("/")) return candidates[0] ?? this.byAlias.get(target.toLowerCase()) ?? null;
     const suffix = `${target}.md`.toLowerCase();
     return candidates.find(p => p.toLowerCase() === suffix || p.toLowerCase().endsWith(`/${suffix}`)) ?? null;
   }

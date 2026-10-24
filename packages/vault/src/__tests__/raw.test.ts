@@ -40,63 +40,94 @@ function put(rel: string, content: string | Buffer): void {
 }
 const read = (rel: string) => readFileSync(join(dir, rel), "utf-8");
 const BOOK = "3.Resources/0.Raw/Books/Second Brain.pdf";
+const HOME = "3.Resources/0.Raw/Books/Tiago Forte/Building a Second Brain";
+const PDF = `${HOME}/e-book.pdf`;
+const NOTE = `${HOME}/text.md`;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "vault-raw-"));
   vault = createVault(dir, { now: () => new Date("2026-10-24T12:00:00Z"), newSessionId: () => "s-1", newCoachId: () => "c-1" });
   put(BOOK, makePdf(["Capture what resonates.\n# not a heading", "Organize for action: PARA.", "Distill with progressive summa-\nrization."], { Title: "Building a Second Brain", Author: "Tiago Forte" }));
   put("3.Resources/0.Raw/Articles/Clipped.md", "# Clipped article\n\nFull text.\n");
-  put("3.Resources/PKM/PARA.md", "Projects are short. See [[Second Brain.pdf#page=2]] and [book](../0.Raw/Books/Second%20Brain.pdf).\n");
+  put("3.Resources/PKM/PARA.md", "Projects are short. See [[Tiago Forte/Building a Second Brain/e-book.pdf#page=2]], [book](../0.Raw/Books/Tiago%20Forte/Building%20a%20Second%20Brain/e-book.pdf) and [[Building a Second Brain]].\n");
 });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 describe("raw resources", () => {
   it("lists raw files with their kind and whether they carry text yet", async () => {
     expect(await vault.listRaw()).toEqual([
-      { path: "3.Resources/0.Raw/Articles/Clipped.md", kind: "Articles", note: "3.Resources/0.Raw/Articles/Clipped.md", convertible: false },
-      { path: BOOK, kind: "Books", note: null, convertible: true },
+      { path: "3.Resources/0.Raw/Articles/Clipped.md", kind: "Articles", author: null, work: null, note: "3.Resources/0.Raw/Articles/Clipped.md", convertible: false },
+      { path: BOOK, kind: "Books", author: null, work: null, note: null, convertible: true },
     ]);
   });
 
   it("previews a conversion with real numbers and writes nothing", async () => {
     const r = await vault.convertRaw(BOOK, false);
-    expect(r).toMatchObject({ executed: false, to: "3.Resources/0.Raw/Books/Second Brain.md", pages: 3, collisions: [], errors: [] });
+    expect(r).toMatchObject({ executed: false, move: { from: BOOK, to: PDF }, to: NOTE, pages: 3, collisions: [], errors: [] });
     expect(r.chars).toBeGreaterThan(50);
-    expect(existsSync(join(dir, "3.Resources/0.Raw/Books/Second Brain.md"))).toBe(false);
+    expect(existsSync(join(dir, HOME))).toBe(false);
+    expect(existsSync(join(dir, BOOK))).toBe(true);
   });
 
-  it("converts once into a note with page headings and converted_from, leaving the PDF alone", async () => {
+  it("moves the PDF to <kind>/<author>/<title>/e-book.pdf and converts it to text.md there once, bytes unchanged", async () => {
     const before = readFileSync(join(dir, BOOK));
     expect((await vault.convertRaw(BOOK, true)).executed).toBe(true);
-    const md = read("3.Resources/0.Raw/Books/Second Brain.md");
-    expect(md).toMatch(/^---\ntitle: "Building a Second Brain"\nauthor: "Tiago Forte"\nconverted_from: "Second Brain.pdf"\npages: 3\nconverted_at: "2026-10-24"\n---\n/);
+    expect(existsSync(join(dir, BOOK))).toBe(false);
+    const md = read(NOTE);
+    expect(md).toMatch(/^---\ntitle: "Building a Second Brain"\naliases: \["Building a Second Brain"\]\nauthor: "Tiago Forte"\nconverted_from: "e-book.pdf"\npages: 3\nconverted_at: "2026-10-24"\n---\n/);
+    expect(md).toContain(`Converted from [[${PDF}]]`);
     expect(md).toContain("## Page 1\n\nCapture what resonates.\n\\# not a heading");
     expect(md).toContain("## Page 3\n\nDistill with progressive summarization.");
-    expect(readFileSync(join(dir, BOOK))).toEqual(before);
-    expect((await vault.listRaw()).find(i => i.path === BOOK)!.note).toBe("3.Resources/0.Raw/Books/Second Brain.md");
-    expect((await vault.convertRaw(BOOK, true)).collisions).toEqual(["3.Resources/0.Raw/Books/Second Brain.md"]);
+    expect(readFileSync(join(dir, PDF))).toEqual(before);
+    expect((await vault.listRaw()).find(i => i.path === PDF)).toEqual({
+      path: PDF, kind: "Books", author: "Tiago Forte", work: "Building a Second Brain", note: NOTE, convertible: true,
+    });
+    const again = await vault.convertRaw(PDF, true);
+    expect(again).toMatchObject({ move: null, collisions: [NOTE], executed: false });
+  });
+
+  it("renames a PDF already in its work folder to e-book.pdf", async () => {
+    put(`${HOME}/Original name.pdf`, readFileSync(join(dir, BOOK)));
+    const r = await vault.convertRaw(`${HOME}/Original name.pdf`, false);
+    expect(r).toMatchObject({ move: { from: `${HOME}/Original name.pdf`, to: PDF }, to: NOTE, collisions: [] });
+  });
+
+  it("takes author and title overrides, and the author folder a PDF already sits in", async () => {
+    const r = await vault.convertRaw(BOOK, false, { author: "T. Forte", title: "BASB: notes?" });
+    expect(r.move!.to).toBe("3.Resources/0.Raw/Books/T. Forte/BASB- notes-/e-book.pdf");
+    put("3.Resources/0.Raw/Books/Someone/Other.pdf", makePdf(["text"], { Title: "Other Book" }));
+    expect((await vault.convertRaw("3.Resources/0.Raw/Books/Someone/Other.pdf", false)).move!.to).toBe("3.Resources/0.Raw/Books/Someone/Other Book/e-book.pdf");
+  });
+
+  it("asks for an author when the PDF names none, and refuses a move onto an existing file", async () => {
+    put("3.Resources/0.Raw/Books/Anon.pdf", makePdf(["text"]));
+    expect((await vault.convertRaw("3.Resources/0.Raw/Books/Anon.pdf", true)).errors.join()).toMatch(/names no author.*pass author/);
+    put(PDF, "already here");
+    const r = await vault.convertRaw(BOOK, true);
+    expect(r).toMatchObject({ executed: false, collisions: [PDF] });
+    expect(existsSync(join(dir, BOOK))).toBe(true);
   });
 
   it("makes the converted book a sparrable Resources note, raw and of its kind", async () => {
     await vault.convertRaw(BOOK, true);
-    const note = (await vault.notes()).find(n => n.path.endsWith("Second Brain.md"))!;
-    expect(note).toMatchObject({ bucket: "resources", raw: true, rawKind: "Books", convertedFrom: "Second Brain.pdf", title: "Building a Second Brain" });
+    const note = (await vault.notes()).find(n => n.path === NOTE)!;
+    expect(note).toMatchObject({ bucket: "resources", raw: true, rawKind: "Books", rawAuthor: "Tiago Forte", rawWork: "Building a Second Brain", convertedFrom: "e-book.pdf", title: "Building a Second Brain" });
     const s = await vault.recordSession({ tier: 1, items: [{ note: note.path, challenge: "c", answer: "a", verdict: "pass", next_review: "2026-11-01" }] }, true);
     expect(s.errors).toEqual([]);
   });
 
-  it("resolves wikilinks and markdown links to the PDF onto the converted note", async () => {
+  it("resolves path wikilinks, markdown links and the title alias onto the converted text", async () => {
     let graph = buildVaultGraph(await vault.notes());
-    expect(graph.unresolved.map(u => u.target)).toEqual(["Second Brain.pdf", "../0.Raw/Books/Second Brain.pdf"]);
+    expect(graph.unresolved.map(u => u.target)).toEqual(["Tiago Forte/Building a Second Brain/e-book.pdf", "Building a Second Brain", "../0.Raw/Books/Tiago Forte/Building a Second Brain/e-book.pdf"]);
     await vault.convertRaw(BOOK, true);
     graph = buildVaultGraph(await vault.notes());
-    expect(graph.edges.filter(e => e.source === "3.Resources/PKM/PARA.md").map(e => e.target)).toEqual(["3.Resources/0.Raw/Books/Second Brain.md"]);
+    expect(graph.edges.filter(e => e.source === "3.Resources/PKM/PARA.md").map(e => e.target)).toEqual([NOTE]);
     expect(graph.unresolved).toEqual([]);
     const notes = await vault.notes();
     const para = notes.find(n => n.path === "3.Resources/PKM/PARA.md")!;
     const resolver = noteResolver(notes);
-    expect(para.links.map(l => resolver.resolve(para.path, l))).toEqual(["3.Resources/0.Raw/Books/Second Brain.md", "3.Resources/0.Raw/Books/Second Brain.md"]);
-    expect(graph.nodes.find(n => n.id.endsWith("Second Brain.md"))!.raw).toBe(true);
+    expect(para.links.map(l => resolver.resolve(para.path, l))).toEqual([NOTE, NOTE, NOTE]);
+    expect(graph.nodes.find(n => n.id === NOTE)!.raw).toBe(true);
   });
 
   it("refuses non-PDFs, paths outside 0.Raw, missing files, and unreadable PDFs", async () => {
