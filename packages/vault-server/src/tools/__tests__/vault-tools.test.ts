@@ -26,9 +26,9 @@ const call = async (name: string, args: Record<string, unknown> = {}) => {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "vault-tools-"));
-  put("PARA/1.Projects/DevFest2026/Talk.md", "# Talk\n\nBuilds on [[Event loop]].\n");
-  put("PARA/3.Resources/TypeScript/Event loop.md", "---\ncoach_id: c-1\n---\nMicrotasks first. [[Gone]]\n");
-  put("PARA/3.Resources/TypeScript/Promises.md", "Promises resolve as microtasks, see [[Event loop]].\n");
+  put("1.Projects/DevFest2026/Talk.md", "# Talk\n\nBuilds on [[Event loop]].\n");
+  put("3.Resources/TypeScript/Event loop.md", "---\ncoach_id: c-1\n---\nMicrotasks first. [[Gone]]\n");
+  put("3.Resources/TypeScript/Promises.md", "Promises resolve as microtasks, see [[Event loop]].\n");
   put("Stray.md", "Outside PARA.\n");
   vault = createVault(dir);
 });
@@ -59,14 +59,14 @@ describe("list_notes", () => {
 
 describe("read_note", () => {
   it("returns body, frontmatter, location and resolved links", async () => {
-    const { data } = await call("read_note", { path: "PARA/3.Resources/TypeScript/Event loop.md" });
+    const { data } = await call("read_note", { path: "3.Resources/TypeScript/Event loop.md" });
     expect(data).toMatchObject({ title: "Event loop", bucket: "resources", coachId: "c-1", frontmatter: { coach_id: "c-1" } });
     expect(data.body).toContain("Microtasks first.");
     expect(data.links).toEqual([{ kind: "wikilink", target: "Gone", resolved: null }]);
   });
 
   it("errors on a missing note and on a path outside the vault", async () => {
-    expect((await call("read_note", { path: "PARA/0.Inbox/None.md" })).res.isError).toBe(true);
+    expect((await call("read_note", { path: "0.Inbox/None.md" })).res.isError).toBe(true);
     expect((await call("read_note", { path: "../../etc/hosts.md" })).res.isError).toBe(true);
   });
 });
@@ -74,9 +74,9 @@ describe("read_note", () => {
 describe("search", () => {
   it("finds notes and filters by bucket", async () => {
     const all = (await call("search", { query: "event loop" })).data;
-    expect(all[0].path).toBe("PARA/3.Resources/TypeScript/Event loop.md");
+    expect(all[0].path).toBe("3.Resources/TypeScript/Event loop.md");
     const projects = (await call("search", { query: "event loop", bucket: "projects" })).data;
-    expect(projects.map((h: { path: string }) => h.path)).toEqual(["PARA/1.Projects/DevFest2026/Talk.md"]);
+    expect(projects.map((h: { path: string }) => h.path)).toEqual(["1.Projects/DevFest2026/Talk.md"]);
   });
 });
 
@@ -85,10 +85,10 @@ describe("vault_graph", () => {
     const whole = (await call("vault_graph")).data;
     expect(whole.nodes).toHaveLength(4);
     expect(whole.edges).toHaveLength(2);
-    expect(whole.unresolved).toEqual([{ source: "PARA/3.Resources/TypeScript/Event loop.md", target: "Gone" }]);
+    expect(whole.unresolved).toEqual([{ source: "3.Resources/TypeScript/Event loop.md", target: "Gone" }]);
     const resources = (await call("vault_graph", { bucket: "resources" })).data;
     expect(resources.nodes).toHaveLength(2);
-    expect(resources.edges).toEqual([{ source: "PARA/3.Resources/TypeScript/Promises.md", target: "PARA/3.Resources/TypeScript/Event loop.md", kind: "wikilink" }]);
+    expect(resources.edges).toEqual([{ source: "3.Resources/TypeScript/Promises.md", target: "3.Resources/TypeScript/Event loop.md", kind: "wikilink" }]);
   });
 });
 
@@ -105,8 +105,8 @@ describe("vault server over MCP", () => {
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
-        "PARA/3.Resources/TypeScript/Event loop.md",
-        "PARA/3.Resources/TypeScript/Promises.md",
+        "3.Resources/TypeScript/Event loop.md",
+        "3.Resources/TypeScript/Promises.md",
       ]);
     } finally {
       await client.close();

@@ -1,9 +1,8 @@
 /**
- * PARA classification by path (ADR-KI-0058 Decision 3). Folder names are fixed; there
- * is no map. A note anywhere else is out of place and carries no bucket.
+ * PARA classification by path (ADR-KI-0058 Decision 3). The five folders sit at the
+ * vault root and their names are fixed; there is no map. A note anywhere else is out
+ * of place and carries no bucket.
  */
-
-export const PARA_ROOT = "PARA";
 
 export const PARA_FOLDERS = {
   inbox: "0.Inbox",
@@ -32,8 +31,7 @@ const BY_FOLDER = new Map<string, ParaBucket>(PARA_BUCKETS.map(b => [PARA_FOLDER
 /** Classify a vault-relative, forward-slash path. */
 export function classify(relPath: string): ParaLocation {
   const parts = relPath.split("/");
-  if (parts.length < 3 || parts[0] !== PARA_ROOT) return { bucket: null, container: null };
-  const bucket = BY_FOLDER.get(parts[1]) ?? null;
+  const bucket = parts.length > 1 ? BY_FOLDER.get(parts[0]) ?? null : null;
   if (!bucket) return { bucket: null, container: null };
-  return { bucket, container: parts.length > 3 ? parts[2] : null };
+  return { bucket, container: parts.length > 2 ? parts[1] : null };
 }
