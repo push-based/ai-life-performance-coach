@@ -19,4 +19,4 @@ export { histories, type Mastery, type NoteHistory, type HistoryEntry } from "./
 export { planSession, type RecordSessionInput, type SessionItemInput, type RecordPlan } from "./record.js";
 export { tier2Payload, PAYLOAD_ITEM_KEYS, type Tier2Payload } from "./payload.js";
 export { planInit, planCapture, planFileNote, planArchiveProject, safeName, OLD_NOTES, type FilingPlan, type FilingAction } from "./filing.js";
-export { listRaw, planConvert, extractPdf, renderConversion, pagesOf, RAW_ROOT, RAW_PDF, RAW_TEXT, type RawItem, type ConvertPlan, type ConvertOptions, type PdfText } from "./convert.js";
+export { listRaw, planConvert, planUnits, extractPdf, renderChapter, renderIndex, chapterFile, pagesOf, RAW_ROOT, RAW_PDF, RAW_TEXT, RAW_CHAPTERS, MAX_UNIT_CHARS, type RawItem, type ConvertPlan, type ConvertOptions, type PdfText, type OutlineEntry, type Unit, type UnitPlan } from "./convert.js";

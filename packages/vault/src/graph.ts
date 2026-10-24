@@ -42,7 +42,7 @@ export function noteResolver(notes: VaultNote[], rename?: { from: string; to: st
   const at = (p: string) => (rename && p === rename.from ? rename.to : p);
   return new LinkResolver(
     notes.map(n => at(n.path)),
-    notes.filter(n => n.convertedFrom).map(n => [at(n.path), posix.join(posix.dirname(at(n.path)), n.convertedFrom!)]),
+    notes.filter(n => n.convertedFrom).map(n => [at(n.path), posix.join(posix.dirname(at(n.path)), n.convertedFrom!), n.pageRange ?? undefined]),
     notes.flatMap(n => aliasesOf(n).map(a => [at(n.path), a] as [string, string])),
   );
 }
