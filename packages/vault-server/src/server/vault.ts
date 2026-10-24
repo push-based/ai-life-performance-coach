@@ -28,12 +28,13 @@ Every note lives under five fixed folders at the vault root: 0.Inbox, 1.Projects
 - 'vault_graph' — the link graph between notes, with each note's mastery
 - 'due_for_review' — Resources notes due for review, and those never sparred
 - 'record_session' — record a finished sparring session (preview first; execute: true writes)
-- 'tier2_payload' — the only data that may go to the judge tier: challenges and answers
+- 'tier2_payload' — the only data that may go to the judge tier: challenges and answers, plus concept notes' core assertions only with include_assertions: true
 - 'init_vault', 'capture', 'file_note', 'archive_project' — filing; each previews first and writes only with execute: true
 
 Show the user a filing preview before executing it: moves change where their notes live.
 
-- 'list_raw', 'convert_raw' — raw resources (whole books and articles) under 3.Resources/0.Raw; convert a PDF once, then read it by page range with read_note's pages
+- 'list_raw', 'convert_raw' — raw resources (whole books and articles) under 3.Resources/0.Raw; convert a PDF once, then read it by page range with read_note's pages. Raw resources are reference material and are never sparred
+- 'find_passages', 'create_concept' — find the pages of raw text a reading note came from, and write a concept note (the unit that is sparred) whose quotes are checked against that text; preview first, execute: true writes
 
 Only notes under 3.Resources are sparred, raw resources included. Sessions live in Coach/sessions/; a note's coach_id ties it to its sessions wherever it moves.
 

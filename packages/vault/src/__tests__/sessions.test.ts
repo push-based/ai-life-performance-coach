@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { insertCoachId, declaresCoachId } from "../identity.js";
 import { renderSession, parseSession, type SessionRecord } from "../sessions.js";
 import { histories } from "../mastery.js";
-import { tier2Payload, PAYLOAD_ITEM_KEYS } from "../payload.js";
+import { tier2Payload, PAYLOAD_ITEM_KEYS, PAYLOAD_OPTIONAL_KEYS } from "../payload.js";
 import { createVault, type Vault } from "../vault.js";
 import type { RecordSessionInput } from "../record.js";
 
@@ -218,6 +218,24 @@ describe("Phase 2 exit: the judge-tier payload leaks nothing but challenges and 
       expect(wire, secret).not.toContain(secret);
     }
     expect(await vault.tier2Payload("s-missing")).toBeNull();
+  });
+
+  it("adds core assertions only on request, for concept notes only, and still no body, buzzword or passage", async () => {
+    put("3.Resources/Concepts/Microtasks.md", [
+      "---", 'type: "concept"', "core_assertions:", '  - "Microtasks drain before the next macrotask."', "forbidden_buzzwords:", '  - "event loop"',
+      "source_passages:", '  - quote: "a planted passage quote"', '    note: "3.Resources/0.Raw/x.md"', "---", "", SENTINEL, "",
+    ].join("\n"));
+    const r = await vault.recordSession({ tier: 1, items: [item("3.Resources/Concepts/Microtasks.md"), item("3.Resources/LLM/Judge.md")] }, true);
+    const id = r.record!.session_id;
+
+    const plain = await vault.tier2Payload(id);
+    for (const it of plain!.items) expect(Object.keys(it)).toEqual([...PAYLOAD_ITEM_KEYS]);
+
+    const withAssertions = await vault.tier2Payload(id, { includeAssertions: true });
+    for (const it of withAssertions!.items) expect(Object.keys(it)).toEqual([...PAYLOAD_ITEM_KEYS, ...PAYLOAD_OPTIONAL_KEYS]);
+    expect(withAssertions!.items.map(i => i.core_assertions)).toEqual([["Microtasks drain before the next macrotask."], []]);
+    const wire = JSON.stringify(withAssertions);
+    for (const secret of [SENTINEL, "event loop", "a planted passage quote", "3.Resources", "c-test-"]) expect(wire, secret).not.toContain(secret);
   });
 
   it("is built from the allowlist even when a record carries extra fields", () => {

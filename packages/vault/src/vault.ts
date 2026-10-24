@@ -16,7 +16,7 @@ import { planSession, executeSession, localDate, type RecordPlan, type RecordSes
 import { tier2Payload, type Tier2Payload } from "./payload.js";
 import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan } from "./filing.js";
 import { listRaw, planConvert, executeConvert, type RawItem, type ConvertPlan, type ConvertOptions } from "./convert.js";
-import { planConcept, executeConcept, type ConceptInput, type ConceptPlan } from "./concept.js";
+import { planConcept, executeConcept, conceptOf, type ConceptInput, type ConceptPlan } from "./concept.js";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 
 export interface VaultOptions {
@@ -53,8 +53,11 @@ export interface Vault {
   /** Preview a session; with `execute`, write it and any new coach_ids. */
   recordSession(input: RecordSessionInput, execute: boolean): Promise<RecordPlan & { executed: boolean }>;
   dueForReview(today?: string): Promise<DueReport>;
-  /** The judge-tier payload for one session; null when no such session exists. */
-  tier2Payload(sessionId: string): Promise<Tier2Payload | null>;
+  /**
+   * The judge-tier payload for one session; null when no such session exists. With
+   * `includeAssertions`, each item also carries its concept note's core assertions.
+   */
+  tier2Payload(sessionId: string, opts?: { includeAssertions?: boolean }): Promise<Tier2Payload | null>;
   /** Filing (Phase 3): each previews, and with `execute` applies a clean plan. */
   initVault(execute: boolean): Promise<FilingResult>;
   capture(title: string, body: string, execute: boolean): Promise<FilingResult>;
@@ -149,10 +152,17 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
         invalidSessions,
       };
     },
-    async tier2Payload(sessionId) {
+    async tier2Payload(sessionId, opts) {
       const { sessions } = await loadSessions(root);
       const session = sessions.find(s => s.session_id === sessionId);
-      return session ? tier2Payload(session) : null;
+      if (!session) return null;
+      if (!opts?.includeAssertions) return tier2Payload(session);
+      const assertions = new Map<string, string[]>();
+      for (const n of await scanVault(root)) {
+        const concept = n.coachId ? conceptOf(n) : null;
+        if (concept) assertions.set(n.coachId!, concept.fields.coreAssertions);
+      }
+      return tier2Payload(session, assertions);
     },
     initVault: async execute => apply(root, await planInit(root), execute),
     capture: async (title, body, execute) => apply(root, planCapture(root, title, body), execute),
