@@ -14,29 +14,70 @@ import { COACH_ROOT, type ParaBucket } from "./para.js";
 import { buildVaultGraph } from "./graph.js";
 import type { Mastery } from "./mastery.js";
 import type { Vault } from "./vault.js";
+import type { VaultNote } from "./scan.js";
+import { RAW_TEXT } from "./convert.js";
 
 export const GRAPH_FILE = posix.join(COACH_ROOT, "graph.json");
 
 export interface VaultViewGraph {
   generatedAt: string;
   vaultName: string;
-  nodes: { id: string; title: string; bucket: ParaBucket | null; container: string | null; raw: boolean; mastery: Mastery; nextReview: string | null }[];
+  nodes: {
+    id: string;
+    title: string;
+    /** A short label for the graph; the full title stays in `title`. */
+    label: string;
+    bucket: ParaBucket | null;
+    container: string | null;
+    raw: boolean;
+    rawRole: "index" | "chapter" | null;
+    /** For a chapter, the id of its book's index, so the view can fold a book into one node. */
+    book: string | null;
+    /** For a book index, how many chapter notes it has. */
+    chapterCount: number | null;
+    mastery: Mastery;
+    nextReview: string | null;
+  }[];
   edges: { source: string; target: string; kind: "wikilink" | "markdown" }[];
   unresolved: number;
+}
+
+const LABEL_MAX = 28;
+const clip = (s: string) => (s.length > LABEL_MAX ? `${s.slice(0, LABEL_MAX - 1).trimEnd()}…` : s);
+
+/**
+ * A label short enough to read in a crowded graph. A chapter drops "Chapter N:" for its
+ * number and keeps the words before a dash or colon: "4. Capture (1/3)".
+ */
+export function shortLabel(note: Pick<VaultNote, "title" | "rawRole" | "frontmatter">): string {
+  if (note.rawRole !== "chapter") return clip(note.title);
+  const title = note.title.replace(/\s*\(\d+ of \d+\)$/, "");
+  const m = title.match(/^chapter\s+(\d+)\s*[:.\-–—]\s*(.*)$/i);
+  const name = (m ? m[2] : title).split(/\s*[:—–]\s*/)[0];
+  const section = typeof note.frontmatter.section === "string" ? note.frontmatter.section.match(/^(\d+) of (\d+)$/) : null;
+  const suffix = section ? ` (${section[1]}/${section[2]})` : "";
+  return clip(`${m ? `${m[1]}. ` : ""}${name}`) + suffix;
 }
 
 /** Build the view graph from the vault and write it to `Coach/graph.json`, replacing the previous one. */
 export async function writeViewGraph(vault: Vault, now: Date = new Date()): Promise<VaultViewGraph> {
   const { notes } = await vault.notesWithHistory();
   const history = new Map(notes.map(n => [n.path, n.history]));
+  const byPath = new Map(notes.map(n => [n.path, n]));
   const g = buildVaultGraph(notes);
   const graph: VaultViewGraph = {
     generatedAt: now.toISOString(),
     vaultName: posix.basename(vault.root.split("\\").join("/")),
-    nodes: g.nodes.map(n => ({
-      id: n.id, title: n.title, bucket: n.bucket, container: n.container, raw: n.raw,
-      mastery: history.get(n.id)!.mastery, nextReview: history.get(n.id)!.nextReview,
-    })),
+    nodes: g.nodes.map(n => {
+      const note = byPath.get(n.id)!;
+      const book = note.rawRole === "chapter" ? posix.join(posix.dirname(posix.dirname(n.id)), RAW_TEXT) : null;
+      return {
+        id: n.id, title: n.title, label: shortLabel(note), bucket: n.bucket, container: n.container, raw: n.raw,
+        rawRole: note.rawRole, book: book && byPath.has(book) ? book : null,
+        chapterCount: note.rawRole === "index" ? notes.filter(c => c.rawRole === "chapter" && posix.dirname(posix.dirname(c.path)) === posix.dirname(n.id)).length : null,
+        mastery: history.get(n.id)!.mastery, nextReview: history.get(n.id)!.nextReview,
+      };
+    }),
     edges: g.edges,
     unresolved: g.unresolved.length,
   };

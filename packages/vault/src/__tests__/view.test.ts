@@ -5,7 +5,7 @@ import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createVault, type Vault } from "../vault.js";
-import { createVaultViewServer, listenOnLoopback, writeViewGraph, GRAPH_FILE } from "../view.js";
+import { createVaultViewServer, listenOnLoopback, writeViewGraph, shortLabel, GRAPH_FILE } from "../view.js";
 
 let dir: string;
 let vault: Vault;
@@ -105,5 +105,29 @@ describe("view assets", () => {
     put(GRAPH_FILE, "stale");
     await writeViewGraph(vault, new Date("2026-10-24T00:00:00Z"));
     expect(JSON.parse(readFileSync(join(dir, GRAPH_FILE), "utf-8")).generatedAt).toBe("2026-10-24T00:00:00.000Z");
+  });
+});
+
+describe("graph labels and book folding", () => {
+  const chapter = (title: string, section?: string) => ({ title, rawRole: "chapter" as const, frontmatter: section ? { section } : {} });
+
+  it("shortens chapter titles to a number and their first words", () => {
+    expect(shortLabel(chapter("Chapter 4: Capture—Keep What Resonates (1 of 3)", "1 of 3"))).toBe("4. Capture (1/3)");
+    expect(shortLabel(chapter("Chapter 2: What Is a Second Brain? (2 of 2)", "2 of 2"))).toBe("2. What Is a Second Brain? (2/2)");
+    expect(shortLabel(chapter("Introduction: The Promise of a Second Brain"))).toBe("Introduction");
+    expect(shortLabel(chapter("Chapter 9: The Essential Habits of Digital Organizers (1 of 3)", "1 of 3"))).toBe("9. The Essential Habits of… (1/3)");
+    expect(shortLabel({ title: "A note with a rather long title that keeps going", rawRole: null, frontmatter: {} })).toBe("A note with a rather long t…");
+  });
+
+  it("ties each chapter to its book's index and counts a book's chapters", async () => {
+    const home = "3.Resources/0.Raw/Books/A/B";
+    put(`${home}/text.md`, "---\ntitle: \"B\"\nraw_role: \"index\"\n---\n# B\n");
+    put(`${home}/chapters/01 One.md`, "---\ntitle: \"Chapter 1: One\"\nraw_role: \"chapter\"\npages: \"1-2\"\n---\n");
+    put(`${home}/chapters/02 Two.md`, "---\ntitle: \"Chapter 2: Two (1 of 2)\"\nraw_role: \"chapter\"\nsection: \"1 of 2\"\npages: \"3-4\"\n---\n");
+    const graph = await writeViewGraph(vault);
+    const node = (id: string) => graph.nodes.find(n => n.id === id)!;
+    expect(node(`${home}/text.md`)).toMatchObject({ rawRole: "index", chapterCount: 2, book: null, label: "B" });
+    expect(node(`${home}/chapters/02 Two.md`)).toMatchObject({ rawRole: "chapter", book: `${home}/text.md`, label: "2. Two (1/2)" });
+    expect(node("3.Resources/TS/Promises.md")).toMatchObject({ rawRole: null, book: null, chapterCount: null });
   });
 });
