@@ -209,4 +209,79 @@ describe("archive_project", () => {
     expect((await vault.archiveProject("Nope", true)).errors.join()).toMatch(/no project folder/);
     expect((await vault.archiveProject("../2.Areas", true)).errors.join()).toMatch(/not a project folder name/);
   });
+
+  describe("keeping knowledge notes in Resources", () => {
+    beforeEach(() => {
+      put("3.Resources/0.Raw/Articles/Clipped.md", "# Clipped\n");
+      put("1.Projects/Talk/Plan.md", "Slides, rehearsal, travel.\n");
+      put("1.Projects/Talk/Idea.md", "---\ntype: \"concept\"\ncore_assertions: [\"x\"]\n---\nAn idea.\n");
+      put("1.Projects/Talk/Quoting.md", "From [[Clipped]].\n");
+      put("1.Projects/Talk/Sparred.md", "---\ncoach_id: c-9\n---\nKnown.\n");
+      put("1.Projects/Talk/Shared.md", "Used elsewhere.\n");
+      put("2.Areas/Health/Log.md", "See [[Shared]] and [[Plan]] and [[Shared]].\n");
+    });
+
+    it("suggests concept notes, sparred notes, notes citing raw material and notes linked from outside, with reasons", async () => {
+      const preview = await vault.archiveProject("Talk", false);
+      expect(preview.executed).toBe(false);
+      expect(preview.suggestions).toEqual([
+        { path: "1.Projects/Talk/Idea.md", to: "3.Resources/Concepts", reasons: ["a concept note"] },
+        { path: "1.Projects/Talk/Plan.md", to: "3.Resources/Talk", reasons: ["linked from 1 note outside the project"] },
+        { path: "1.Projects/Talk/Quoting.md", to: "3.Resources/Talk", reasons: ["cites raw material"] },
+        { path: "1.Projects/Talk/Shared.md", to: "3.Resources/Talk", reasons: ["linked from 1 note outside the project"] },
+        { path: "1.Projects/Talk/Sparred.md", to: "3.Resources/Talk", reasons: ["has sparring history"] },
+      ]);
+      // Without keep, the preview still archives the whole folder.
+      expect(preview.actions.at(-1)).toEqual({ op: "move", from: "1.Projects/Talk", to: "4.Archive/Talk" });
+    });
+
+    it("moves kept notes into Resources first, then archives the rest of the folder", async () => {
+      const done = await vault.archiveProject("Talk", true, { keep: [{ note: "1.Projects/Talk/Idea.md" }, { note: "1.Projects/Talk/Shared.md", to: "3.Resources/Health" }] });
+      expect(done.executed).toBe(true);
+      expect(done.actions).toEqual([
+        { op: "create", to: "3.Resources/Concepts" },
+        { op: "move", from: "1.Projects/Talk/Idea.md", to: "3.Resources/Concepts/Idea.md" },
+        { op: "create", to: "3.Resources/Health" },
+        { op: "move", from: "1.Projects/Talk/Shared.md", to: "3.Resources/Health/Shared.md" },
+        { op: "create", to: "4.Archive" },
+        { op: "move", from: "1.Projects/Talk", to: "4.Archive/Talk" },
+      ]);
+      expect(read("3.Resources/Concepts/Idea.md")).toContain("An idea.");
+      expect(has("3.Resources/Health/Shared.md")).toBe(true);
+      expect(read("4.Archive/Talk/Plan.md")).toBe("Slides, rehearsal, travel.\n");
+      expect(has("4.Archive/Talk/Idea.md")).toBe(false);
+    });
+
+    it("keeps every suggestion with keep_suggested, and removes a project folder left empty", async () => {
+      const r = await vault.archiveProject("Talk", true, { keepSuggested: true });
+      expect(r.actions.at(-1)).toEqual({ op: "remove_empty", from: "1.Projects/Talk" });
+      for (const p of ["3.Resources/Concepts/Idea.md", "3.Resources/Talk/Plan.md", "3.Resources/Talk/Quoting.md", "3.Resources/Talk/Shared.md", "3.Resources/Talk/Sparred.md"]) expect(has(p), p).toBe(true);
+      expect(has("4.Archive/Talk")).toBe(false);
+      expect(has("1.Projects/Talk")).toBe(false);
+    });
+
+    it("still archives what is left when only some notes are kept", async () => {
+      const r = await vault.archiveProject("Talk", false, { keep: [{ note: "1.Projects/Talk/Idea.md" }] });
+      expect(r.actions.at(-1)).toEqual({ op: "move", from: "1.Projects/Talk", to: "4.Archive/Talk" });
+    });
+
+    it("refuses a kept note outside the project, a target outside Resources or in raw, and an existing target", async () => {
+      put("3.Resources/Concepts/Idea.md", "mine");
+      const r = await vault.archiveProject("Talk", true, { keep: [
+        { note: "2.Areas/Health/Log.md" },
+        { note: "1.Projects/Talk/Plan.md", to: "2.Areas/Health" },
+        { note: "1.Projects/Talk/Shared.md", to: "3.Resources/0.Raw/Articles" },
+        { note: "1.Projects/Talk/Idea.md" },
+      ] });
+      expect(r.executed).toBe(false);
+      expect(r.errors).toEqual([
+        "keep: 2.Areas/Health/Log.md is not a note in 1.Projects/Talk",
+        "keep: 2.Areas/Health is not a folder under 3.Resources outside 0.Raw",
+        "keep: 3.Resources/0.Raw/Articles is not a folder under 3.Resources outside 0.Raw",
+      ]);
+      expect(r.collisions).toEqual(["3.Resources/Concepts/Idea.md"]);
+      expect(read("3.Resources/Concepts/Idea.md")).toBe("mine");
+      expect(has("1.Projects/Talk/Plan.md")).toBe(true);
+    });
+  });
 });

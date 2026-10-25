@@ -14,10 +14,10 @@ import { loadSessions, type InvalidSession, type SessionRecord } from "./session
 import { histories, historyOf, type NoteHistory } from "./mastery.js";
 import { planSession, executeSession, localDate, type RecordPlan, type RecordSessionInput } from "./record.js";
 import { tier2Payload, type Tier2Payload } from "./payload.js";
-import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan } from "./filing.js";
+import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan, type ArchiveOptions } from "./filing.js";
 import { listRaw, planConvert, executeConvert, type RawItem, type ConvertPlan, type ConvertOptions } from "./convert.js";
 import { planConcept, executeConcept, conceptOf, type ConceptInput, type ConceptPlan } from "./concept.js";
-import { bookProgress, planMarkRead, planSummary, executeWrite, type BookProgress, type WritePlan } from "./distill.js";
+import { bookProgress, citations, planMarkRead, planSummary, executeWrite, type BookProgress, type WritePlan } from "./distill.js";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 
 export interface VaultOptions {
@@ -63,9 +63,9 @@ export interface Vault {
   initVault(execute: boolean): Promise<FilingResult>;
   capture(title: string, body: string, execute: boolean): Promise<FilingResult>;
   fileNote(path: string, toFolder: string, execute: boolean): Promise<FilingResult>;
-  archiveProject(project: string, execute: boolean): Promise<FilingResult>;
+  archiveProject(project: string, execute: boolean, opts?: ArchiveOptions): Promise<FilingResult>;
   /** Raw resources (ADR-KI-0059): every file under 3.Resources/0.Raw, and one-time PDF conversion. */
-  listRaw(): Promise<RawItem[]>;
+  listRaw(): Promise<RawListing[]>;
   convertRaw(path: string, execute: boolean, opts?: ConvertOptions): Promise<Omit<ConvertPlan, "writes"> & { executed: boolean }>;
   /** Concept notes (ADR-KI-0060): page-level search over raw text, and writing a verified concept note. */
   findPassages(query: string, opts?: PassageSearchOptions): Promise<PassageHit[]>;
@@ -88,6 +88,12 @@ async function applyWrite(root: string, plan: WritePlan, execute: boolean): Prom
 }
 
 export type FilingResult = Omit<FilingPlan, "contents"> & { executed: boolean };
+
+/** A raw file with what was made from it (ADR-KI-0061): the user's notes and concept notes. */
+export interface RawListing extends RawItem {
+  notes: string[];
+  concepts: string[];
+}
 
 async function apply(root: string, plan: FilingPlan, execute: boolean): Promise<FilingResult> {
   const { contents: _contents, ...shown } = plan;
@@ -186,8 +192,12 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       const rel = notePathOf(root, path) ?? path;
       return apply(root, planFileNote(root, await scanVault(root), rel, toFolder), execute);
     },
-    archiveProject: async (project, execute) => apply(root, planArchiveProject(root, project), execute),
-    listRaw: async () => listRaw(root, await scanVault(root)),
+    archiveProject: async (project, execute, opts) => apply(root, planArchiveProject(root, project, await scanVault(root), opts), execute),
+    async listRaw() {
+      const notes = await scanVault(root);
+      const cited = citations(notes);
+      return (await listRaw(root, notes)).map(item => ({ ...item, ...(cited.get(item.note ?? "") ?? { notes: [], concepts: [] }) }));
+    },
     async convertRaw(path, execute, opts) {
       const plan = await planConvert(root, posix.normalize(path.split(sep).join("/").replace(/^\/+/, "")), localDate(now()), opts);
       const { writes: _writes, ...shown } = plan;

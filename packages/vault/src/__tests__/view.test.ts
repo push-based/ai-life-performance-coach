@@ -138,6 +138,19 @@ describe("graph labels and book folding", () => {
     expect((await writeViewGraph(vault)).nodes.find(n => n.id === "3.Resources/Concepts/Idea.md")).toMatchObject({ concept: true, label: "Idea" });
   });
 
+  it("counts the notes and concept notes made from each raw source", async () => {
+    const home = "3.Resources/0.Raw/Books/A/B";
+    put(`${home}/text.md`, "---\ntitle: \"B\"\naliases: [\"B\"]\nraw_role: \"index\"\n---\n# B\n");
+    put(`${home}/chapters/01 One.md`, "---\ntitle: \"Chapter 1: One\"\nraw_role: \"chapter\"\npages: \"1-2\"\n---\n");
+    put("0.Inbox/Reading B.md", "Notes on [[B]].\n");
+    put("3.Resources/Concepts/Idea.md", `---\ntype: "concept"\n---\nFrom [[${home}/chapters/01 One|ch 1]].\n`);
+    const graph = await writeViewGraph(vault);
+    const node = (id: string) => graph.nodes.find(n => n.id === id)!;
+    expect(node(`${home}/text.md`)).toMatchObject({ notesFrom: ["0.Inbox/Reading B.md"], conceptsFrom: ["3.Resources/Concepts/Idea.md"] });
+    expect(node(`${home}/chapters/01 One.md`)).toMatchObject({ notesFrom: null, conceptsFrom: null });
+    expect(node("3.Resources/TS/Promises.md")).toMatchObject({ notesFrom: null, conceptsFrom: null });
+  });
+
   it("ties each chapter to its book's index and counts a book's chapters", async () => {
     const home = "3.Resources/0.Raw/Books/A/B";
     put(`${home}/text.md`, "---\ntitle: \"B\"\nraw_role: \"index\"\n---\n# B\n");

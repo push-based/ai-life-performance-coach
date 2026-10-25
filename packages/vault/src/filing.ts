@@ -30,6 +30,22 @@ export interface FilingPlan {
   warnings: string[];
   /** Content for `write` actions, by target path. */
   contents?: Record<string, string>;
+  /** `archive_project` only: notes in the project that look worth keeping in Resources. */
+  suggestions?: KeepSuggestion[];
+}
+
+export interface KeepSuggestion {
+  path: string;
+  /** Where it would go: 3.Resources/Concepts for a concept note, else 3.Resources/<project>. */
+  to: string;
+  reasons: string[];
+}
+
+export interface ArchiveOptions {
+  /** Notes to move into Resources instead of the archive; `to` defaults to the suggested folder. */
+  keep?: { note: string; to?: string }[];
+  /** Keep every suggested note at its suggested folder. */
+  keepSuggested?: boolean;
 }
 
 const empty = (): FilingPlan => ({ actions: [], collisions: [], errors: [], warnings: [] });
@@ -181,8 +197,42 @@ export function planFileNote(root: string, notes: VaultNote[], path: string, toF
   return plan;
 }
 
-/** `archive_project`: move one project folder whole into `4.Archive/`. */
-export function planArchiveProject(root: string, project: string): FilingPlan {
+/**
+ * Notes in a finished project that are knowledge rather than project work (ADR-KI-0058
+ * Open Question 3): a concept note, a note with sparring history, one that cites raw
+ * material, or one that notes outside the project link to.
+ */
+export function keepSuggestions(notes: VaultNote[], project: string): KeepSuggestion[] {
+  const folder = posix.join(PARA_FOLDERS.projects, project);
+  const inside = (p: string) => p.startsWith(`${folder}/`);
+  const resolver = noteResolver(notes);
+  const byPath = new Map(notes.map(n => [n.path, n]));
+  const linkedFrom = new Map<string, Set<string>>();
+  for (const n of notes) {
+    if (inside(n.path)) continue;
+    for (const l of n.links) {
+      const t = resolver.resolve(n.path, l);
+      if (t && inside(t)) linkedFrom.set(t, (linkedFrom.get(t) ?? new Set()).add(n.path));
+    }
+  }
+  const out: KeepSuggestion[] = [];
+  for (const n of notes.filter(x => inside(x.path))) {
+    const reasons: string[] = [];
+    if (n.concept) reasons.push("a concept note");
+    if (n.coachId) reasons.push("has sparring history");
+    if (n.links.some(l => { const t = resolver.resolve(n.path, l); return !!t && !!byPath.get(t)?.raw; })) reasons.push("cites raw material");
+    const outside = linkedFrom.get(n.path)?.size ?? 0;
+    if (outside) reasons.push(`linked from ${outside} note${outside === 1 ? "" : "s"} outside the project`);
+    if (reasons.length) out.push({ path: n.path, to: n.concept ? posix.join(PARA_FOLDERS.resources, "Concepts") : posix.join(PARA_FOLDERS.resources, project), reasons });
+  }
+  return out;
+}
+
+/**
+ * `archive_project`: move one project folder whole into `4.Archive/`. The preview
+ * suggests notes worth keeping; any kept note moves into Resources first.
+ */
+export function planArchiveProject(root: string, project: string, notes: VaultNote[] = [], opts: ArchiveOptions = {}): FilingPlan {
   const plan = empty();
   if (!project || project.includes("/") || project.includes("\\") || isHidden(project) || project === "..") {
     plan.errors.push(`${project} is not a project folder name`);
@@ -192,10 +242,41 @@ export function planArchiveProject(root: string, project: string): FilingPlan {
   const abs = join(root, from);
   if (!existsSync(abs) || !statSync(abs).isDirectory()) { plan.errors.push(`no project folder ${from}`); return plan; }
   const to = posix.join(PARA_FOLDERS.archive, project);
+  const suggestions = keepSuggestions(notes, project);
+  plan.suggestions = suggestions;
+  const suggested = new Map(suggestions.map(s => [s.path, s.to]));
+  const keep = [...(opts.keepSuggested ? suggestions.map(s => ({ note: s.path, to: s.to })) : []), ...(opts.keep ?? [])];
+  const seen = new Set<string>(), created = new Set<string>(), targets = new Set<string>(), kept = new Set<string>();
+  for (const k of keep) {
+    if (seen.has(k.note)) continue;
+    seen.add(k.note);
+    if (!k.note.startsWith(`${from}/`) || !notes.some(n => n.path === k.note)) { plan.errors.push(`keep: ${k.note} is not a note in ${from}`); continue; }
+    const dest = posix.normalize((k.to ?? suggested.get(k.note) ?? posix.join(PARA_FOLDERS.resources, project)).replace(/\\/g, "/")).replace(/^\/+|\/+$/g, "");
+    const at = classify(`${dest}/x.md`);
+    if (dest.split("/").some(p => p === ".." || isHidden(p)) || at.bucket !== "resources" || at.raw) { plan.errors.push(`keep: ${dest} is not a folder under 3.Resources outside 0.Raw`); continue; }
+    const target = posix.join(dest, posix.basename(k.note));
+    if (!existsSync(join(root, dest)) && !created.has(dest)) { plan.actions.push({ op: "create", to: dest }); created.add(dest); }
+    if (existsSync(join(root, target)) || targets.has(target)) plan.collisions.push(target);
+    else { plan.actions.push({ op: "move", from: k.note, to: target }); targets.add(target); kept.add(k.note); }
+    const broken = brokenByMove(notes, k.note, target);
+    if (broken.length) plan.warnings.push(`relative markdown links that will no longer resolve: ${broken.join("; ")}`);
+  }
+  // Every file kept: nothing is left to archive, so the empty project folder goes.
+  if (kept.size && filesUnder(abs).every(f => kept.has(posix.join(from, f)))) {
+    plan.actions.push({ op: "remove_empty", from });
+    return plan;
+  }
   if (!existsSync(join(root, PARA_FOLDERS.archive))) plan.actions.push({ op: "create", to: PARA_FOLDERS.archive });
   if (existsSync(join(root, to))) plan.collisions.push(to);
   else plan.actions.push({ op: "move", from, to });
   return plan;
+}
+
+/** Files under a folder, relative to it, ignoring dot-files. */
+function filesUnder(abs: string, rel = ""): string[] {
+  let entries;
+  try { entries = readdirSync(join(abs, rel), { withFileTypes: true }); } catch { return []; }
+  return entries.filter(e => !isHidden(e.name)).flatMap(e => (e.isDirectory() ? filesUnder(abs, posix.join(rel, e.name)) : [posix.join(rel, e.name)]));
 }
 
 /** Move a file without ever replacing one: link fails if the target exists. */
