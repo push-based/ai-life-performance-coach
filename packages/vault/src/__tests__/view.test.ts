@@ -18,17 +18,20 @@ function put(rel: string, content: string): void {
   writeFileSync(abs, content);
 }
 
-function get(path: string, method = "GET"): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
+function get(path: string, method = "GET", headers: Record<string, string> = {}, payload?: string): Promise<{ status: number; headers: Record<string, string | string[] | undefined>; body: string }> {
   return new Promise((resolve, reject) => {
-    const req = request(new URL(path, base), { method }, res => {
+    const req = request(new URL(path, base), { method, headers }, res => {
       let body = "";
       res.on("data", c => (body += c));
       res.on("end", () => resolve({ status: res.statusCode!, headers: res.headers, body }));
     });
     req.on("error", reject);
-    req.end();
+    req.end(payload);
   });
 }
+const TOKEN = "test-token";
+const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
+  get(path, "POST", { "content-type": "application/json", "x-vault-token": TOKEN, ...headers }, JSON.stringify(body));
 
 beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), "vault-view-"));
@@ -37,7 +40,7 @@ beforeEach(async () => {
   put("4.Archive/old notes/Old.md", "Old.\n");
   vault = createVault(dir);
   await vault.recordSession({ tier: 1, items: [{ note: "3.Resources/TS/Event loop.md", challenge: "c", answer: "a", verdict: "pass", next_review: "2026-11-01" }] }, true);
-  server = createVaultViewServer(vault);
+  server = createVaultViewServer(vault, { token: TOKEN });
   base = await listenOnLoopback(server, 0);
 });
 afterEach(async () => {
@@ -92,11 +95,66 @@ describe("vault view server", () => {
     const res = await q(ch, 4);
     expect(res.status).toBe(200);
     expect(res.headers["content-security-policy"]).toMatch(/default-src 'none'/);
-    expect(JSON.parse(res.body)).toEqual({ note: ch, title: "Chapter 1: One", page: 4, text: "> [!summary]\n> Mine.\n\nThe **author's** ==text==." });
+    expect(JSON.parse(res.body)).toEqual({ note: ch, title: "Chapter 1: One", page: 4, text: "> [!summary]\n> Mine.\n\nThe **author's** ==text==.", chapterSummary: null });
     for (const [note, page] of [[ch, 6], [ch, "x"], [ch, 0], ["3.Resources/TS/Event loop.md", 1], ["../../etc/passwd", 1], ["Coach/graph.json", 1]] as const) {
       expect((await q(note, page)).status, `${note} ${page}`).toBe(404);
     }
     expect((await get("/page.json")).status).toBe(404);
+  });
+
+  describe("editing a chapter from the page", () => {
+    const ch = "3.Resources/0.Raw/Books/A/B/chapters/01 One.md";
+    const content = '---\ntitle: "Chapter 1: One"\nraw_role: "chapter"\npages: "4-5"\n---\n# One\n\n## Page 4\n\nKeep what resonates with you.\nCapture less.\n\n## Page 5\n\nNext page.\n';
+    beforeEach(() => put(ch, content));
+    const file = () => readFileSync(join(dir, ch), "utf-8");
+
+    it("embeds the write token in the page it serves", async () => {
+      expect((await get("/")).body).toContain(`<meta name="vault-token" content="${TOKEN}">`);
+    });
+
+    it("bolds and highlights a selected range, writing the chapter note", async () => {
+      const base = "Keep what resonates with you.\nCapture less.";
+      const bold = await post("/api/mark", { note: ch, page: 4, start: 5, end: 28, mark: "bold", base });
+      expect(bold.status).toBe(200);
+      expect(JSON.parse(bold.body).text).toBe("Keep **what resonates with you**.\nCapture less.");
+      const high = await post("/api/mark", { note: ch, page: 4, start: 12, end: 21, mark: "highlight", base: "Keep **what resonates with you**.\nCapture less." });
+      expect(JSON.parse(high.body).text).toBe("Keep **what ==resonates== with you**.\nCapture less.");
+      expect(file()).toContain("## Page 4\n\nKeep **what ==resonates== with you**.\nCapture less.\n\n## Page 5\n\nNext page.\n");
+    });
+
+    it("refuses a stale page with the current text, so the editor can show it again", async () => {
+      const r = await post("/api/mark", { note: ch, page: 4, start: 0, end: 4, mark: "bold", base: "something older" });
+      expect(r.status).toBe(409);
+      expect(JSON.parse(r.body).text).toBe("Keep what resonates with you.\nCapture less.");
+      expect(file()).toBe(content);
+    });
+
+    it("sets, replaces and removes page and chapter summaries", async () => {
+      expect((await post("/api/summary", { note: ch, page: 4, text: "Mine." })).status).toBe(200);
+      expect((await post("/api/summary", { note: ch, page: 4, text: "Mine, better." })).status).toBe(200);
+      expect((await post("/api/summary", { note: ch, page: null, text: "The chapter." })).status).toBe(200);
+      expect(file()).toBe(content
+        .replace("# One\n\n## Page 4\n\n", "# One\n\n> [!summary]\n> The chapter.\n\n## Page 4\n\n> [!summary]\n> Mine, better.\n\n"));
+      const page = JSON.parse((await get(`/page.json?note=${encodeURIComponent(ch)}&page=4`)).body);
+      expect(page).toMatchObject({ chapterSummary: "The chapter.", text: "> [!summary]\n> Mine, better.\n\nKeep what resonates with you.\nCapture less." });
+      expect((await post("/api/summary", { note: ch, page: 4, text: "" })).status).toBe(200);
+      expect((await post("/api/summary", { note: ch, page: null, text: "" })).status).toBe(200);
+      expect(file()).toBe(content);
+    });
+
+    it("refuses writes without the token, from another origin, to another host, and to notes that are not chapters", async () => {
+      const ok = { note: ch, page: 4, start: 0, end: 4, mark: "bold", base: "Keep what resonates with you.\nCapture less." };
+      expect((await post("/api/mark", ok, { "x-vault-token": "wrong" })).status).toBe(403);
+      expect((await get("/api/mark", "POST", { "content-type": "application/json" }, JSON.stringify(ok))).status).toBe(403);
+      expect((await post("/api/mark", ok, { origin: "http://evil.example" })).status).toBe(403);
+      expect((await post("/api/mark", ok, { host: "evil.example" })).status).toBe(403);
+      expect((await get("/graph.json", "GET", { host: "rebound.example:4747" })).status).toBe(403);
+      expect((await post("/api/mark", ok, { "content-type": "text/plain" })).status).toBe(415);
+      expect((await post("/api/mark", { ...ok, note: "3.Resources/TS/Promises.md" })).status).toBe(404);
+      expect((await post("/api/summary", { note: "3.Resources/TS/Promises.md", page: null, text: "x" })).status).toBe(404);
+      expect(file()).toBe(content);
+      expect(readFileSync(join(dir, "3.Resources/TS/Promises.md"), "utf-8")).toBe("Promises.\n");
+    });
   });
 
   it("regenerates the graph on every load", async () => {

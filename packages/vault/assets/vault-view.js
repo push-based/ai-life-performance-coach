@@ -38,6 +38,7 @@
     graph: null, nodes: [], byId: new Map(), chaptersOf: new Map(), links: [], adj: new Map(),
     view: { x: 0, y: 0, k: 1 }, hidden: new Set(["archive"]), hiddenMastery: new Set(), hiddenKinds: new Set(),
     expanded: new Set(), openChapters: new Set(), query: "", selected: null, root: null, intro: false, instant: false,
+    pages: new Map(), focus: null,
   };
 
   const label = (list, key) => (list.find(([k]) => k === key) || [key, key])[1];
@@ -99,7 +100,8 @@
   const ICONS = {
     obsidian: "M14 3h7v7|M10 14 21 3|M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5",
     open: "M2 5.5A1.5 1.5 0 0 1 3.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H3.5A1.5 1.5 0 0 1 2 16z|M22 5.5A1.5 1.5 0 0 0 20.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5h6a1.5 1.5 0 0 0 1.5-1.5z",
-    prev: "m15 18-6-6 6-6", next: "m9 18 6-6-6-6", up: "m18 15-6-6-6 6",
+    prev: "m15 18-6-6 6-6", next: "m9 18 6-6-6-6", up: "m18 15-6-6-6 6", close: "M18 6 6 18|M6 6l12 12",
+    expand: "M15 3h6v6|M9 21H3v-6|M21 3l-7 7|M3 21l7-7",
     moon: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z",
     sun: "M12 3v2|M12 19v2|M5 5l1.4 1.4|M17.6 17.6 19 19|M3 12h2|M19 12h2|M5 19l1.4-1.4|M17.6 6.4 19 5|M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z",
   };
@@ -502,11 +504,8 @@
     state.selected = n;
     const d = $("detail");
     d.textContent = "";
-    if (!n) d.append(...overview());
-    else if (n.chapter) d.append(...pagePanel(n));
-    else if (n.rawRole === "index") d.append(...bookPanel(n));
-    else if (n.distill) d.append(...chapterPanel(n));
-    else d.append(...notePanel(n));
+    const parts = !n ? overview() : n.chapter ? pagePanel(n) : n.rawRole === "index" ? bookPanel(n) : n.distill ? chapterPanel(n) : notePanel(n);
+    d.append(...parts.filter(Boolean));
     d.scrollTop = 0;
     render();
   }
@@ -616,6 +615,16 @@
     ];
   }
 
+  /** The chapter summary editor, its text read through the chapter's first page. */
+  function chapterSummaryCard(ch) {
+    const host = h("div", {}, h("div", { class: "skeleton", style: { width: "70%" } }));
+    loadPage(ch, ch.distill.pages[0].page).then(data => host.replaceChildren(summaryEditor({
+      title: "Chapter summary", hint: "The whole chapter in your own words. Writing it completes the chapter.",
+      value: data.chapterSummary, empty: "Write the chapter summary to complete it", onSave: t => saveChapterSummary(ch, t),
+    }))).catch(() => host.replaceChildren());
+    return host;
+  }
+
   function chapterPanel(ch) {
     const d = ch.distill, text = d.pages.filter(p => !p.empty);
     const book = state.byId.get(ch.book);
@@ -632,10 +641,12 @@
         h("h2", { textContent: ch.title }),
         book ? h("button", { type: "button", class: "btn", style: { height: "28px", marginTop: "6px" }, onclick: () => reveal(book) }, icon(ICONS.up), book.title) : null,
         h("div", { class: "actions" },
-          button(state.openChapters.has(ch.id) ? "Hide pages" : "Show pages", () => { togglePages(ch); select(ch); }, { primary: true, icon: "open" }),
+          d.pages.length ? button("Edit mode", () => openFocus(ch, d.pages[0].page), { primary: true, icon: "expand", title: "Read and distil in the middle of the screen (E)" }) : null,
+          button(state.openChapters.has(ch.id) ? "Hide pages" : "Show pages", () => { togglePages(ch); select(ch); }, { icon: "open" }),
           link("Obsidian", obsidian(ch.id.replace(/\.md$/, ""))),
         ),
       ),
+      d.pages.length ? card(chapterSummaryCard(ch)) : null,
       card(
         h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" } },
           h("h3", { textContent: "Pages", style: { margin: 0 } }),
@@ -650,38 +661,6 @@
         ])),
       ),
     ];
-  }
-
-  function pagePanel(p) {
-    const c = p.chapter, pages = c.distill.pages, i = pages.findIndex(x => x.page === p.page);
-    const chapters = state.chaptersOf.get(c.book) || [];
-    const ci = chapters.indexOf(c);
-    const hasPrev = i > 0 || ci > 0, hasNext = i < pages.length - 1 || ci < chapters.length - 1;
-    const reader = h("div", { class: "reader" }, [100, 92, 96, 70, 98, 88, 60].map(w => h("div", { class: "skeleton", style: { width: `${w}%` } })));
-    const pager = h("div", { class: "pager" },
-      h("button", { type: "button", class: "btn", disabled: !hasPrev, onclick: () => stepPage(-1), title: "Previous page (←)" }, icon(ICONS.prev), "Prev"),
-      h("span", { class: "muted", style: { fontSize: "12.5px" }, textContent: `Page ${i + 1} of ${pages.length} in this chapter` }),
-      h("button", { type: "button", class: "btn", disabled: !hasNext, onclick: () => stepPage(1), title: "Next page (→)" }, "Next", icon(ICONS.next)));
-    const out = [
-      card(
-        eyebrow(`Page ${p.page}`, p.empty ? "var(--faint)" : MARK_FILL[p.mark]),
-        h("h2", { textContent: c.title }),
-        h("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "10px" } },
-          pill(p.empty ? "No text" : label(MARKS, p.mark), p.empty ? "var(--muted)" : MARK_FILL[p.mark]),
-          p.summary ? pill("Page summary", "var(--complete)") : null),
-        h("div", { class: "actions" },
-          h("button", { type: "button", class: "btn", onclick: () => reveal(c) }, icon(ICONS.up), "Chapter"),
-          link("Edit in Obsidian", obsidian(`${c.id.replace(/\.md$/, "")}#Page ${p.page}`))),
-      ),
-      card(pager),
-      card(reader),
-      card(h("p", { class: "muted", style: { margin: 0, fontSize: "12.5px" }, textContent: "Bold what matters with **…**, highlight the best of it with ==…==, and write the chapter summary to complete the chapter." })),
-    ];
-    fetch(`page.json?note=${encodeURIComponent(c.id)}&page=${p.page}`, { cache: "no-store" })
-      .then(res => (res.ok ? res.json() : Promise.reject(res.status)))
-      .then(page => { if (state.selected === p) reader.replaceChildren(...pageText(page.text)); })
-      .catch(() => { if (state.selected === p) reader.replaceChildren(h("p", { class: "muted", textContent: "Could not load the page." })); });
-    return out;
   }
 
   function notePanel(n) {
@@ -710,57 +689,353 @@
     ].filter(Boolean);
   }
 
+  /* ── Reading and distilling a page (ADR-KI-0061 Decision 10) ────────────── */
+
+  const TOKEN = (document.querySelector('meta[name="vault-token"]') || {}).content || "";
+  const keyOf = (c, page) => `${c.id}#${page}`;
+
+  /** Ask the server for one page, cached until it is edited or the vault is reloaded. */
+  async function loadPage(c, page) {
+    const key = keyOf(c, page);
+    if (state.pages.has(key)) return state.pages.get(key);
+    const res = await fetch(`page.json?note=${encodeURIComponent(c.id)}&page=${page}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    state.pages.set(key, data);
+    return data;
+  }
+
+  /** A write to the vault from this page. The token proves the request comes from it. */
+  async function api(path, body) {
+    const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json", "x-vault-token": TOKEN }, body: JSON.stringify(body) });
+    let data = {};
+    try { data = await res.json(); } catch { /* not JSON */ }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  function toast(text, kind) {
+    const t = h("div", { class: `toast${kind ? " " + kind : ""}`, textContent: text, role: "status" });
+    document.body.append(t);
+    requestAnimationFrame(() => t.classList.add("in"));
+    setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 300); }, 2600);
+  }
+
+  /** The page's own summary callout, split from the rest of its text. */
+  function splitSummary(text) {
+    const m = /^>[ \t]*\[!summary\][^\n]*(?:\n>[^\n]*)*/im.exec(text);
+    if (!m) return { summary: null };
+    const lines = m[0].split("\n");
+    const body = [lines[0].replace(/^>[ \t]*\[!summary\][-+]?/i, ""), ...lines.slice(1).map(l => l.replace(/^>[ \t]?/, ""))].join("\n").trim();
+    return { summary: body || null };
+  }
+
   /**
-   * A page's markdown as DOM, built from text nodes only: paragraphs (the PDF's hard line
-   * breaks joined), **bold** as <strong>, ==highlight== as <mark>, and a summary callout
-   * as a box. Nothing from the page is parsed as HTML.
+   * A page as DOM in which every character knows where it sits in the page's markdown, so
+   * a selection maps back to an exact range for the server to mark. Built from text nodes
+   * only; nothing is parsed as HTML. The parse mirrors the server's: `**`/`__` toggle
+   * bold and `==` highlight within a paragraph, a leading `\` is the conversion's escape,
+   * and summary callouts are left out (they have their own editor).
    */
-  function pageText(md) {
+  function renderPage(text) {
+    const lines = [];
+    let at = 0;
+    for (const line of text.split("\n")) { lines.push({ text: line, src: at }); at += line.length + 1; }
+    const blocks = [];
+    let cur = [];
+    for (const l of lines) {
+      if (!l.text.trim() || /^>/.test(l.text)) { if (cur.length) blocks.push(cur); cur = []; continue; }
+      cur.push(l);
+    }
+    if (cur.length) blocks.push(cur);
+
     const out = [];
-    for (const block of md.split(/\n[ \t]*\n/)) {
-      const lines = block.split("\n").filter(l => l.trim());
-      if (!lines.length) continue;
-      if (/^>\s*\[!summary\]/i.test(lines[0])) {
-        const text = [lines[0].replace(/^>\s*\[!summary\][-+]?/i, ""), ...lines.slice(1).map(l => l.replace(/^>\s?/, ""))].join(" ").trim();
-        out.push(h("div", { class: "summary-box" }, h("b", { textContent: "My summary" }), ...inline(text)));
-        continue;
-      }
-      if (lines.length === 1 && lines[0].trim() === "_(no text on this page)_") { out.push(h("p", { class: "muted", textContent: "No text on this page." })); continue; }
+    for (const block of blocks) {
+      if (block.length === 1 && block[0].text.trim() === "_(no text on this page)_") { out.push(h("p", { class: "muted", textContent: "No text on this page." })); continue; }
+      let b = false, hl = false;
+      const segs = block.map(l => {
+        const list = [];
+        let i = l.text.startsWith("\\") ? 1 : 0, start = i, buf = "";
+        const flush = () => { if (buf) list.push({ text: buf, src: l.src + start, b, h: hl }); buf = ""; };
+        while (i < l.text.length) {
+          const two = l.text.slice(i, i + 2);
+          if (two === "**" || two === "__" || two === "==") { flush(); if (two === "==") hl = !hl; else b = !b; i += 2; start = i; continue; }
+          buf += l.text[i]; i++;
+        }
+        flush();
+        return { raw: l.text.replace(/^\\/, "").replace(/\*\*|__|==/g, ""), list };
+      });
       // The PDF gives no blank lines between paragraphs, so a line well short of the
       // page's full width ends one when it ends a sentence or reads as a Title Case heading.
-      const full = Math.max(...lines.map(l => l.length));
+      const full = Math.max(...segs.map(s => s.raw.length));
       const heading = l => {
         const words = l.split(/\s+/).filter(w => /\p{L}/u.test(w));
         return words.length > 0 && !/[.,;:!?]["”’)]?$/.test(l) && words.filter(w => /^\p{Lu}/u.test(w) || w.length <= 3).length / words.length >= 0.8;
       };
+      const span = s => h("span", { class: `${s.b ? "mk-b" : ""}${s.h ? " mk-h" : ""}`.trim(), "data-s": String(s.src) }, s.text);
       let para = [];
-      const flush = () => { if (para.length) out.push(h("p", {}, ...inline(para.join(" ")))); para = []; };
-      for (const raw of lines) {
-        const line = raw.replace(/^\\/, "");
-        const short = line.length < full * 0.7;
-        if (short && heading(line)) { flush(); out.push(h("div", { class: "head" }, ...inline(line))); continue; }
-        para.push(line);
-        if (short && /[.!?:]["”’)]?$/.test(line)) flush();
+      const flushPara = () => { if (para.length) out.push(h("p", {}, para)); para = []; };
+      for (const s of segs) {
+        const short = s.raw.length < full * 0.7;
+        if (short && heading(s.raw)) { flushPara(); out.push(h("div", { class: "head" }, s.list.map(span))); continue; }
+        if (para.length) para.push(document.createTextNode(" "));
+        para.push(...s.list.map(span));
+        if (short && /[.!?:]["”’)]?$/.test(s.raw)) flushPara();
       }
-      flush();
+      flushPara();
     }
     return out.length ? out : [h("p", { class: "muted", textContent: "No text on this page." })];
   }
 
-  /** Split on ** / __ / == markers, toggling bold and highlight. */
-  function inline(text) {
-    const nodes = [];
-    let bold = false, high = false;
-    for (const part of text.split(/(\*\*|__|==)/)) {
-      if (part === "**" || part === "__") { bold = !bold; continue; }
-      if (part === "==") { high = !high; continue; }
-      if (!part) continue;
-      let node = document.createTextNode(part);
-      if (high) node = h("mark", {}, node);
-      if (bold) node = h("strong", {}, node);
-      nodes.push(node);
+  /** The selection inside `root` as a [start, end) range of the page's markdown, or null. */
+  function selectionRange(root) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    if (!root.contains(range.commonAncestorContainer)) return null;
+    const spans = [...root.querySelectorAll("span[data-s]")].filter(s => range.intersectsNode(s));
+    if (!spans.length) return null;
+    const first = spans[0], last = spans[spans.length - 1];
+    const start = Number(first.dataset.s) + (first.contains(range.startContainer) ? range.startOffset : 0);
+    const end = Number(last.dataset.s) + (last.contains(range.endContainer) ? range.endOffset : last.textContent.length);
+    return end > start ? { start, end, rect: range.getBoundingClientRect() } : null;
+  }
+
+  /* One floating toolbar serves every editor on screen. */
+  const toolbar = h("div", { class: "marker glass", role: "toolbar", "aria-label": "Mark the selection" });
+  let toolbarTarget = null;
+  for (const [op, name, key] of [["bold", "Bold", "B"], ["highlight", "Highlight", "H"], ["clear", "Clear", "X"]]) {
+    toolbar.append(h("button", { type: "button", class: `mk-btn ${op}`, title: `${name} (${key})`, onmousedown: ev => ev.preventDefault(), onclick: () => markSelection(op) },
+      h("i"), h("span", { textContent: name }), h("kbd", { textContent: key })));
+  }
+  document.body.append(toolbar);
+
+  function placeToolbar() {
+    const editors = [...document.querySelectorAll(".reader[data-note]")];
+    for (const ed of editors) {
+      const r = selectionRange(ed);
+      if (!r) continue;
+      toolbarTarget = ed;
+      toolbar.classList.add("on");
+      const w = toolbar.offsetWidth || 260;
+      toolbar.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, r.rect.left + r.rect.width / 2 - w / 2))}px`;
+      toolbar.style.top = `${Math.max(8, r.rect.top - 52)}px`;
+      return;
     }
-    return nodes;
+    toolbarTarget = null;
+    toolbar.classList.remove("on");
+  }
+  document.addEventListener("selectionchange", () => requestAnimationFrame(placeToolbar));
+  window.addEventListener("scroll", placeToolbar, true);
+
+  async function markSelection(op) {
+    const ed = toolbarTarget;
+    const r = ed && selectionRange(ed);
+    if (!r) return;
+    const c = state.byId.get(ed.dataset.note), page = Number(ed.dataset.page);
+    const data = state.pages.get(keyOf(c, page));
+    if (!c || !data) return;
+    window.getSelection().removeAllRanges();
+    const res = await api("api/mark", { note: c.id, page, start: r.start, end: r.end, mark: op, base: data.text });
+    if (res.ok) { data.text = res.data.text; toast(op === "clear" ? "Marks cleared" : op === "bold" ? "Bolded" : "Highlighted", op); }
+    else if (res.status === 409 && res.data.text !== undefined) { data.text = res.data.text; toast("The page changed in Obsidian — showing the latest", "warn"); }
+    else { toast(res.data.error || `Could not save (${res.status})`, "warn"); return; }
+    await refreshData();
+  }
+
+  /** An editable summary: shown as a box, edited in place, removed by saving it empty. */
+  function summaryEditor({ title, hint, value, empty, onSave }) {
+    const wrap = h("div", { class: "summary-edit" });
+    const show = () => {
+      wrap.replaceChildren(value
+        ? h("div", { class: "summary-box" }, h("b", { textContent: title }), h("div", { class: "summary-text", textContent: value }),
+          h("button", { type: "button", class: "link-btn", onclick: edit, textContent: "Edit" }))
+        : h("button", { type: "button", class: "add-summary", onclick: edit }, h("span", { textContent: "+" }), empty));
+    };
+    const edit = () => {
+      const area = h("textarea", { value: value || "", rows: 4, placeholder: hint });
+      const save = async text => {
+        busy(true);
+        const ok = await onSave(text);
+        busy(false);
+        if (ok) { value = text.trim() || null; show(); }
+      };
+      const buttons = [
+        button("Save", () => save(area.value), { primary: true }),
+        button("Cancel", show),
+        value ? button("Remove", () => save("")) : null,
+      ];
+      const busy = on => { area.disabled = on; for (const b of buttons) if (b) b.disabled = on; };
+      area.addEventListener("keydown", ev => {
+        if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); save(area.value); }
+        if (ev.key === "Escape") { ev.stopPropagation(); show(); }
+      });
+      wrap.replaceChildren(h("div", { class: "summary-box editing" }, h("b", { textContent: title }), area,
+        h("div", { class: "actions", style: { marginTop: "10px" } }, buttons), h("small", { class: "muted", textContent: "⌘↵ to save · Esc to cancel" })));
+      area.focus();
+    };
+    show();
+    return wrap;
+  }
+
+  async function savePageSummary(c, page, text) {
+    const data = state.pages.get(keyOf(c, page));
+    const res = await api("api/summary", { note: c.id, page, text, base: data ? data.text : undefined });
+    if (res.ok) { if (data) data.text = res.data.text; toast(text.trim() ? "Page summary saved" : "Page summary removed", "done"); await refreshData(); return true; }
+    if (res.status === 409 && data && res.data.text !== undefined) { data.text = res.data.text; toast("The page changed in Obsidian — showing the latest", "warn"); await refreshData(); return false; }
+    toast(res.data.error || `Could not save (${res.status})`, "warn");
+    return false;
+  }
+
+  async function saveChapterSummary(c, text) {
+    const res = await api("api/summary", { note: c.id, page: null, text });
+    if (!res.ok) { toast(res.data.error || `Could not save (${res.status})`, "warn"); return false; }
+    for (const [key, data] of state.pages) if (key.startsWith(`${c.id}#`)) data.chapterSummary = text.trim() || null;
+    toast(text.trim() ? "Chapter summary saved — chapter complete" : "Chapter summary removed", "done");
+    await refreshData();
+    return true;
+  }
+
+  /** The editable page: its summary, then the text, which marks as the user selects. */
+  function pageEditor(c, page, opts = {}) {
+    const host = h("div", { class: `editor${opts.large ? " large" : ""}` });
+    const fill = data => {
+      const { summary } = splitSummary(data.text);
+      const reader = h("div", { class: "reader", "data-note": c.id, "data-page": String(page) }, renderPage(data.text));
+      host.replaceChildren(
+        summaryEditor({ title: "My page summary", hint: "This page in your own words (optional)", value: summary, empty: "Add a page summary (optional)", onSave: t => savePageSummary(c, page, t) }),
+        reader);
+    };
+    host.append(h("div", { class: "reader" }, [100, 92, 96, 70, 98, 88, 60].map(w => h("div", { class: "skeleton", style: { width: `${w}%` } }))));
+    loadPage(c, page).then(fill).catch(() => host.replaceChildren(h("p", { class: "muted", textContent: "Could not load the page." })));
+    return host;
+  }
+
+  function pagerFor(p, onStep) {
+    const c = p.chapter, pages = c.distill.pages, i = pages.findIndex(x => x.page === p.page);
+    const chapters = state.chaptersOf.get(c.book) || [];
+    const ci = chapters.indexOf(c);
+    const hasPrev = i > 0 || ci > 0, hasNext = i < pages.length - 1 || ci < chapters.length - 1;
+    return h("div", { class: "pager" },
+      h("button", { type: "button", class: "btn", disabled: !hasPrev, onclick: () => onStep(-1), title: "Previous page (←)" }, icon(ICONS.prev), "Prev"),
+      h("span", { class: "muted", style: { fontSize: "12.5px" }, textContent: `Page ${i + 1} of ${pages.length} in this chapter` }),
+      h("button", { type: "button", class: "btn", disabled: !hasNext, onclick: () => onStep(1), title: "Next page (→)" }, "Next", icon(ICONS.next)));
+  }
+
+  function pagePanel(p) {
+    const c = p.chapter;
+    return [
+      card(
+        eyebrow(`Page ${p.page}`, p.empty ? "var(--faint)" : MARK_FILL[p.mark]),
+        h("h2", { textContent: c.title }),
+        h("div", { style: { display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "10px" } },
+          pill(p.empty ? "No text" : label(MARKS, p.mark), p.empty ? "var(--muted)" : MARK_FILL[p.mark]),
+          p.summary ? pill("Page summary", "var(--complete)") : null),
+        h("div", { class: "actions" },
+          button("Edit mode", () => openFocus(c, p.page), { primary: true, icon: "expand", title: "Read and distil in the middle of the screen (E)" }),
+          h("button", { type: "button", class: "btn", onclick: () => reveal(c) }, icon(ICONS.up), "Chapter"),
+          link("Obsidian", obsidian(`${c.id.replace(/\.md$/, "")}#Page ${p.page}`))),
+      ),
+      card(pagerFor(p, stepPage)),
+      card(pageEditor(c, p.page)),
+      card(h("p", { class: "muted", style: { margin: 0, fontSize: "12.5px" }, textContent: "Select text to bold or highlight it. Changes are saved to the chapter note, so Obsidian shows them at once." })),
+    ];
+  }
+
+  /* ── Edit mode: the page in the middle of the screen ─────────────────────── */
+
+  function openFocus(c, page) {
+    state.focus = { chapter: c, page };
+    body.classList.add("focusing-page");
+    renderFocus();
+  }
+
+  function closeFocus() {
+    if (!state.focus) return;
+    const { chapter, page } = state.focus;
+    state.focus = null;
+    body.classList.remove("focusing-page");
+    $("focus").replaceChildren();
+    goToPage(chapter, page);
+  }
+
+  function focusStep(dir) {
+    const f = state.focus;
+    if (!f) return;
+    const c = f.chapter, pages = c.distill.pages, i = pages.findIndex(x => x.page === f.page) + dir;
+    if (i >= 0 && i < pages.length) { f.page = pages[i].page; return renderFocus(); }
+    const chapters = state.chaptersOf.get(c.book) || [];
+    const next = chapters[chapters.indexOf(c) + dir];
+    if (next && next.distill && next.distill.pages.length) {
+      f.chapter = next;
+      f.page = dir > 0 ? next.distill.pages[0].page : next.distill.pages[next.distill.pages.length - 1].page;
+      renderFocus();
+    }
+  }
+
+  function renderFocus() {
+    const f = state.focus, host = $("focus");
+    if (!f) return;
+    const c = f.chapter, book = state.byId.get(c.book), d = c.distill;
+    const p = d.pages.find(x => x.page === f.page) || d.pages[0];
+    const text = d.pages.filter(x => !x.empty);
+    const cells = h("div", { class: "cells pages" }, d.pages.map(x => h("button", {
+      type: "button", class: `cell${x.empty ? " empty" : ""}${x.summary ? " summ" : ""}${x.page === p.page ? " sel" : ""}`,
+      title: `Page ${x.page} · ${x.empty ? "no text" : label(MARKS, x.mark)}${x.summary ? " · summary" : ""}`,
+      style: x.empty ? {} : { background: MARK_FILL[x.mark], color: x.mark === "none" ? "var(--muted)" : "" }, textContent: String(x.page),
+      onclick: () => { f.page = x.page; renderFocus(); },
+    })));
+    const chapterSummary = h("div", {}, h("div", { class: "skeleton", style: { width: "70%" } }));
+    loadPage(c, p.page).then(data => chapterSummary.replaceChildren(summaryEditor({
+      title: "Chapter summary", hint: "The whole chapter in your own words. Writing it completes the chapter.",
+      value: data.chapterSummary, empty: "Write the chapter summary to complete it", onSave: t => saveChapterSummary(c, t),
+    }))).catch(() => chapterSummary.replaceChildren());
+    host.replaceChildren(
+      h("div", { class: "focus-backdrop", onclick: closeFocus }),
+      h("div", { class: "focus-panel glass", role: "dialog", "aria-modal": "true", "aria-label": `${c.title}, page ${p.page}` },
+        h("div", { class: "focus-head" },
+          h("div", { style: { minWidth: 0 } },
+            eyebrow(book ? book.title : "Book", fillOf(c)),
+            h("h2", { textContent: c.title })),
+          h("div", { class: "spacer" }),
+          link("Obsidian", obsidian(`${c.id.replace(/\.md$/, "")}#Page ${p.page}`)),
+          h("button", { type: "button", class: "icon-btn", onclick: closeFocus, title: "Close (Esc)" }, icon(ICONS.close))),
+        h("div", { class: "focus-body" },
+          h("main", { class: "focus-main" },
+            h("div", { class: "focus-page-title" }, h("span", { textContent: `Page ${p.page}` }), pill(p.empty ? "No text" : label(MARKS, p.mark), p.empty ? "var(--muted)" : MARK_FILL[p.mark])),
+            pageEditor(c, p.page, { large: true })),
+          h("aside", { class: "focus-side" },
+            h("section", {}, title3("Pages"), cells, h("div", { style: { marginTop: "12px" } }, pagerFor({ chapter: c, page: p.page }, focusStep))),
+            h("section", {}, title3("This chapter"), rows([
+              ["Pages bolded", `${text.filter(x => x.mark !== "none").length} of ${text.length}`],
+              ["Highlighted", String(text.filter(x => x.mark === "highlight").length)],
+              ["Page summaries", String(text.filter(x => x.summary).length)],
+              ["State", pill(CHAPTER_STATE[d.state], chapterFill(c))],
+            ])),
+            h("section", {}, chapterSummary),
+            h("section", {}, title3("How to distil"), h("ol", { class: "how" },
+              h("li", {}, "Select a passage that matters and ", h("span", { class: "mk-b", textContent: "bold" }), " it (B)."),
+              h("li", {}, "Of the bold, ", h("span", { class: "mk-h", textContent: "highlight" }), " the best (H)."),
+              h("li", {}, "Write the chapter summary in your own words to complete the chapter."))))),
+      ));
+  }
+
+  /** Fetch the graph again after an edit and update colours and panels in place. */
+  async function refreshData() {
+    const res = await fetch("graph.json", { cache: "no-store" });
+    if (!res.ok) return;
+    const graph = await res.json();
+    state.graph = graph;
+    for (const fresh of graph.nodes) {
+      const n = state.byId.get(fresh.id);
+      if (!n) continue;
+      const { x: _x, y: _y, ...rest } = fresh;
+      Object.assign(n, rest);
+    }
+    header();
+    const s = state.selected;
+    if (s && s.chapter) { placeChapters(); state.selected = pagesOf(s.chapter).pages.find(x => x.page === s.page) || s.chapter; }
+    if (state.focus) renderFocus();
+    select(state.selected);
   }
 
   /* ── Filters, header, theme ─────────────────────────────────────────────── */
@@ -826,6 +1101,7 @@
     if (!res.ok) { $("status").textContent = `Could not load the graph: ${res.status}`; return; }
     const graph = await res.json();
     const keepView = !!state.graph;
+    state.pages.clear();
     const before = new Map(state.nodes.map(n => [n.id, { x: n.hx ?? n.x, y: n.hy ?? n.y }]));
     state.graph = graph;
     state.nodes = graph.nodes.map(n => Object.assign({}, n));
@@ -929,8 +1205,17 @@
   window.addEventListener("resize", () => { cancelAnimationFrame(wheelFrame); wheelFrame = requestAnimationFrame(render); });
 
   document.addEventListener("keydown", ev => {
-    if (ev.target instanceof HTMLInputElement || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     const s = state.selected;
+    const key = ev.key.toLowerCase();
+    if (toolbarTarget && (key === "b" || key === "h" || key === "x")) { ev.preventDefault(); markSelection(key === "b" ? "bold" : key === "h" ? "highlight" : "clear"); return; }
+    if (state.focus) {
+      if (ev.key === "Escape") { ev.preventDefault(); closeFocus(); }
+      else if (ev.key === "ArrowRight") { ev.preventDefault(); focusStep(1); }
+      else if (ev.key === "ArrowLeft") { ev.preventDefault(); focusStep(-1); }
+      return;
+    }
+    if (key === "e" && s && (s.chapter || s.distill)) { ev.preventDefault(); openFocus(s.chapter || s, s.chapter ? s.page : s.distill.pages[0].page); return; }
     switch (ev.key) {
       case "/": ev.preventDefault(); body.classList.remove("no-filters"); $("toggle-filters").setAttribute("aria-pressed", "true"); $("search").focus(); break;
       case "f": case "F": fitAll(); break;
