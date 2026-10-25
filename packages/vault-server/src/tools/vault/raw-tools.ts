@@ -6,7 +6,7 @@ import { json, fail } from "./json.js";
 export function listRawTool(vault: Vault): ToolDef {
   return defineTool({
   name: "list_raw",
-  description: "List the raw resources under 3.Resources/0.Raw (full books, articles and other source material kept whole), each with its kind folder, the note that carries its text (null when a PDF is not converted yet), and whether it can be converted.",
+  description: "List the raw resources under 3.Resources/0.Raw (full books, articles and other source material kept whole), each with its kind folder, the note that carries its text (null when a PDF is not converted yet), whether it can be converted, and what was made from it: notes (the user's own notes linking it or any of its chapters) and concepts (concept notes quoting or linking it).",
   annotations: { readOnlyHint: true, idempotentHint: true },
   schema: {},
   handler: async () => json(await vault.listRaw()),

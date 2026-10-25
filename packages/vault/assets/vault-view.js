@@ -534,7 +534,7 @@
         const c = bookCounts(b);
         return h("li", {}, h("button", { type: "button", onclick: () => reveal(b) },
           h("i", { class: "mark sq", style: { background: fillOf(b), width: "14px", height: "14px" } }),
-          h("span", { class: "grow" }, h("b", { textContent: b.title }), h("small", { textContent: `${label(STAGES, b.stage)} · ${c.complete}/${c.total} chapters distilled` }),
+          h("span", { class: "grow" }, h("b", { textContent: b.title }), h("small", { textContent: `${label(STAGES, b.stage)} · ${c.complete}/${c.total} chapters · ${plural((b.notesFrom || []).length, "note")} · ${plural((b.conceptsFrom || []).length, "concept")}` }),
             h("div", { style: { marginTop: "8px" } }, bar([
               { name: "Complete", value: c.complete, color: "var(--complete)" },
               { name: "In progress", value: c.progress, color: "var(--bold)" },
@@ -549,14 +549,37 @@
     return out;
   }
 
+  /** What was made from a raw source: the user's own notes and the concept notes, as tiles and lists. */
+  function madeFrom(n, what) {
+    const notes = (n.notesFrom || []).map(id => state.byId.get(id)).filter(Boolean);
+    const concepts = (n.conceptsFrom || []).map(id => state.byId.get(id)).filter(Boolean);
+    const item = m => h("li", {}, h("button", { type: "button", onclick: () => reveal(m) },
+      h("i", { class: `mark${m.concept ? " dia" : ""}`, style: { background: fillOf(m) } }),
+      h("span", { class: "grow" }, h("b", { textContent: m.title }), h("small", { textContent: m.concept ? label(MASTERY, m.mastery) : label(BUCKETS, bucketOf(m)) }))));
+    return card(
+      title3(`Made from this ${what}`),
+      h("div", { class: "tiles" },
+        h("div", { class: "tile" }, h("b", { textContent: String(notes.length) }), h("span", { textContent: notes.length === 1 ? "note of yours" : "notes of yours" })),
+        h("div", { class: "tile" }, h("b", { textContent: String(concepts.length) }), h("span", { textContent: concepts.length === 1 ? "concept note" : "concept notes" }))),
+      notes.length || concepts.length
+        ? h("ul", { class: "list", style: { marginTop: "12px" } }, [...concepts, ...notes].map(item))
+        : h("p", { class: "muted", style: { margin: "12px 0 0" }, textContent: "Nothing yet. Notes that link it count here; raw text is never sparred, its concept notes are." }),
+    );
+  }
+
   function bookPanel(b) {
     const c = bookCounts(b);
-    // Five steps after "not read yet". A stage reached is done, except distilling, which
-    // is under way until the book is distilled; the first step not done is the current one.
-    const reached = STAGES.findIndex(([k]) => k === b.stage);
-    const steps = STAGES.slice(1).map(([key, name], i) => ({ name, done: i + 1 < reached || (i + 1 === reached && key !== "distilling") }));
+    // Each step shows its own state, so one skipped on the way stays visible; the stage
+    // label is the furthest reached. The first step not done is the current one.
+    const steps = [
+      { name: "Read", done: !!b.readOn },
+      { name: "Notes", done: (b.notesFrom || []).length > 0 },
+      { name: "Distilling", done: c.complete + c.progress > 0 },
+      { name: "Distilled", done: c.total > 0 && c.complete === c.total },
+      { name: "Concepts", done: (b.conceptsFrom || []).length > 0 },
+    ];
     const current = steps.findIndex(s => !s.done);
-    const doneCount = steps.filter(s => s.done).length;
+    const doneCount = current < 0 ? steps.length : current;
     const stepper = h("div", { class: "stepper" },
       h("div", { class: "fill", style: { width: `${(Math.max(0, doneCount - 1) / (steps.length - 1)) * 80}%` } }),
       steps.map((s, i) => h("div", { class: `step${s.done ? " done" : ""}${i === current ? " now" : ""}` },
@@ -570,7 +593,6 @@
       type: "button", class: "cell", title: `${ch.title} · ${CHAPTER_STATE[ch.distill ? ch.distill.state : "untouched"]}`,
       style: { background: chapterFill(ch) || "var(--untouched)", color: (chapterFill(ch) || MARK_FILL.none) === MARK_FILL.none ? "var(--muted)" : "" }, onclick: () => { reveal(ch); }, textContent: String(i + 1),
     })));
-    const concepts = conceptsCiting(b);
     return [
       card(
         eyebrow("Book", fillOf(b)),
@@ -581,7 +603,7 @@
           link("Obsidian", obsidian(b.id.replace(/\.md$/, ""))),
         ),
       ),
-      card(title3("Stage"), stepper),
+      card(title3(`Stage · ${label(STAGES, b.stage)}`), stepper),
       card(
         title3("Chapters distilled"),
         h("div", { class: "tiles", style: { marginBottom: "14px" } },
@@ -590,13 +612,7 @@
         bar(parts), barLegend(parts),
         h("div", { style: { marginTop: "16px" } }, cells),
       ),
-      card(
-        title3("Concept notes grounded in it"),
-        concepts.length
-          ? h("ul", { class: "list" }, concepts.map(cn => h("li", {}, h("button", { type: "button", onclick: () => reveal(cn) },
-            h("i", { class: "mark dia", style: { background: fillOf(cn) } }), h("span", { class: "grow" }, h("b", { textContent: cn.title }), h("small", { textContent: label(MASTERY, cn.mastery) }))))))
-          : h("p", { class: "muted", style: { margin: 0 }, textContent: "None yet. Raw text is never sparred: distil its ideas into concept notes." }),
-      ),
+      madeFrom(b, "book"),
     ];
   }
 
@@ -681,7 +697,7 @@
       ),
       card(rows([
         ["PARA", label(BUCKETS, bucketOf(n))],
-        ...(n.raw ? [["Quoted by", plural(conceptsCiting(n).length, "concept note")]] : [
+        ...(n.raw ? [] : [
           ["Mastery", pill(label(MASTERY, n.mastery), RING[n.mastery] || "var(--muted)")],
           ["Next review", n.nextReview || "—"],
         ]),
@@ -690,6 +706,7 @@
       near.length ? card(title3("Linked"), h("ul", { class: "list" }, near.slice(0, 12).map(m => h("li", {}, h("button", { type: "button", onclick: () => reveal(m) },
         h("i", { class: `mark${m.concept ? " dia" : m.raw ? " sq" : ""}`, style: { background: fillOf(m) } }),
         h("span", { class: "grow" }, h("b", { textContent: m.title }), h("small", { textContent: label(BUCKETS, bucketOf(m)) }))))))) : null,
+      n.raw && n.notesFrom ? madeFrom(n, "source") : null,
     ].filter(Boolean);
   }
 

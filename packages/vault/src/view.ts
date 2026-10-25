@@ -17,7 +17,7 @@ import type { Mastery } from "./mastery.js";
 import type { Vault } from "./vault.js";
 import type { VaultNote } from "./scan.js";
 import { RAW_TEXT, pagesOf } from "./convert.js";
-import { bookProgress, type ChapterState, type PageMark, type ReadingStage } from "./distill.js";
+import { bookProgress, citations, type ChapterState, type PageMark, type ReadingStage } from "./distill.js";
 
 export const GRAPH_FILE = posix.join(COACH_ROOT, "graph.json");
 
@@ -41,7 +41,12 @@ export interface VaultViewGraph {
     chapterCount: number | null;
     /** For a book index, its reading stage and how many chapters are complete (ADR-KI-0061). */
     stage: ReadingStage | null;
+    /** For a book index, when the user marked it read. */
+    readOn: string | null;
     chaptersComplete: number | null;
+    /** For a raw source (a book's index or a raw note), the user's notes and concept notes made from it. */
+    notesFrom: string[] | null;
+    conceptsFrom: string[] | null;
     /** For a chapter, its distilling: the chapter state and each page's mark and summary. */
     distill: { state: ChapterState; summary: boolean; pages: { page: number; mark: PageMark; summary: boolean; empty: boolean }[] } | null;
     mastery: Mastery;
@@ -76,6 +81,7 @@ export async function writeViewGraph(vault: Vault, now: Date = new Date()): Prom
   const g = buildVaultGraph(notes);
   const books = new Map(bookProgress(notes).map(b => [b.index, b]));
   const chapters = new Map([...books.values()].flatMap(b => b.chapters.map(c => [c.path, c] as const)));
+  const cited = citations(notes);
   const graph: VaultViewGraph = {
     generatedAt: now.toISOString(),
     vaultName: posix.basename(vault.root.split("\\").join("/")),
@@ -87,7 +93,10 @@ export async function writeViewGraph(vault: Vault, now: Date = new Date()): Prom
         rawRole: note.rawRole, concept: note.concept, book: book && byPath.has(book) ? book : null,
         chapterCount: note.rawRole === "index" ? notes.filter(c => c.rawRole === "chapter" && posix.dirname(posix.dirname(c.path)) === posix.dirname(n.id)).length : null,
         stage: books.get(n.id)?.stage ?? null,
+        readOn: books.get(n.id)?.steps.readOn ?? null,
         chaptersComplete: books.get(n.id)?.steps.chaptersComplete ?? null,
+        notesFrom: n.raw && note.rawRole !== "chapter" ? cited.get(n.id)?.notes ?? [] : null,
+        conceptsFrom: n.raw && note.rawRole !== "chapter" ? cited.get(n.id)?.concepts ?? [] : null,
         distill: (c => (c ? { state: c.state, summary: c.summary, pages: c.pages } : null))(chapters.get(n.id)),
         mastery: history.get(n.id)!.mastery, nextReview: history.get(n.id)!.nextReview,
       };

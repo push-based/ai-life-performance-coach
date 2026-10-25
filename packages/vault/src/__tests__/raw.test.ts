@@ -174,8 +174,9 @@ describe("converted books in the vault", () => {
   it("lists the PDF with its index and hides the generated notes from list_raw", async () => {
     await vault.convertRaw(BOOK, true);
     expect(await vault.listRaw()).toEqual([
-      { path: "3.Resources/0.Raw/Articles/Clipped.md", kind: "Articles", author: null, work: null, note: "3.Resources/0.Raw/Articles/Clipped.md", convertible: false },
-      { path: PDF, kind: "Books", author: "Tiago Forte", work: "Building a Second Brain", note: INDEX, convertible: true },
+      { path: "3.Resources/0.Raw/Articles/Clipped.md", kind: "Articles", author: null, work: null, note: "3.Resources/0.Raw/Articles/Clipped.md", convertible: false, notes: [], concepts: [] },
+      // PARA.md links the book three ways (a page of the PDF, its title, a relative link): one note made from it.
+      { path: PDF, kind: "Books", author: "Tiago Forte", work: "Building a Second Brain", note: INDEX, convertible: true, notes: ["3.Resources/PKM/PARA.md"], concepts: [] },
     ]);
   });
 

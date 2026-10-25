@@ -52,12 +52,17 @@ export function fileNoteTool(vault: Vault): ToolDef {
 export function archiveProjectTool(vault: Vault): ToolDef {
   return defineTool({
   name: "archive_project",
-  description: "Move a finished project's folder whole from 1.Projects into 4.Archive. Refuses when 4.Archive already holds a folder of that name. Previews by default.",
+  description: "Move a finished project's folder from 1.Projects into 4.Archive. The preview lists suggestions: notes in the project that look like knowledge worth keeping (a concept note, sparring history, cites raw material, or linked from notes outside the project), each with a suggested folder under 3.Resources and the reasons. Ask the user which to keep, then pass keep (or keep_suggested: true): those notes move into Resources, where they stay sparrable, and the rest of the folder moves to the archive. Refuses when 4.Archive already holds a folder of that name or a kept note's target exists. Previews by default.",
   annotations: WRITES,
   schema: {
     project: z.string().describe("Folder name under 1.Projects, e.g. DevFest2026"),
+    keep: z.array(z.object({
+      note: z.string().describe("Vault-relative path of a note in the project"),
+      to: z.string().optional().describe("Folder under 3.Resources outside 0.Raw; defaults to the suggested one"),
+    })).optional().describe("Notes to move into Resources instead of archiving"),
+    keep_suggested: z.boolean().optional().describe("Keep every suggested note at its suggested folder"),
     execute: EXECUTE,
   },
-  handler: async (args) => result(await vault.archiveProject(args.project, args.execute === true)),
+  handler: async (args) => result(await vault.archiveProject(args.project, args.execute === true, { keep: args.keep, keepSuggested: args.keep_suggested })),
   });
 }

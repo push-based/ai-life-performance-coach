@@ -114,35 +114,55 @@ export interface BookProgress {
   chapters: ChapterProgress[];
 }
 
-/** Every converted book in the vault, with its stage and each chapter's distilling. */
-export function bookProgress(notes: VaultNote[]): BookProgress[] {
+/** The raw source a raw note belongs to: a chapter or index to its book's index, any other raw note to itself. */
+export function sourceOf(note: Pick<VaultNote, "path" | "raw" | "rawRole">): string | null {
+  if (!note.raw) return null;
+  return note.rawRole === "chapter" ? posix.join(posix.dirname(posix.dirname(note.path)), RAW_TEXT) : note.path;
+}
+
+export interface Citations {
+  /** The user's own notes (not raw, not concept notes) that link the source or any part of it. */
+  notes: string[];
+  /** Concept notes that quote or link it. */
+  concepts: string[];
+}
+
+/** For each raw source (a book's index, or a raw note of its own), the notes made from it. */
+export function citations(notes: VaultNote[]): Map<string, Citations> {
   const resolver = noteResolver(notes);
-  const indexes = notes.filter(n => n.rawRole === "index");
-  const bookOf = new Map<string, string>();
-  for (const n of notes) {
-    if (n.rawRole === "index") bookOf.set(n.path, n.path);
-    if (n.rawRole === "chapter") bookOf.set(n.path, posix.join(posix.dirname(posix.dirname(n.path)), RAW_TEXT));
-  }
-  const citing = new Map<string, { notes: Set<string>; concepts: Set<string> }>(indexes.map(i => [i.path, { notes: new Set(), concepts: new Set() }]));
+  const byPath = new Map(notes.map(n => [n.path, n]));
+  const found = new Map<string, { notes: Set<string>; concepts: Set<string> }>();
   for (const n of notes) {
     if (n.raw) continue;
     for (const l of n.links) {
       const target = resolver.resolve(n.path, l);
-      const entry = target ? citing.get(bookOf.get(target) ?? "") : undefined;
-      if (entry) (n.concept ? entry.concepts : entry.notes).add(n.path);
+      const source = target ? sourceOf(byPath.get(target)!) : null;
+      if (!source) continue;
+      const entry = found.get(source) ?? { notes: new Set<string>(), concepts: new Set<string>() };
+      (n.concept ? entry.concepts : entry.notes).add(n.path);
+      found.set(source, entry);
     }
   }
+  return new Map([...found].map(([k, v]) => [k, { notes: [...v.notes].sort(), concepts: [...v.concepts].sort() }]));
+}
+
+/** Every converted book in the vault, with its stage and each chapter's distilling. */
+export function bookProgress(notes: VaultNote[]): BookProgress[] {
+  const indexes = notes.filter(n => n.rawRole === "index");
+  const bookOf = new Map<string, string>();
+  for (const n of notes) if (n.rawRole === "chapter") bookOf.set(n.path, sourceOf(n)!);
+  const cited = citations(notes);
   return indexes.map(index => {
     const chapters = notes.filter(n => n.rawRole === "chapter" && bookOf.get(n.path) === index.path).map(chapterProgress);
     const readOn = typeof index.frontmatter[READ_KEY] === "string" ? (index.frontmatter[READ_KEY] as string) : null;
-    const { notes: own, concepts } = citing.get(index.path)!;
+    const { notes: own, concepts } = cited.get(index.path) ?? { notes: [], concepts: [] };
     const complete = chapters.filter(c => c.state === "complete").length;
     const inProgress = chapters.filter(c => c.state === "in_progress").length;
     const stage: ReadingStage =
-      concepts.size ? "concepts"
+      concepts.length ? "concepts"
       : chapters.length && complete === chapters.length ? "distilled"
       : complete + inProgress ? "distilling"
-      : own.size ? "notes"
+      : own.length ? "notes"
       : readOn ? "read"
       : "unread";
     return {
@@ -150,7 +170,7 @@ export function bookProgress(notes: VaultNote[]): BookProgress[] {
       title: index.title,
       author: typeof index.frontmatter.author === "string" ? index.frontmatter.author : null,
       stage,
-      steps: { readOn, notes: [...own].sort(), chaptersComplete: complete, chaptersInProgress: inProgress, chapters: chapters.length, concepts: [...concepts].sort() },
+      steps: { readOn, notes: own, chaptersComplete: complete, chaptersInProgress: inProgress, chapters: chapters.length, concepts },
       chapters,
     };
   });
