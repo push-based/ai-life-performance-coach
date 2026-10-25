@@ -238,3 +238,164 @@ export async function executeWrite(root: string, plan: WritePlan): Promise<void>
   if ((await readFile(abs, "utf-8")) !== plan.before) throw new Error(`${plan.path} changed since the preview; run it again`);
   await writeFile(abs, plan.content);
 }
+
+/* ── Editing from the graph view (ADR-KI-0061 Decision 10) ─────────────────── */
+
+export interface Section {
+  /** The page's text: from after its heading's blank line to before trailing whitespace. */
+  text: string;
+  start: number;
+  end: number;
+}
+
+/** Where page N's text sits in a chapter note's content; null when the note has no such page. */
+export function pageSection(content: string, page: number): Section | null {
+  const heading = new RegExp(`^## Page ${page}[ \\t]*\\r?$`, "m").exec(content);
+  if (!heading) return null;
+  const from = heading.index + heading[0].length;
+  const next = content.slice(from).search(/^## Page \d+[ \t]*\r?$/m);
+  const stop = next < 0 ? content.length : from + next;
+  const raw = content.slice(from, stop);
+  const lead = (raw.match(/^(?:\r?\n)*/) as RegExpMatchArray)[0].length;
+  const text = raw.slice(lead).replace(/\s+$/, "");
+  return { text, start: from + lead, end: from + lead + text.length };
+}
+
+export type MarkOp = "bold" | "highlight" | "clear";
+
+interface MarkChar { ch: string; src: number; b: boolean; h: boolean }
+type MarkLine = { verbatim: string } | { prefix: string; chars: MarkChar[] };
+
+const MARKER = /^(\*\*|__|==)/;
+
+/**
+ * A page's text as lines of characters, each knowing whether it is bold or highlighted
+ * and where it sits in the text. Summary callouts stay verbatim; a leading `\` (the
+ * conversion's escape) is kept apart. Bold and highlight carry across lines within a
+ * paragraph, as Obsidian renders them.
+ */
+function parseMarks(text: string): MarkLine[] {
+  const out: MarkLine[] = [];
+  let b = false, h = false, at = 0;
+  for (const line of text.split("\n")) {
+    const start = at;
+    at += line.length + 1;
+    if (/^>/.test(line) || !line.trim()) { out.push({ verbatim: line }); b = h = false; continue; }
+    const prefix = line.startsWith("\\") ? "\\" : "";
+    const chars: MarkChar[] = [];
+    for (let i = prefix.length; i < line.length;) {
+      const m = MARKER.exec(line.slice(i));
+      if (m) { if (m[1] === "==") h = !h; else b = !b; i += 2; continue; }
+      chars.push({ ch: line[i], src: start + i, b, h });
+      i++;
+    }
+    out.push({ prefix, chars });
+  }
+  return out;
+}
+
+/** Spans [from, to) of chars where `on` holds, cut at `cut` boundaries, trimmed of spaces. */
+function runs(chars: MarkChar[], on: (c: MarkChar) => boolean, cut: (i: number) => boolean = () => false): [number, number][] {
+  const out: [number, number][] = [];
+  let i = 0;
+  while (i < chars.length) {
+    if (!on(chars[i])) { i++; continue; }
+    let j = i + 1;
+    while (j < chars.length && on(chars[j]) && !cut(j)) j++;
+    let a = i, z = j;
+    while (a < z && /\s/.test(chars[a].ch)) a++;
+    while (z > a && /\s/.test(chars[z - 1].ch)) z--;
+    if (z > a) out.push([a, z]);
+    i = j;
+  }
+  return out;
+}
+
+/** One line back to markdown: bold runs outside, highlight runs nested inside them. */
+function emitLine(prefix: string, chars: MarkChar[]): string {
+  const bold = runs(chars, c => c.b);
+  const boldStart = new Set(bold.map(r => r[0])), boldEnd = new Set(bold.map(r => r[1]));
+  const high = runs(chars, c => c.h, i => boldStart.has(i) || boldEnd.has(i));
+  const open = new Map<number, string>(), close = new Map<number, string>();
+  for (const [a, z] of bold) { open.set(a, "**"); close.set(z, "**"); }
+  for (const [a, z] of high) { open.set(a, (open.get(a) ?? "") + "=="); close.set(z, "==" + (close.get(z) ?? "")); }
+  let s = prefix;
+  for (let i = 0; i <= chars.length; i++) {
+    s += close.get(i) ?? "";
+    if (i < chars.length) s += (open.get(i) ?? "") + chars[i].ch;
+  }
+  return s;
+}
+
+/**
+ * Bold, highlight or clear the characters of a page's text whose positions fall in
+ * [start, end), and write the result back as Obsidian markdown. Marks stay balanced and
+ * never start or end on a space; a highlight inside bold nests as `**…==…==…**`.
+ */
+export function applyMark(text: string, start: number, end: number, op: MarkOp): string {
+  const lines = parseMarks(text);
+  for (const l of lines) {
+    if ("verbatim" in l) continue;
+    for (const c of l.chars) {
+      if (c.src < start || c.src >= end) continue;
+      if (op === "bold") c.b = true;
+      else if (op === "highlight") c.h = true;
+      else c.b = c.h = false;
+    }
+  }
+  return lines.map(l => ("verbatim" in l ? l.verbatim : emitLine(l.prefix, l.chars))).join("\n");
+}
+
+const SUMMARY_ONE = /^>[ \t]*\[!summary\][^\n]*(?:\n>[^\n]*)*/im;
+
+/** Set, replace or (with empty text) remove the summary callout at the top of a region of text. */
+function withSummary(region: string, summary: string): string {
+  const text = summary.trim();
+  const m = SUMMARY_ONE.exec(region);
+  if (m) {
+    if (!text) return (region.slice(0, m.index) + region.slice(m.index + m[0].length).replace(/^\n+/, "")).replace(/\n{3,}/g, "\n\n");
+    return region.slice(0, m.index) + callout(text) + region.slice(m.index + m[0].length);
+  }
+  return text ? `${callout(text)}\n\n${region}` : region;
+}
+
+export type EditResult = { ok: true; text: string; content: string } | { ok: false; status: 400 | 404 | 409; error: string; text?: string };
+
+/**
+ * Edit page N of a chapter note's content. `base` is the page text the editor showed; if
+ * the page changed since (in Obsidian, say), the edit is refused with the current text.
+ */
+export function editPageContent(content: string, page: number, base: string | undefined, edit: (text: string) => string): EditResult {
+  const section = pageSection(content, page);
+  if (!section) return { ok: false, status: 404, error: `no page ${page}` };
+  if (base !== undefined && base !== section.text) return { ok: false, status: 409, error: "the page changed since it was shown; showing it again", text: section.text };
+  const text = edit(section.text);
+  return { ok: true, text, content: content.slice(0, section.start) + text + content.slice(section.end) };
+}
+
+/** A chapter's summary text, or null. */
+export function chapterSummaryOf(content: string): string | null {
+  const first = content.search(/^## Page \d+[ \t]*\r?$/m);
+  return summaryOf(first < 0 ? content : content.slice(0, first));
+}
+
+/** Set, replace or remove a chapter's summary: the callout before its first page. */
+export function setChapterSummary(content: string, summary: string): EditResult {
+  const first = content.search(/^## Page \d+[ \t]*\r?$/m);
+  if (first < 0) return { ok: false, status: 404, error: "the note has no page headings" };
+  const fm = /^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/.exec(content);
+  const bodyStart = fm ? fm[0].length : 0;
+  const head = content.slice(bodyStart, first);
+  const m = SUMMARY_ONE.exec(head);
+  const text = summary.trim();
+  let next: string;
+  if (m) next = withSummary(head, text);
+  else if (text) next = `${head.replace(/\n*$/, "\n\n")}${callout(text)}\n\n`;
+  else return { ok: false, status: 400, error: "there is no chapter summary to remove" };
+  return { ok: true, text: text, content: content.slice(0, bodyStart) + next + content.slice(first) };
+}
+
+/** Set, replace or remove page N's summary. */
+export function setPageSummary(content: string, page: number, summary: string, base?: string): EditResult {
+  return editPageContent(content, page, base, text => withSummary(text, summary));
+}

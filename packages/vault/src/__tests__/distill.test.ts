@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createVault, type Vault } from "../vault.js";
-import { chapterProgress, summaryOf, withoutSummaries } from "../distill.js";
+import { chapterProgress, summaryOf, withoutSummaries, applyMark, pageSection } from "../distill.js";
 import { checkPassages } from "../concept.js";
 import { writeViewGraph } from "../view.js";
 
@@ -159,5 +159,47 @@ describe("the graph view", () => {
       pages: [{ page: 1, mark: "none", summary: false, empty: false }, { page: 2, mark: "highlight", summary: false, empty: false }, { page: 3, mark: "none", summary: false, empty: true }],
     });
     expect(node(CH2).distill).toMatchObject({ state: "complete", summary: true });
+  });
+});
+
+describe("marking text from the graph view", () => {
+  const at = (text: string, part: string) => [text.indexOf(part), text.indexOf(part) + part.length] as const;
+
+  it("wraps a selection, trimming spaces out of the marks", () => {
+    const t = "Keep what resonates with you.";
+    const [s, e] = at(t, " what resonates ");
+    expect(applyMark(t, s, e, "bold")).toBe("Keep **what resonates** with you.");
+  });
+
+  it("merges into an existing bold, nests a highlight, and clears part of it", () => {
+    let t = "Keep **what** resonates with you.";
+    t = applyMark(t, ...at(t, "what** resonates"), "bold");
+    expect(t).toBe("Keep **what resonates** with you.");
+    t = applyMark(t, ...at(t, "resonates"), "highlight");
+    expect(t).toBe("Keep **what ==resonates==** with you.");
+    t = applyMark(t, ...at(t, "what"), "clear");
+    expect(t).toBe("Keep what **==resonates==** with you.");
+    t = applyMark(t, ...at(t, "**==resonates==**"), "clear");
+    expect(t).toBe("Keep what resonates with you.");
+  });
+
+  it("marks across lines line by line, keeps escapes and summaries untouched", () => {
+    const t = "> [!summary]\n> Mine.\n\n\\# Not a heading\nfirst line\nsecond line";
+    expect(applyMark(t, t.indexOf("Not"), t.indexOf("second") + 6, "highlight"))
+      .toBe("> [!summary]\n> Mine.\n\n\\# ==Not a heading==\n==first line==\n==second== line");
+  });
+
+  it("leaves text without a selected character as it was", () => {
+    const t = "> [!summary]\n> Mine.\n\nPlain.";
+    expect(applyMark(t, 0, 10, "bold")).toBe(t);
+  });
+
+  it("finds a page's text between its heading and the next", () => {
+    const c = "---\nx: 1\n---\n# T\n\n## Page 4\n\nOne.\nTwo.\n\n## Page 5\n\nThree.\n";
+    const s = pageSection(c, 4)!;
+    expect(s.text).toBe("One.\nTwo.");
+    expect(c.slice(s.start, s.end)).toBe("One.\nTwo.");
+    expect(pageSection(c, 5)!.text).toBe("Three.");
+    expect(pageSection(c, 6)).toBeNull();
   });
 });

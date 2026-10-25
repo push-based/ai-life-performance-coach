@@ -17,7 +17,8 @@ import { tier2Payload, type Tier2Payload } from "./payload.js";
 import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan, type ArchiveOptions } from "./filing.js";
 import { listRaw, planConvert, executeConvert, type RawItem, type ConvertPlan, type ConvertOptions } from "./convert.js";
 import { planConcept, executeConcept, conceptOf, type ConceptInput, type ConceptPlan } from "./concept.js";
-import { bookProgress, citations, planMarkRead, planSummary, executeWrite, type BookProgress, type WritePlan } from "./distill.js";
+import { bookProgress, citations, planMarkRead, planSummary, executeWrite, applyMark, editPageContent, setPageSummary, setChapterSummary, chapterSummaryOf, pageSection, type BookProgress, type WritePlan, type MarkOp, type EditResult } from "./distill.js";
+import { readFile, writeFile } from "node:fs/promises";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 
 export interface VaultOptions {
@@ -76,7 +77,17 @@ export interface Vault {
   markRead(book: string, date: string | undefined, execute: boolean): Promise<WriteResult>;
   /** Add a summary callout to a chapter, or to one of its pages. */
   writeSummary(path: string, text: string, page: number | undefined, execute: boolean): Promise<WriteResult>;
+  /**
+   * Editing a chapter from the graph view (ADR-KI-0061 Decision 10): the user's click is
+   * the approval, so these write at once. Each refuses a note that is not a chapter, and
+   * an edit made against page text that has changed since it was shown.
+   */
+  pageText(path: string, page: number): Promise<{ note: string; title: string; page: number; text: string; chapterSummary: string | null } | null>;
+  markPage(path: string, page: number, start: number, end: number, op: MarkOp, base: string): Promise<PublicEdit>;
+  setSummary(path: string, page: number | null, text: string, base?: string): Promise<PublicEdit>;
 }
+
+export type PublicEdit = { ok: true; text: string } | { ok: false; status: 400 | 404 | 409; error: string; text?: string };
 
 export type WriteResult = Omit<WritePlan, "content" | "before"> & { executed: boolean };
 
@@ -128,6 +139,27 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     const [notes, { sessions, invalid }] = await Promise.all([scanVault(root), loadSessions(root)]);
     const map = histories(sessions);
     return { notes: notes.map(n => ({ ...n, history: historyOf(map, n.coachId) })), invalidSessions: invalid, map };
+  }
+
+  /** A chapter note by path, with its raw content; null for anything else. */
+  async function chapterAt(path: string) {
+    const rel = notePathOf(root, path);
+    if (!rel || !(await listNotePaths(root)).includes(rel)) return null;
+    const note = await readNote(root, rel);
+    if (note.rawRole !== "chapter") return null;
+    return { path: rel, title: note.title, content: await readFile(join(root, rel), "utf-8") };
+  }
+
+  /** Apply an edit to a chapter note, refusing if the file changed while it was computed. */
+  async function edit(path: string, change: (content: string) => EditResult): Promise<PublicEdit> {
+    const at = await chapterAt(path);
+    if (!at) return { ok: false, status: 404, error: `${path} is not a chapter of a converted book` };
+    const r = change(at.content);
+    if (!r.ok) return r;
+    const abs = join(root, at.path);
+    if ((await readFile(abs, "utf-8")) !== at.content) return { ok: false, status: 409, error: "the note changed while saving; try again" };
+    await writeFile(abs, r.content);
+    return { ok: true, text: r.text };
   }
 
   return {
@@ -210,6 +242,21 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     async writeSummary(path, text, page, execute) {
       const rel = notePathOf(root, path) ?? path;
       return applyWrite(root, await planSummary(root, await scanVault(root), rel, text, page), execute);
+    },
+    async pageText(path, page) {
+      const at = await chapterAt(path);
+      if (!at || !Number.isInteger(page) || page < 1) return null;
+      const section = pageSection(at.content, page);
+      return section ? { note: at.path, title: at.title, page, text: section.text, chapterSummary: chapterSummaryOf(at.content) } : null;
+    },
+    async markPage(path, page, start, end, op, base) {
+      if (!["bold", "highlight", "clear"].includes(op)) return { ok: false, status: 400, error: `unknown mark ${String(op)}` };
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return { ok: false, status: 400, error: "select some text first" };
+      return edit(path, content => editPageContent(content, page, base, text => applyMark(text, start, end, op)));
+    },
+    async setSummary(path, page, text, base) {
+      if (typeof text !== "string") return { ok: false, status: 400, error: "the summary must be text" };
+      return edit(path, content => (page === null ? setChapterSummary(content, text) : setPageSummary(content, page, text, base)));
     },
     findPassages: async (query, opts) => searchPassages(await scanVault(root), query, opts),
     async createConcept(input, execute) {

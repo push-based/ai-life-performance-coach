@@ -1,23 +1,25 @@
 /**
  * The vault view (ADR-KI-0058 Decision 11): a loopback HTTP server rooted at the vault,
- * separate from this repository's view server. It serves exactly four things: the
- * page, its script, the graph, regenerated into `Coach/graph.json` on every request,
- * and one page of a converted book's chapter (ADR-KI-0061), to read while distilling.
- * No other note body is ever served, and the page may load nothing from off the machine
+ * separate from this repository's view server. It serves the page, its script, the
+ * graph, regenerated into `Coach/graph.json` on every request, and one page of a
+ * converted book's chapter (ADR-KI-0061), to read and distil there: the user can bold,
+ * highlight and summarise from the page, which writes the chapter note. No other note
+ * body is ever served or written, and the page may load nothing from off the machine
  * (Content-Security-Policy), so it works offline and leaks nothing.
  */
 
 import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server } from "node:http";
+import { randomBytes } from "node:crypto";
 import { join, posix } from "node:path";
 import { COACH_ROOT, type ParaBucket } from "./para.js";
 import { buildVaultGraph } from "./graph.js";
 import type { Mastery } from "./mastery.js";
 import type { Vault } from "./vault.js";
 import type { VaultNote } from "./scan.js";
-import { RAW_TEXT, pagesOf } from "./convert.js";
-import { bookProgress, citations, type ChapterState, type PageMark, type ReadingStage } from "./distill.js";
+import { RAW_TEXT } from "./convert.js";
+import { bookProgress, citations, type MarkOp, type ChapterState, type PageMark, type ReadingStage } from "./distill.js";
 
 export const GRAPH_FILE = posix.join(COACH_ROOT, "graph.json");
 
@@ -127,6 +129,8 @@ export interface BookPage {
   page: number;
   /** The page as it stands in the chapter note: the author's text with the user's marks and summary. */
   text: string;
+  /** The chapter's summary, written by the user, or null. */
+  chapterSummary: string | null;
 }
 
 /**
@@ -134,39 +138,88 @@ export interface BookPage {
  * a chapter, a page it does not hold, or a path outside the vault.
  */
 export async function bookPage(vault: Vault, path: string, page: number): Promise<BookPage | null> {
-  if (!Number.isInteger(page) || page < 1) return null;
-  const note = await vault.note(path);
-  if (!note || note.rawRole !== "chapter") return null;
-  const section = pagesOf(note.body, String(page));
-  return section === null ? null : { note: note.path, title: note.title, page, text: section.replace(/^## Page \d+[ \t]*\n+/, "").trimEnd() };
+  return vault.pageText(path, page);
+}
+
+const MAX_BODY = 64 * 1024;
+
+function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null> {
+  return new Promise(resolveBody => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => { size += c.length; if (size <= MAX_BODY) chunks.push(c); });
+    req.on("end", () => {
+      if (size > MAX_BODY) return resolveBody(null);
+      try {
+        const v = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        resolveBody(v && typeof v === "object" && !Array.isArray(v) ? v : null);
+      } catch { resolveBody(null); }
+    });
+    req.on("error", () => resolveBody(null));
+  });
+}
+
+export interface ViewServerOptions {
+  /** The write token; random per server unless a test fixes it. */
+  token?: string;
 }
 
 /**
- * The vault view server. Answers `/`, `/vault-view.js`, `/graph.json` and
- * `/page.json?note=<chapter>&page=<N>`; everything else is 404.
+ * The vault view server. Answers `/`, `/vault-view.js`, `/graph.json`,
+ * `/page.json?note=<chapter>&page=<N>`, and two writes from the page itself (ADR-KI-0061
+ * Decision 10): `POST /api/mark` and `POST /api/summary`; everything else is 404.
+ *
+ * Every request must name this server's own loopback address in its Host header, which
+ * stops another site reaching it by rebinding a domain name to 127.0.0.1. A write must
+ * also carry the token embedded in the page this server served, in a custom header,
+ * with a JSON body: a page on another origin can neither read the token nor send that
+ * header without a preflight this server never grants.
  */
-export function createVaultViewServer(vault: Vault): Server {
-  return createServer(async (req, res) => {
+export function createVaultViewServer(vault: Vault, opts: ViewServerOptions = {}): Server {
+  const token = opts.token ?? randomBytes(24).toString("hex");
+  const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     const path = url.pathname;
     const send = (status: number, type: string, body: string | Buffer) => {
       res.writeHead(status, { ...HEADERS, "Content-Type": type });
       res.end(body);
     };
-    if (req.method !== "GET" && req.method !== "HEAD") return send(405, "text/plain; charset=utf-8", "Method not allowed");
+    const json = (status: number, value: unknown) => send(status, "application/json; charset=utf-8", JSON.stringify(value));
+    const addr = server.address();
+    const port = typeof addr === "object" && addr ? addr.port : 0;
+    const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
+    if (!hosts.has(String(req.headers.host ?? ""))) return send(403, "text/plain; charset=utf-8", "Forbidden");
     try {
-      if (path === "/" || path === "/index.html") return send(200, "text/html; charset=utf-8", asset("vault-view.html"));
+      if (req.method === "POST" && (path === "/api/mark" || path === "/api/summary")) {
+        const origin = req.headers.origin;
+        if (origin !== undefined && !hosts.has(origin.replace(/^http:\/\//, ""))) return send(403, "text/plain; charset=utf-8", "Forbidden");
+        if (req.headers["x-vault-token"] !== token) return send(403, "text/plain; charset=utf-8", "Forbidden");
+        if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return send(415, "text/plain; charset=utf-8", "JSON only");
+        const body = await readJson(req);
+        if (!body) return json(400, { error: "a JSON object is required" });
+        const note = String(body.note ?? "");
+        const result = path === "/api/mark"
+          ? await vault.markPage(note, Number(body.page), Number(body.start), Number(body.end), body.mark as MarkOp, String(body.base ?? ""))
+          : await vault.setSummary(note, body.page === null || body.page === undefined ? null : Number(body.page), body.text as string, typeof body.base === "string" ? body.base : undefined);
+        return result.ok ? json(200, { text: result.text }) : json(result.status, { error: result.error, ...(result.text !== undefined ? { text: result.text } : {}) });
+      }
+      if (req.method !== "GET" && req.method !== "HEAD") return send(405, "text/plain; charset=utf-8", "Method not allowed");
+      if (path === "/" || path === "/index.html") {
+        const page = asset("vault-view.html").toString("utf-8").replace("</head>", `  <meta name="vault-token" content="${token}">\n</head>`);
+        return send(200, "text/html; charset=utf-8", page);
+      }
       if (path === "/vault-view.js") return send(200, "text/javascript; charset=utf-8", asset("vault-view.js"));
-      if (path === "/graph.json") return send(200, "application/json; charset=utf-8", JSON.stringify(await writeViewGraph(vault)));
+      if (path === "/graph.json") return json(200, await writeViewGraph(vault));
       if (path === "/page.json") {
         const page = await bookPage(vault, url.searchParams.get("note") ?? "", Number(url.searchParams.get("page")));
-        return page ? send(200, "application/json; charset=utf-8", JSON.stringify(page)) : send(404, "text/plain; charset=utf-8", "Not found");
+        return page ? json(200, page) : send(404, "text/plain; charset=utf-8", "Not found");
       }
       return send(404, "text/plain; charset=utf-8", "Not found");
     } catch (err) {
       return send(500, "text/plain; charset=utf-8", err instanceof Error ? err.message : String(err));
     }
   });
+  return server;
 }
 
 /** Listen on loopback only; resolves to the URL to open. */
