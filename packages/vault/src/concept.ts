@@ -178,6 +178,12 @@ export interface ConceptInput {
 export interface ConceptPlan {
   path: string | null;
   errors: string[];
+  /**
+   * What would make the note spar badly, without refusing it (ADR-KI-0061 Decision 12):
+   * fragment quotes, assertions about the learner, near-duplicate assertions, no banned
+   * words, a title word that looks misspelled against the source.
+   */
+  warnings: string[];
   collisions: string[];
   /** Each passage as checked, with the pages it was found on. */
   passages: PassageCheck[];
@@ -257,10 +263,76 @@ export function planConcept(root: string, notes: VaultNote[], input: ConceptInpu
   return {
     path,
     errors,
+    warnings: errors.length ? [] : conceptWarnings(input, notes),
     collisions,
     passages,
     content: clean ? renderConcept(input, passages.map(({ found: _f, problem: _p, ...p }) => p), notes, date) : null,
   };
+}
+
+const STOP = new Set("that this with from then than into onto each every your their they them there which what when where while within about only more most some also have been being will would could should does done learner user reader student author".split(" "));
+
+/** Content words, crudely stemmed, for telling two assertions apart. */
+function contentWords(text: string): Set<string> {
+  return new Set(
+    (fold(text).match(/\p{L}+/gu) ?? [])
+      .filter(w => w.length >= 4 && !STOP.has(w))
+      .map(w => w.replace(/(?:ing|ed|es|s)$/, "")),
+  );
+}
+
+/** Edit distance, stopping early once it passes `max`. */
+function distance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    if (Math.min(...cur) > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+const ABOUT_SOMEONE = /^\s*(?:the\s+)?(?:learner|user|reader|student|author)\b|\bthe\s+(?:learner|user|reader|student)\b/i;
+
+/** Warnings for a concept note that is valid but would spar badly. */
+export function conceptWarnings(input: ConceptInput, notes: VaultNote[]): string[] {
+  const warnings: string[] = [];
+  input.passages.forEach((p, i) => {
+    const quote = p.quote.trim();
+    const words = fold(quote).split(" ").filter(Boolean).length;
+    const ends = /[.!?]["'”’)\]]*$|(?:\.\.\.|…)\]?$/.test(quote);
+    const starts = !/^["'“‘(]?\p{Ll}/u.test(quote);
+    if (words < 6 || !ends || !starts) {
+      warnings.push(`passages[${i}] "${quote.slice(0, 60)}${quote.length > 60 ? "…" : ""}" is a fragment, not a whole sentence, so a study hint built from it says little; quote the sentence it sits in (marked_passages gives the user's marks as whole sentences)`);
+    }
+  });
+  input.core_assertions.forEach((a, i) => {
+    if (ABOUT_SOMEONE.test(a)) warnings.push(`core_assertions[${i}] describes what the learner or author does; state the idea itself, so a judge can check an explanation against it`);
+  });
+  const words = input.core_assertions.map(contentWords);
+  for (let i = 0; i < words.length; i++) {
+    for (let j = i + 1; j < words.length; j++) {
+      const shared = [...words[i]].filter(w => words[j].has(w)).length;
+      if (shared >= 3 && shared / Math.min(words[i].size, words[j].size) >= 0.7) {
+        warnings.push(`core_assertions[${i}] and core_assertions[${j}] say nearly the same thing; merge them`);
+      }
+    }
+  }
+  if (!(input.forbidden_buzzwords ?? []).length) {
+    warnings.push("forbidden_buzzwords is empty, so an explanation may lean on the author's own terms; ban the coined labels and the words of the title");
+  }
+  const cited = new Set(input.passages.map(p => p.note));
+  const source = new Set(notes.filter(n => cited.has(n.path)).flatMap(n => fold(withoutSummaries(n.body)).match(/\p{L}+/gu) ?? []));
+  if (source.size) {
+    for (const word of new Set(fold(input.title).match(/\p{L}{5,}/gu) ?? [])) {
+      if (source.has(word)) continue;
+      const near = [...source].filter(w => w[0] === word[0] && w.length >= 5).map(w => ({ w, d: distance(word, w, 2) })).filter(x => x.d <= 2).sort((a, b) => a.d - b.d)[0];
+      if (near) warnings.push(`title word "${word}" is not in the source; did you mean "${near.w}"?`);
+    }
+  }
+  return warnings;
 }
 
 export async function executeConcept(root: string, plan: ConceptPlan): Promise<void> {

@@ -20,6 +20,7 @@ import { planConcept, executeConcept, conceptOf, type ConceptInput, type Concept
 import { bookProgress, citations, planMarkRead, planSummary, executeWrite, applyMark, editPageContent, setPageSummary, setChapterSummary, chapterSummaryOf, pageSection, type BookProgress, type WritePlan, type MarkOp, type EditResult } from "./distill.js";
 import { readFile, writeFile } from "node:fs/promises";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
+import { markedPassages, type MarkedPassage } from "./marks.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -73,6 +74,11 @@ export interface Vault {
   createConcept(input: ConceptInput, execute: boolean): Promise<Omit<ConceptPlan, "content"> & { executed: boolean }>;
   /** Reading progress (ADR-KI-0061): each converted book's stage and each chapter's distilling. */
   readingProgress(): Promise<BookProgress[]>;
+  /**
+   * The user's bold and highlights as whole-sentence passages ready to quote (ADR-KI-0061
+   * Decision 11), for one chapter or every chapter of a book; null for any other path.
+   */
+  markedPassages(target: string): Promise<MarkedPassage[] | null>;
   /** Mark a book read, by its index or work folder; the date defaults to today. */
   markRead(book: string, date: string | undefined, execute: boolean): Promise<WriteResult>;
   /** Add a summary callout to a chapter, or to one of its pages. */
@@ -238,6 +244,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       return { ...shown, executed: true };
     },
     readingProgress: async () => bookProgress(await scanVault(root)),
+    markedPassages: async target => markedPassages(await scanVault(root), notePathOf(root, target) ?? target),
     markRead: async (book, date, execute) => applyWrite(root, await planMarkRead(root, await scanVault(root), book, date ?? localDate(now())), execute),
     async writeSummary(path, text, page, execute) {
       const rel = notePathOf(root, path) ?? path;

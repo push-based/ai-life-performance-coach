@@ -183,10 +183,29 @@ describe("marking text from the graph view", () => {
     expect(t).toBe("Keep what resonates with you.");
   });
 
-  it("marks across lines line by line, keeps escapes and summaries untouched", () => {
+  it("marks across lines as one mark, keeps escapes and summaries untouched", () => {
     const t = "> [!summary]\n> Mine.\n\n\\# Not a heading\nfirst line\nsecond line";
     expect(applyMark(t, t.indexOf("Not"), t.indexOf("second") + 6, "highlight"))
-      .toBe("> [!summary]\n> Mine.\n\n\\# ==Not a heading==\n==first line==\n==second== line");
+      .toBe("> [!summary]\n> Mine.\n\n\\# ==Not a heading\nfirst line\nsecond== line");
+  });
+
+  it("keeps an escape inside a mark that runs across its line, and nests a highlight across lines", () => {
+    let t = "one two\n\\> three four\nfive six";
+    t = applyMark(t, t.indexOf("two"), t.indexOf("five") + 4, "bold");
+    expect(t).toBe("one **two\n\\> three four\nfive** six");
+    t = applyMark(t, ...at(t, "four\nfive"), "highlight");
+    expect(t).toBe("one **two\n\\> three ==four\nfive==** six");
+  });
+
+  it("merges marks left line by line when the page is edited, and never across a blank line", () => {
+    const t = "**The technique is simple: you**\n**highlight the main points.**\nPlain.\n\n**Next paragraph.**";
+    expect(applyMark(t, ...at(t, "Plain"), "highlight"))
+      .toBe("**The technique is simple: you\nhighlight the main points.**\n==Plain==.\n\n**Next paragraph.**");
+  });
+
+  it("ends a mark before a line break when the next line starts unmarked", () => {
+    const t = "first line\nsecond line";
+    expect(applyMark(t, 0, t.indexOf("\n") + 1, "bold")).toBe("**first line**\nsecond line");
   });
 
   it("leaves text without a selected character as it was", () => {

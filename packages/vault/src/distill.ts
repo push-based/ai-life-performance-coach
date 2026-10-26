@@ -263,8 +263,8 @@ export function pageSection(content: string, page: number): Section | null {
 
 export type MarkOp = "bold" | "highlight" | "clear";
 
-interface MarkChar { ch: string; src: number; b: boolean; h: boolean }
-type MarkLine = { verbatim: string } | { prefix: string; chars: MarkChar[] };
+export interface MarkChar { ch: string; src: number; b: boolean; h: boolean }
+export type MarkLine = { verbatim: string } | { prefix: string; chars: MarkChar[] };
 
 const MARKER = /^(\*\*|__|==)/;
 
@@ -274,7 +274,7 @@ const MARKER = /^(\*\*|__|==)/;
  * conversion's escape) is kept apart. Bold and highlight carry across lines within a
  * paragraph, as Obsidian renders them.
  */
-function parseMarks(text: string): MarkLine[] {
+export function parseMarks(text: string): MarkLine[] {
   const out: MarkLine[] = [];
   let b = false, h = false, at = 0;
   for (const line of text.split("\n")) {
@@ -311,18 +311,36 @@ function runs(chars: MarkChar[], on: (c: MarkChar) => boolean, cut: (i: number) 
   return out;
 }
 
-/** One line back to markdown: bold runs outside, highlight runs nested inside them. */
-function emitLine(prefix: string, chars: MarkChar[]): string {
+/**
+ * One paragraph (lines with no blank or callout line between them) back to markdown:
+ * bold runs outside, highlight runs nested inside them. A run carries across a line
+ * break when the characters on both sides of it are marked, so one selection is one
+ * `**…**` however many of the PDF's lines it covers. Each line keeps its escape.
+ */
+function emitParagraph(lines: { prefix: string; chars: MarkChar[] }[]): string {
+  const chars: (MarkChar & { prefix?: string })[] = [];
+  lines.forEach((l, k) => {
+    if (k > 0) chars.push({ ch: "\n", src: -1, b: false, h: false, prefix: l.prefix });
+    chars.push(...l.chars);
+  });
+  for (let i = 0; i < chars.length; i++) {
+    if (chars[i].prefix === undefined) continue;
+    const prev = chars[i - 1], next = chars[i + 1];
+    chars[i].b = !!prev?.b && !!next?.b;
+    chars[i].h = !!prev?.h && !!next?.h;
+  }
   const bold = runs(chars, c => c.b);
   const boldStart = new Set(bold.map(r => r[0])), boldEnd = new Set(bold.map(r => r[1]));
   const high = runs(chars, c => c.h, i => boldStart.has(i) || boldEnd.has(i));
   const open = new Map<number, string>(), close = new Map<number, string>();
   for (const [a, z] of bold) { open.set(a, "**"); close.set(z, "**"); }
   for (const [a, z] of high) { open.set(a, (open.get(a) ?? "") + "=="); close.set(z, "==" + (close.get(z) ?? "")); }
-  let s = prefix;
+  let s = lines[0]?.prefix ?? "";
   for (let i = 0; i <= chars.length; i++) {
     s += close.get(i) ?? "";
-    if (i < chars.length) s += (open.get(i) ?? "") + chars[i].ch;
+    if (i === chars.length) break;
+    const c = chars[i];
+    s += c.prefix !== undefined ? `\n${c.prefix}` : (open.get(i) ?? "") + c.ch;
   }
   return s;
 }
@@ -330,7 +348,10 @@ function emitLine(prefix: string, chars: MarkChar[]): string {
 /**
  * Bold, highlight or clear the characters of a page's text whose positions fall in
  * [start, end), and write the result back as Obsidian markdown. Marks stay balanced and
- * never start or end on a space; a highlight inside bold nests as `**…==…==…**`.
+ * never start or end on a space; a highlight inside bold nests as `**…==…==…**`. A mark
+ * that covers several lines of a paragraph is written once across them, and the page's
+ * other marks are rewritten the same way, so marks left line by line merge on the next
+ * edit without changing what is marked.
  */
 export function applyMark(text: string, start: number, end: number, op: MarkOp): string {
   const lines = parseMarks(text);
@@ -343,7 +364,14 @@ export function applyMark(text: string, start: number, end: number, op: MarkOp):
       else c.b = c.h = false;
     }
   }
-  return lines.map(l => ("verbatim" in l ? l.verbatim : emitLine(l.prefix, l.chars))).join("\n");
+  const out: string[] = [];
+  let para: { prefix: string; chars: MarkChar[] }[] = [];
+  const flush = () => { if (para.length) out.push(emitParagraph(para)); para = []; };
+  for (const l of lines) {
+    if ("verbatim" in l) { flush(); out.push(l.verbatim); } else para.push(l);
+  }
+  flush();
+  return out.join("\n");
 }
 
 const SUMMARY_ONE = /^>[ \t]*\[!summary\][^\n]*(?:\n>[^\n]*)*/im;
