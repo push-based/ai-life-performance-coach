@@ -37,7 +37,7 @@ afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 describe("vault tool registry", () => {
   it("lists every tool, with the writers marked as such", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "create_concept", "reading_progress", "mark_read", "write_summary"]);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "marked_passages", "create_concept", "reading_progress", "mark_read", "write_summary"]);
     expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept", "mark_read", "write_summary"]);
   });
 });
@@ -101,7 +101,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "create_concept", "due_for_review", "file_note", "find_passages", "init_vault", "list_notes", "list_raw", "mark_read", "read_note", "reading_progress", "record_session", "search", "tier2_payload", "vault_graph", "write_summary"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "create_concept", "due_for_review", "file_note", "find_passages", "init_vault", "list_notes", "list_raw", "mark_read", "marked_passages", "read_note", "reading_progress", "record_session", "search", "tier2_payload", "vault_graph", "write_summary"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
@@ -242,6 +242,13 @@ describe("reading tools", () => {
       summary: true, state: "complete",
       pages: [{ page: 4, mark: "bold", summary: false, empty: false }, { page: 5, mark: "none", summary: false, empty: false }],
     });
+  });
+
+  it("marked_passages gives the user's marks as whole sentences, and refuses a path that is not a chapter or book", async () => {
+    const passages = (await call("marked_passages", { note: WORK })).data;
+    expect(passages).toEqual([{ note: CH, chapter: "Chapter 1: One", page: 4, quote: "Some bold text.", depth: "bold", marked: [{ mark: "bold", text: "bold" }] }]);
+    expect((await call("marked_passages", { note: CH, depth: "highlight" })).data).toEqual([]);
+    expect((await call("marked_passages", { note: "0.Inbox/x.md" })).res.isError).toBe(true);
   });
 
   it("reports refusals as errors", async () => {
