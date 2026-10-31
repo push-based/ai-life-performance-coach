@@ -26,6 +26,8 @@ import { planPeriod, executePlanPeriod, executeWrites, type PlanPeriodInput, typ
 import { rollOver, type RollOverPlan } from "./rollover.js";
 import { reviewPeriod, type PeriodReview } from "./review.js";
 import { harvestWorkstream, executeHarvest, type HarvestPlan, type PacketInput } from "./harvest.js";
+import { plansView, type PlansView } from "./plansview.js";
+import { periodAt } from "./plans.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -109,6 +111,8 @@ export interface Vault {
    * packets, lists the candidates; with packets, previews them, and writes with `execute`.
    */
   harvestWorkstream(project: string, workstream: string, packets: PacketInput[] | undefined, execute: boolean): Promise<HarvestResult>;
+  /** The plans page's data (ADR-KI-0063); defaults to the current quarter by week. */
+  plansView(span?: string, by?: string): Promise<PlansView | { error: string }>;
 }
 
 export type HarvestResult = Omit<HarvestPlan, "writes"> & { executed: boolean; contents: Record<string, string> };
@@ -296,6 +300,10 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       if (!execute || plan.errors.length) return { ...shown, executed: false };
       await executePlanPeriod(root, plan);
       return { ...shown, executed: true };
+    },
+    async plansView(span, by) {
+      const today = localDate(now());
+      return plansView(root, await scanVault(root), span || periodAt("quarter", today).period, by || "week", today);
     },
     async harvestWorkstream(project, workstream, packets, execute) {
       const plan = harvestWorkstream(root, await scanVault(root), project, workstream, packets, localDate(now()));
