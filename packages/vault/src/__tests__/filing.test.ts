@@ -61,16 +61,24 @@ describe("init_vault", () => {
       { op: "move", from: "Journal/2026/Day.md", to: "4.Archive/old notes/Journal/2026/Day.md" },
       { op: "move", from: "Loose.md", to: "4.Archive/old notes/Loose.md" },
       { op: "remove_empty", from: "Journal" },
+      { op: "create", to: "Plans" },
+      { op: "create", to: "Plans/Yearly" },
+      { op: "create", to: "Plans/Quarterly" },
+      { op: "create", to: "Plans/Monthly" },
+      { op: "create", to: "Plans/Weekly" },
+      { op: "create", to: "Plans/Daily" },
     ]);
+    expect(preview.warnings).toEqual(["1.Projects is created or renamed by this run; run init_vault again to bring its projects onto workstreams"]);
     expect(fingerprint()).toEqual(before);
 
     const done = await vault.initVault(true);
     expect(done.executed).toBe(true);
-    expect(readdirSync(dir).sort()).toEqual(["0.Inbox", "1.Projects", "2.Areas", "3.Resources", "4.Archive"]);
+    expect(readdirSync(dir).sort()).toEqual(["0.Inbox", "1.Projects", "2.Areas", "3.Resources", "4.Archive", "Plans"]);
     expect(read("1.Projects/Talk/Plan.md")).toBe("plan");
     expect(read("4.Archive/old notes/Journal/2026/Day.md")).toBe("day");
     expect((await vault.notes()).every(n => n.bucket !== null)).toBe(true);
-    expect((await vault.initVault(false)).actions).toEqual([]);
+    // The second run brings the renamed projects folder onto workstreams.
+    expect((await vault.initVault(false)).actions).toEqual([{ op: "write", to: "1.Projects/Talk/Talk.md" }]);
   });
 
   it("lifts the five folders out of a PARA/ wrapper and archives the rest of it", async () => {
@@ -82,7 +90,7 @@ describe("init_vault", () => {
     const { actions, warnings } = await vault.initVault(true);
     expect(actions).toContainEqual({ op: "rename", from: "PARA/1.Projects", to: "1.Projects" });
     expect(actions).toContainEqual({ op: "move", from: "PARA/Misc/z.md", to: "4.Archive/old notes/PARA/Misc/z.md" });
-    expect(warnings).toEqual([]);
+    expect(warnings).toEqual(["1.Projects is created or renamed by this run; run init_vault again to bring its projects onto workstreams"]);
     expect(has("PARA")).toBe(false);
     expect(read("1.Projects/A/x.md")).toBe("x");
     expect(read("4.Archive/y.md")).toBe("y");

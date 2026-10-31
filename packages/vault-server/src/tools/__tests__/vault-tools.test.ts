@@ -184,7 +184,18 @@ describe("filing tools", () => {
     expect((await call("list_notes", { bucket: "out_of_place" })).data.notes).toEqual([]);
     expect((await call("capture", { title: "Idea", body: "x", execute: true })).data.executed).toBe(true);
     expect((await call("archive_project", { project: "DevFest2026", execute: true })).data.executed).toBe(true);
-    expect((await call("init_vault", {})).data.actions).toEqual([{ op: "create", to: "2.Areas" }]);
+    expect((await call("init_vault", {})).data.actions).toEqual([
+      { op: "create", to: "2.Areas" },
+      { op: "create", to: "Plans" },
+      { op: "create", to: "Plans/Yearly" },
+      { op: "create", to: "Plans/Quarterly" },
+      { op: "create", to: "Plans/Monthly" },
+      { op: "create", to: "Plans/Weekly" },
+      { op: "create", to: "Plans/Daily" },
+    ]);
+    const areas = (await call("init_vault", { areas: ["Health", "Public Speaking"], execute: true })).data;
+    expect(areas.actions).toContainEqual({ op: "write", to: "2.Areas/Public Speaking.md" });
+    expect((await call("list_notes", { bucket: "areas" })).data.notes.map((n: { path: string }) => n.path)).toEqual(["2.Areas/Health.md", "2.Areas/Public Speaking.md"]);
     const refused = await call("file_note", { path: "3.Resources/Stray.md", to: "Elsewhere", execute: true });
     expect(refused.res.isError).toBe(true);
   });

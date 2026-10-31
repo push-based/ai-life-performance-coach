@@ -14,10 +14,13 @@ function result(r: FilingResult): ToolResult {
 export function initVaultTool(vault: Vault): ToolDef {
   return defineTool({
   name: "init_vault",
-  description: "Bring the vault onto the five PARA folders at its root (0.Inbox, 1.Projects, 2.Areas, 3.Resources, 4.Archive). Proposes renaming folders that are PARA folders under another name (including ones nested in a PARA/ folder), creates the missing ones, and moves every note outside them into 4.Archive/old notes/ keeping its relative path and content. Previews by default: review the renames, then re-run with execute: true. If any target exists, the preview lists the collisions and execution moves nothing.",
+  description: "Bring the vault onto the five PARA folders at its root (0.Inbox, 1.Projects, 2.Areas, 3.Resources, 4.Archive). Proposes renaming folders that are PARA folders under another name (including ones nested in a PARA/ folder), creates the missing ones, and moves every note outside them into 4.Archive/old notes/ keeping its relative path and content. It also lays out planning (ADR-KI-0062): creates Plans/ with Yearly, Quarterly, Monthly, Weekly and Daily, renames each project's IP/ folder to Workstreams/, writes a missing project note (<Project>/<Project>.md, status in-progress, empty deadline and done_when, listing its workstreams), turns a project or workstream note's top 'Status:' line into a status key (todo, in-progress, blocked, done; any other value is listed for the user to map), and creates the areas passed in 'areas' as 2.Areas/<Name>.md. Previews by default: review the renames, then re-run with execute: true. If any target exists, the preview lists the collisions and execution moves nothing.",
   annotations: WRITES,
-  schema: { execute: EXECUTE },
-  handler: async (args) => result(await vault.initVault(args.execute === true)),
+  schema: {
+    areas: z.array(z.string().min(1)).optional().describe("Area names to create in 2.Areas when missing, e.g. Health, Work"),
+    execute: EXECUTE,
+  },
+  handler: async (args) => result(await vault.initVault(args.execute === true, { areas: args.areas })),
   });
 }
 

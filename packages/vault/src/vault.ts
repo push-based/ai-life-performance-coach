@@ -14,7 +14,7 @@ import { loadSessions, type InvalidSession, type SessionRecord } from "./session
 import { histories, historyOf, type NoteHistory } from "./mastery.js";
 import { planSession, executeSession, localDate, type RecordPlan, type RecordSessionInput } from "./record.js";
 import { tier2Payload, type Tier2Payload } from "./payload.js";
-import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan, type ArchiveOptions } from "./filing.js";
+import { planInit, planCapture, planFileNote, planArchiveProject, executeFiling, type FilingPlan, type ArchiveOptions, type InitOptions } from "./filing.js";
 import { listRaw, planConvert, executeConvert, type RawItem, type ConvertPlan, type ConvertOptions } from "./convert.js";
 import { planConcept, executeConcept, conceptOf, type ConceptInput, type ConceptPlan } from "./concept.js";
 import { bookProgress, citations, planMarkRead, planSummary, executeWrite, applyMark, editPageContent, setPageSummary, setChapterSummary, chapterSummaryOf, pageSection, type BookProgress, type WritePlan, type MarkOp, type EditResult } from "./distill.js";
@@ -63,7 +63,7 @@ export interface Vault {
    */
   tier2Payload(sessionId: string, opts?: { includeAssertions?: boolean }): Promise<Tier2Payload | null>;
   /** Filing (Phase 3): each previews, and with `execute` applies a clean plan. */
-  initVault(execute: boolean): Promise<FilingResult>;
+  initVault(execute: boolean, opts?: InitOptions): Promise<FilingResult>;
   capture(title: string, body: string, execute: boolean): Promise<FilingResult>;
   fileNote(path: string, toFolder: string, execute: boolean): Promise<FilingResult>;
   archiveProject(project: string, execute: boolean, opts?: ArchiveOptions): Promise<FilingResult>;
@@ -107,7 +107,7 @@ async function applyWrite(root: string, plan: WritePlan, execute: boolean): Prom
   return { ...shown, executed: true };
 }
 
-export type FilingResult = Omit<FilingPlan, "contents"> & { executed: boolean };
+export type FilingResult = Omit<FilingPlan, "contents" | "originals"> & { executed: boolean };
 
 /** A raw file with what was made from it (ADR-KI-0061): the user's notes and concept notes. */
 export interface RawListing extends RawItem {
@@ -116,7 +116,7 @@ export interface RawListing extends RawItem {
 }
 
 async function apply(root: string, plan: FilingPlan, execute: boolean): Promise<FilingResult> {
-  const { contents: _contents, ...shown } = plan;
+  const { contents: _contents, originals: _originals, ...shown } = plan;
   if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
   await executeFiling(root, plan);
   return { ...shown, executed: true };
@@ -227,7 +227,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       }
       return tier2Payload(session, assertions);
     },
-    initVault: async execute => apply(root, await planInit(root), execute),
+    initVault: async (execute, opts) => apply(root, await planInit(root, opts), execute),
     capture: async (title, body, execute) => apply(root, planCapture(root, title, body), execute),
     async fileNote(path, toFolder, execute) {
       const rel = notePathOf(root, path) ?? path;
