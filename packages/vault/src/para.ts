@@ -26,6 +26,9 @@ export const RAW_FOLDER = "0.Raw";
 /** The vault-level folder that holds coach state; never a note location. */
 export const COACH_ROOT = "Coach";
 
+/** The plans folder beside `Coach/`, outside the PARA buckets (ADR-KI-0062 Decision 6). */
+export const PLANS_ROOT = "Plans";
+
 export interface ParaLocation {
   /** Null when the note is out of place. */
   bucket: ParaBucket | null;

@@ -8,7 +8,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { link, mkdir, readdir, rename, rmdir, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
-import { classify, COACH_ROOT, PARA_BUCKETS, PARA_FOLDERS, type ParaBucket } from "./para.js";
+import { classify, COACH_ROOT, PLANS_ROOT, PARA_BUCKETS, PARA_FOLDERS, type ParaBucket } from "./para.js";
 import { noteResolver } from "./graph.js";
 import { listNotePaths, type VaultNote } from "./scan.js";
 
@@ -78,11 +78,12 @@ function unmap(renames: { from: string; to: string }[], p: string): string {
 /**
  * `init_vault`: rename folders that are PARA folders under another name (including the
  * five nested in a `PARA/` folder), create the missing ones, then move every note
- * outside them into `4.Archive/old notes/`, keeping its relative path.
+ * outside them into `4.Archive/old notes/`, keeping its relative path. `Coach/` and
+ * `Plans/` (ADR-KI-0062) stay where they are.
  */
 export async function planInit(root: string): Promise<FilingPlan> {
   const plan = empty();
-  const top = dirsIn(root).filter(n => n !== COACH_ROOT);
+  const top = dirsIn(root).filter(n => n !== COACH_ROOT && n !== PLANS_ROOT);
   const candidates = new Map<ParaBucket, string[]>();
   const consider = (rel: string, name: string) => {
     const b = bucketOfAlias(name);
@@ -107,7 +108,7 @@ export async function planInit(root: string): Promise<FilingPlan> {
 
   const notes = (await listNotePaths(root)).map(p => ({ from: p, after: mapThrough(renames, p) }));
   const afterSet = new Set(notes.map(n => n.after));
-  const moving = notes.filter(n => classify(n.after).bucket === null);
+  const moving = notes.filter(n => classify(n.after).bucket === null && !n.after.startsWith(`${PLANS_ROOT}/`));
   for (const n of moving) {
     const to = posix.join(OLD_NOTES, n.after);
     if (afterSet.has(to) || existsSync(join(root, unmap(renames, to)))) plan.collisions.push(to);
@@ -128,7 +129,7 @@ export async function planInit(root: string): Promise<FilingPlan> {
     }
     return onlyNotes;
   };
-  for (const name of dirsIn(root).filter(n => n !== COACH_ROOT && !CANONICAL.has(n))) {
+  for (const name of dirsIn(root).filter(n => n !== COACH_ROOT && n !== PLANS_ROOT && !CANONICAL.has(n))) {
     if (renames.some(r => r.from === name)) continue;
     if (walk(name)) plan.actions.push({ op: "remove_empty", from: name });
   }

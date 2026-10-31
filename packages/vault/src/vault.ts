@@ -21,6 +21,7 @@ import { bookProgress, citations, planMarkRead, planSummary, executeWrite, apply
 import { readFile, writeFile } from "node:fs/promises";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 import { markedPassages, type MarkedPassage } from "./marks.js";
+import { planning, type Planning } from "./planning.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -91,6 +92,8 @@ export interface Vault {
   pageText(path: string, page: number): Promise<{ note: string; title: string; page: number; text: string; chapterSummary: string | null } | null>;
   markPage(path: string, page: number, start: number, end: number, op: MarkOp, base: string): Promise<PublicEdit>;
   setSummary(path: string, page: number | null, text: string, base?: string): Promise<PublicEdit>;
+  /** Projects, workstreams, areas, plans and their tasks (ADR-KI-0062). */
+  planning(): Promise<Planning>;
 }
 
 export type PublicEdit = { ok: true; text: string } | { ok: false; status: 400 | 404 | 409; error: string; text?: string };
@@ -265,6 +268,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       if (typeof text !== "string") return { ok: false, status: 400, error: "the summary must be text" };
       return edit(path, content => (page === null ? setChapterSummary(content, text) : setPageSummary(content, page, text, base)));
     },
+    planning: async () => planning(root, await scanVault(root)),
     findPassages: async (query, opts) => searchPassages(await scanVault(root), query, opts),
     async createConcept(input, execute) {
       const plan = planConcept(root, await scanVault(root), input, localDate(now()));
