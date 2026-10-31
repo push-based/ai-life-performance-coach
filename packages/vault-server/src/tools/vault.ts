@@ -18,6 +18,7 @@ import { initVaultTool, captureTool, fileNoteTool, archiveProjectTool } from "./
 import { listRawTool, convertRawTool } from "./vault/raw-tools.js";
 import { findPassagesTool, markedPassagesTool, createConceptTool } from "./vault/concept-tools.js";
 import { readingProgressTool, markReadTool, writeSummaryTool } from "./vault/reading-tools.js";
+import { planningOverviewTool, planPeriodTool } from "./vault/planning-tools.js";
 
 export function createVaultTools(vault: Vault): ToolDef[] {
   return [
@@ -40,5 +41,7 @@ export function createVaultTools(vault: Vault): ToolDef[] {
     readingProgressTool(vault),
     markReadTool(vault),
     writeSummaryTool(vault),
+    planningOverviewTool(vault),
+    planPeriodTool(vault),
   ];
 }

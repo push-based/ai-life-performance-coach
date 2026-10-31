@@ -18,6 +18,8 @@ export const WORKSTREAMS_FOLDER = "Workstreams";
 export const PACKETS_FOLDER = "Intermediate Packets";
 /** The folder projects used for workstreams before ADR-KI-0062; `init_vault` renames it. */
 export const LEGACY_WORKSTREAMS_FOLDER = "IP";
+/** Plan templates, one per level, beside the plans; they are not plans and hold no tasks. */
+const TEMPLATES = `${PLANS_ROOT}/Templates`;
 
 export const PLAN_LEVELS = { year: "Yearly", quarter: "Quarterly", month: "Monthly", week: "Weekly", day: "Daily" } as const;
 export type PlanLevel = keyof typeof PLAN_LEVELS;
@@ -256,7 +258,7 @@ export function planning(root: string, notes: VaultNote[]): Planning {
 
   const plans: Plan[] = [];
   for (const n of notes) {
-    if (!under(n.path, PLANS_ROOT)) continue;
+    if (!under(n.path, PLANS_ROOT) || under(n.path, TEMPLATES)) continue;
     const ref = planOf(n.path);
     if (ref) plans.push({ ...ref, path: n.path, title: n.title });
     else warnings.push(`${n.path}: not a plan name; expected ${PLANS_ROOT}/<${Object.values(PLAN_LEVELS).join("|")}>/<period>.md`);
@@ -277,7 +279,7 @@ export function planning(root: string, notes: VaultNote[]): Planning {
   for (const n of notes) {
     const plan = planOf(n.path);
     // Checkboxes in Inbox, Resources and the archive are not planned work.
-    if (!plan && !ownerByNote.has(n.path)) continue;
+    if ((!plan && !ownerByNote.has(n.path)) || under(n.path, TEMPLATES)) continue;
     for (const t of parseTasks(n.path, n.body, plan)) {
       let owner = ownerByNote.get(n.path) ?? none;
       if (plan) {

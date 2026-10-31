@@ -67,6 +67,12 @@ describe("init_vault", () => {
       { op: "create", to: "Plans/Monthly" },
       { op: "create", to: "Plans/Weekly" },
       { op: "create", to: "Plans/Daily" },
+      { op: "create", to: "Plans/Templates" },
+      { op: "write", to: "Plans/Templates/Yearly.md" },
+      { op: "write", to: "Plans/Templates/Quarterly.md" },
+      { op: "write", to: "Plans/Templates/Monthly.md" },
+      { op: "write", to: "Plans/Templates/Weekly.md" },
+      { op: "write", to: "Plans/Templates/Daily.md" },
     ]);
     expect(preview.warnings).toEqual(["1.Projects is created or renamed by this run; run init_vault again to bring its projects onto workstreams"]);
     expect(fingerprint()).toEqual(before);
@@ -76,7 +82,7 @@ describe("init_vault", () => {
     expect(readdirSync(dir).sort()).toEqual(["0.Inbox", "1.Projects", "2.Areas", "3.Resources", "4.Archive", "Plans"]);
     expect(read("1.Projects/Talk/Plan.md")).toBe("plan");
     expect(read("4.Archive/old notes/Journal/2026/Day.md")).toBe("day");
-    expect((await vault.notes()).every(n => n.bucket !== null)).toBe(true);
+    expect((await vault.notes()).every(n => n.bucket !== null || n.path.startsWith("Plans/"))).toBe(true);
     // The second run brings the renamed projects folder onto workstreams.
     expect((await vault.initVault(false)).actions).toEqual([{ op: "write", to: "1.Projects/Talk/Talk.md" }]);
   });
