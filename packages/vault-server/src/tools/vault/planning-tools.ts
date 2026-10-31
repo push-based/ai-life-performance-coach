@@ -26,12 +26,13 @@ export function planningOverviewTool(vault: Vault): ToolDef {
       note: t.note, line: t.line, text: t.text, state: t.state, owner: t.owner, size: t.size, scheduled: t.scheduled,
       doneOn: t.doneOn, priority: t.priority, slipped: t.slipped, ...(t.goal ? { goal: true, blockId: t.blockId, parent: t.parent } : {}),
     });
-    const want = (t: (typeof p.tasks)[number]) => (!args.project || t.owner.project === args.project) && (!args.area || t.owner.area === args.area);
+    const archived = new Set(p.projects.filter(x => x.archived).map(x => x.name));
+    const want = (t: (typeof p.tasks)[number]) => !archived.has(t.owner.project ?? "") && (!args.project || t.owner.project === args.project) && (!args.area || t.owner.area === args.area);
     const levels = ["year", "quarter", "month", "week", "day"] as const;
     const up = period ? levels[levels.indexOf(period.level) - 1] : undefined;
     const overlaps = (q: { start: string; end: string }) => !!period && q.start <= period.end && q.end >= period.start;
     return json({
-      projects: p.projects.map(({ packets: _p, ...pr }) => ({ ...pr, workstreams: pr.workstreams.map(({ notes: _n, ...w }) => w) })),
+      projects: p.projects.filter(pr => !pr.archived).map(({ packets: _p, archived: _a, ...pr }) => ({ ...pr, workstreams: pr.workstreams.map(({ notes: _n, ...w }) => w) })),
       areas: p.areas.map(({ notes: _n, ...a }) => a),
       plans: p.plans.map(x => `${x.level}:${x.period}`).sort(),
       openTasks: p.tasks.filter(t => t.state === "open" && !t.goal && want(t)).map(task),
@@ -92,6 +93,22 @@ export function rollOverTool(vault: Vault): ToolDef {
   handler: async (args) => {
     const r = await vault.rollOver(args.period, args.execute === true);
     return r.errors.length ? fail(`roll_over refused:\n- ${r.errors.join("\n- ")}`) : json(r);
+  },
+  });
+}
+
+export function reviewPeriodTool(vault: Vault): ToolDef {
+  return defineTool({
+  name: "review_period",
+  description: "Review a year, quarter, month, week or day (ADR-KI-0062): effort as the size-weighted sum of tasks done in it (S 1, M 3, L 8, untagged 1) per project and workstream, per area and unlinked, with how many done tasks had no size; each goal of the period's plan as met, open, missed (open after the period ended) or dropped, with the effort done for its owner and the goals that serve it down the chain; what slipped out of the period; and open items that slipped twice or more. Archived projects still count. Talk the review through with the user; it reads only.",
+  annotations: { readOnlyHint: true, idempotentHint: true },
+  schema: {
+    period: z.string().describe("YYYY, YYYY-Qn, YYYY-MM, YYYY-Www or YYYY-MM-DD"),
+    today: DAY.optional().describe("The date to judge open goals against; defaults to today"),
+  },
+  handler: async (args) => {
+    const r = await vault.reviewPeriod(args.period, args.today);
+    return "error" in r ? fail(r.error) : json(r);
   },
   });
 }

@@ -57,6 +57,11 @@ describe("parseTasks", () => {
     expect(e).toMatchObject({ size: null, weight: 1, priority: null, slipped: [] });
   });
 
+  it("reads a block id that Tasks wrote before a done date", () => {
+    const [t] = parseTasks("n.md", "- [x] All posters out [[Marketing]] ^all-posters ✅ 2026-11-04");
+    expect(t).toMatchObject({ text: "All posters out [[Marketing]]", blockId: "all-posters", doneOn: "2026-11-04" });
+  });
+
   it("skips code blocks", () => {
     expect(parseTasks("n.md", body)).toHaveLength(5);
   });
