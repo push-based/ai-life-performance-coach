@@ -7,7 +7,7 @@
 
 export { createVault, notePathOf, type Vault } from "./vault.js";
 export { resolveVaultRoot, defaultVaultConfigFile, type VaultRootSources, type ResolvedVaultRoot } from "./root.js";
-export { classify, RAW_FOLDER, PARA_FOLDERS, PARA_BUCKETS, COACH_ROOT, type ParaBucket, type ParaLocation } from "./para.js";
+export { classify, RAW_FOLDER, PARA_FOLDERS, PARA_BUCKETS, COACH_ROOT, PLANS_ROOT, type ParaBucket, type ParaLocation } from "./para.js";
 export { scanVault, readNote, listNotePaths, type VaultNote } from "./scan.js";
 export { extractLinks, LinkResolver, type RawLink } from "./links.js";
 export { buildVaultGraph, noteResolver, type VaultGraph, type VaultGraphNode, type VaultGraphEdge } from "./graph.js";
@@ -23,3 +23,4 @@ export { planSession, type RecordSessionInput, type SessionItemInput, type Recor
 export { tier2Payload, PAYLOAD_ITEM_KEYS, PAYLOAD_OPTIONAL_KEYS, type Tier2Payload } from "./payload.js";
 export { planInit, planCapture, planFileNote, planArchiveProject, keepSuggestions, safeName, OLD_NOTES, type FilingPlan, type FilingAction, type KeepSuggestion, type ArchiveOptions } from "./filing.js";
 export { listRaw, planConvert, planUnits, extractPdf, renderChapter, renderIndex, chapterFile, pagesOf, RAW_ROOT, RAW_PDF, RAW_TEXT, RAW_CHAPTERS, MAX_UNIT_CHARS, type RawItem, type ConvertPlan, type ConvertOptions, type PdfText, type OutlineEntry, type Unit, type UnitPlan } from "./convert.js";
+export { planning, parseTasks, planOf, PLAN_LEVELS, STATUSES, SIZE_WEIGHTS, WORKSTREAMS_FOLDER, PACKETS_FOLDER, LEGACY_WORKSTREAMS_FOLDER, type Planning, type Project, type Workstream, type Area, type Plan, type PlanRef, type PlanLevel, type Task, type OwnedTask, type Owner, type Status, type Size, type Priority } from "./planning.js";

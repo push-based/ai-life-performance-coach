@@ -44,9 +44,11 @@ describe("vault tool registry", () => {
 
 describe("list_notes", () => {
   it("counts every bucket and lists notes", async () => {
+    put("Plans/Weekly/2026-W45.md", "## Goals\n");
     const { data } = await call("list_notes");
-    expect(data.total).toBe(4);
-    expect(data.counts).toEqual({ inbox: 0, projects: 1, areas: 0, resources: 2, archive: 0, out_of_place: 1 });
+    expect(data.total).toBe(5);
+    expect(data.counts).toEqual({ inbox: 0, projects: 1, areas: 0, resources: 2, archive: 0, plans: 1, out_of_place: 1 });
+    expect((await call("list_notes", { bucket: "plans" })).data.notes.map((n: { path: string }) => n.path)).toEqual(["Plans/Weekly/2026-W45.md"]);
     expect(data.notes.find((n: { path: string }) => n.path.endsWith("Event loop.md"))).toMatchObject({ bucket: "resources", container: "TypeScript", coachId: "c-1" });
   });
 

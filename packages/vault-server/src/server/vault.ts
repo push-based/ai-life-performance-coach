@@ -20,7 +20,7 @@ export function createVaultServer({ vault, pkg }: VaultServerOptions): McpServer
   }, {
     instructions: `You have access to a personal Obsidian vault organised by PARA.
 
-Every note lives under five fixed folders at the vault root: 0.Inbox, 1.Projects, 2.Areas, 3.Resources, 4.Archive. Notes elsewhere are reported as out of place.
+Every note lives under five fixed folders at the vault root: 0.Inbox, 1.Projects, 2.Areas, 3.Resources, 4.Archive, except plans, which live in Plans/Yearly, Quarterly, Monthly, Weekly and Daily. Notes elsewhere are reported as out of place.
 
 - 'list_notes' — notes with their PARA bucket; counts per bucket
 - 'read_note' — one note by vault-relative path, with its resolved links
