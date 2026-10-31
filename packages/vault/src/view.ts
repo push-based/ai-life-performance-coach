@@ -3,9 +3,11 @@
  * separate from this repository's view server. It serves the page, its script, the
  * graph, regenerated into `Coach/graph.json` on every request, and one page of a
  * converted book's chapter (ADR-KI-0061), to read and distil there: the user can bold,
- * highlight and summarise from the page, which writes the chapter note. No other note
- * body is ever served or written, and the page may load nothing from off the machine
- * (Content-Security-Policy), so it works offline and leaks nothing.
+ * highlight and summarise from the page, which writes the chapter note. Any other note in
+ * the graph is served read-only to read in the view (ADR-KI-0061 Decision 14); sessions and the graph
+ * file are not notes and are never served. Only chapters are written, and the page may
+ * load nothing from off the machine (Content-Security-Policy), so it works offline and
+ * leaks nothing.
  */
 
 import { readFileSync } from "node:fs";
@@ -141,6 +143,22 @@ export async function bookPage(vault: Vault, path: string, page: number): Promis
   return vault.pageText(path, page);
 }
 
+export interface NoteBody {
+  note: string;
+  title: string;
+  /** The note's markdown without its frontmatter, for the view to render as text. */
+  text: string;
+}
+
+/**
+ * Any note the graph shows, read-only (ADR-KI-0061 Decision 14), or null for a path that is not one:
+ * outside the vault, under `Coach/`, or not a markdown note.
+ */
+export async function noteBody(vault: Vault, path: string): Promise<NoteBody | null> {
+  const note = await vault.note(path);
+  return note ? { note: note.path, title: note.title, text: note.body } : null;
+}
+
 const MAX_BODY = 64 * 1024;
 
 function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null> {
@@ -166,7 +184,7 @@ export interface ViewServerOptions {
 
 /**
  * The vault view server. Answers `/`, `/vault-view.js`, `/graph.json`,
- * `/page.json?note=<chapter>&page=<N>`, and two writes from the page itself (ADR-KI-0061
+ * `/page.json?note=<chapter>&page=<N>`, `/note.json?note=<note>`, and two writes from the page itself (ADR-KI-0061
  * Decision 10): `POST /api/mark` and `POST /api/summary`; everything else is 404.
  *
  * Every request must name this server's own loopback address in its Host header, which
@@ -210,6 +228,10 @@ export function createVaultViewServer(vault: Vault, opts: ViewServerOptions = {}
       }
       if (path === "/vault-view.js") return send(200, "text/javascript; charset=utf-8", asset("vault-view.js"));
       if (path === "/graph.json") return json(200, await writeViewGraph(vault));
+      if (path === "/note.json") {
+        const note = await noteBody(vault, url.searchParams.get("note") ?? "");
+        return note ? json(200, note) : send(404, "text/plain; charset=utf-8", "Not found");
+      }
       if (path === "/page.json") {
         const page = await bookPage(vault, url.searchParams.get("note") ?? "", Number(url.searchParams.get("page")));
         return page ? json(200, page) : send(404, "text/plain; charset=utf-8", "Not found");
