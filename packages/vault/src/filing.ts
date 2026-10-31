@@ -13,7 +13,7 @@ import { dirname, join, posix } from "node:path";
 import { classify, COACH_ROOT, PLANS_ROOT, PARA_BUCKETS, PARA_FOLDERS, type ParaBucket } from "./para.js";
 import { noteResolver } from "./graph.js";
 import { listNotePaths, type VaultNote } from "./scan.js";
-import { LEGACY_WORKSTREAMS_FOLDER, PLAN_LEVELS, STATUSES, WORKSTREAMS_FOLDER, type Status } from "./planning.js";
+import { LEGACY_WORKSTREAMS_FOLDER, PACKETS_FOLDER, PLAN_LEVELS, STATUSES, WORKSTREAMS_FOLDER, type Status } from "./planning.js";
 import { declaresKey, insertKey } from "./identity.js";
 import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from "./plans.js";
 
@@ -343,6 +343,8 @@ export function planFileNote(root: string, notes: VaultNote[], path: string, toF
 export function keepSuggestions(notes: VaultNote[], project: string): KeepSuggestion[] {
   const folder = posix.join(PARA_FOLDERS.projects, project);
   const inside = (p: string) => p.startsWith(`${folder}/`);
+  // Intermediate Packets move to Resources on their own (ADR-KI-0062 Decision 13).
+  const packet = (p: string) => p.startsWith(`${posix.join(folder, PACKETS_FOLDER)}/`);
   const resolver = noteResolver(notes);
   const byPath = new Map(notes.map(n => [n.path, n]));
   const linkedFrom = new Map<string, Set<string>>();
@@ -354,7 +356,7 @@ export function keepSuggestions(notes: VaultNote[], project: string): KeepSugges
     }
   }
   const out: KeepSuggestion[] = [];
-  for (const n of notes.filter(x => inside(x.path))) {
+  for (const n of notes.filter(x => inside(x.path) && !packet(x.path))) {
     const reasons: string[] = [];
     if (n.concept) reasons.push("a concept note");
     if (n.coachId) reasons.push("has sparring history");
@@ -366,9 +368,14 @@ export function keepSuggestions(notes: VaultNote[], project: string): KeepSugges
   return out;
 }
 
+/** Where an archived project's Intermediate Packets go (ADR-KI-0062 Decision 13). */
+export const RESOURCE_PACKETS = posix.join(PARA_FOLDERS.resources, PACKETS_FOLDER);
+
 /**
- * `archive_project`: move one project folder whole into `4.Archive/`. The preview
- * suggests notes worth keeping; any kept note moves into Resources first.
+ * `archive_project`: move one project folder whole into `4.Archive/`. Its Intermediate
+ * Packets move first, to `3.Resources/Intermediate Packets/<project>/`, keeping their
+ * links to the archived project. The preview suggests notes worth keeping; any kept note
+ * moves into Resources first.
  */
 export function planArchiveProject(root: string, project: string, notes: VaultNote[] = [], opts: ArchiveOptions = {}): FilingPlan {
   const plan = empty();
@@ -380,6 +387,14 @@ export function planArchiveProject(root: string, project: string, notes: VaultNo
   const abs = join(root, from);
   if (!existsSync(abs) || !statSync(abs).isDirectory()) { plan.errors.push(`no project folder ${from}`); return plan; }
   const to = posix.join(PARA_FOLDERS.archive, project);
+  const packetsFrom = posix.join(from, PACKETS_FOLDER);
+  const packetsTo = posix.join(RESOURCE_PACKETS, project);
+  const hasPackets = existsSync(join(root, packetsFrom)) && statSync(join(root, packetsFrom)).isDirectory();
+  if (hasPackets) {
+    if (!existsSync(join(root, RESOURCE_PACKETS))) plan.actions.push({ op: "create", to: RESOURCE_PACKETS });
+    if (existsSync(join(root, packetsTo))) plan.collisions.push(packetsTo);
+    else plan.actions.push({ op: "move", from: packetsFrom, to: packetsTo });
+  }
   const suggestions = keepSuggestions(notes, project);
   plan.suggestions = suggestions;
   const suggested = new Map(suggestions.map(s => [s.path, s.to]));
@@ -389,6 +404,7 @@ export function planArchiveProject(root: string, project: string, notes: VaultNo
     if (seen.has(k.note)) continue;
     seen.add(k.note);
     if (!k.note.startsWith(`${from}/`) || !notes.some(n => n.path === k.note)) { plan.errors.push(`keep: ${k.note} is not a note in ${from}`); continue; }
+    if (hasPackets && k.note.startsWith(`${packetsFrom}/`)) { plan.warnings.push(`keep: ${k.note} moves with the Intermediate Packets to ${packetsTo}`); continue; }
     const dest = posix.normalize((k.to ?? suggested.get(k.note) ?? posix.join(PARA_FOLDERS.resources, project)).replace(/\\/g, "/")).replace(/^\/+|\/+$/g, "");
     const at = classify(`${dest}/x.md`);
     if (dest.split("/").some(p => p === ".." || isHidden(p)) || at.bucket !== "resources" || at.raw) { plan.errors.push(`keep: ${dest} is not a folder under 3.Resources outside 0.Raw`); continue; }
@@ -400,7 +416,8 @@ export function planArchiveProject(root: string, project: string, notes: VaultNo
     if (broken.length) plan.warnings.push(`relative markdown links that will no longer resolve: ${broken.join("; ")}`);
   }
   // Every file kept: nothing is left to archive, so the empty project folder goes.
-  if (kept.size && filesUnder(abs).every(f => kept.has(posix.join(from, f)))) {
+  const leaves = (f: string) => kept.has(posix.join(from, f)) || (hasPackets && posix.join(from, f).startsWith(`${packetsFrom}/`));
+  if ((kept.size || hasPackets) && filesUnder(abs).every(leaves)) {
     plan.actions.push({ op: "remove_empty", from });
     return plan;
   }

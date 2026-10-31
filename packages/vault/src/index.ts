@@ -15,15 +15,16 @@ export { searchNotes, searchPassages, type NoteHit, type NoteSearchOptions, type
 export { applyMark, pageSection, editPageContent, setPageSummary, setChapterSummary, chapterSummaryOf, type MarkOp, type Section, type EditResult } from "./distill.js";
 export { bookProgress, chapterProgress, citations, sourceOf, type Citations, planMarkRead, planSummary, summaryOf, withoutSummaries, READ_KEY, READING_STAGES, type BookProgress, type ChapterProgress, type PageProgress, type PageMark, type ChapterState, type ReadingStage, type WritePlan } from "./distill.js";
 export { planConcept, conceptOf, checkPassages, locateQuote, fold, renderConcept, CONCEPT_TYPE, CONCEPTS_FOLDER, MAX_ASSERTIONS, MAX_BUZZWORDS, MAX_PASSAGES, MIN_QUOTE_CHARS, type ConceptInput, type ConceptPlan, type ConceptFields, type Passage, type PassageCheck } from "./concept.js";
-export { type RollOverResult, type PlanPeriodResult, type VaultOptions, type NoteWithHistory, type DueReport, type FilingResult, type WriteResult, type RawListing, type PublicEdit } from "./vault.js";
+export { type HarvestResult, type RollOverResult, type PlanPeriodResult, type VaultOptions, type NoteWithHistory, type DueReport, type FilingResult, type WriteResult, type RawListing, type PublicEdit } from "./vault.js";
 export { SESSIONS_DIR, renderSession, parseSession, loadSessions, sessionPath, type SessionRecord, type SessionItem, type Tier, type Verdict, type InvalidSession } from "./sessions.js";
 export { insertCoachId, declaresCoachId, insertKey, declaresKey } from "./identity.js";
 export { histories, type Mastery, type NoteHistory, type HistoryEntry } from "./mastery.js";
 export { planSession, type RecordSessionInput, type SessionItemInput, type RecordPlan } from "./record.js";
 export { tier2Payload, PAYLOAD_ITEM_KEYS, PAYLOAD_OPTIONAL_KEYS, type Tier2Payload } from "./payload.js";
-export { planInit, planCapture, planFileNote, planArchiveProject, keepSuggestions, safeName, statusFromText, OLD_NOTES, type FilingPlan, type FilingAction, type KeepSuggestion, type ArchiveOptions, type InitOptions } from "./filing.js";
+export { planInit, planCapture, planFileNote, planArchiveProject, keepSuggestions, RESOURCE_PACKETS, safeName, statusFromText, OLD_NOTES, type FilingPlan, type FilingAction, type KeepSuggestion, type ArchiveOptions, type InitOptions } from "./filing.js";
 export { listRaw, planConvert, planUnits, extractPdf, renderChapter, renderIndex, chapterFile, pagesOf, RAW_ROOT, RAW_PDF, RAW_TEXT, RAW_CHAPTERS, MAX_UNIT_CHARS, type RawItem, type ConvertPlan, type ConvertOptions, type PdfText, type OutlineEntry, type Unit, type UnitPlan } from "./convert.js";
 export { planning, parseTasks, planOf, PLAN_LEVELS, STATUSES, SIZE_WEIGHTS, WORKSTREAMS_FOLDER, PACKETS_FOLDER, LEGACY_WORKSTREAMS_FOLDER, type Planning, type Project, type Workstream, type Area, type Plan, type PlanRef, type PlanLevel, type Task, type OwnedTask, type Owner, type Status, type Size, type Priority } from "./planning.js";
 export { planPeriod, executeWrites, nextPeriod, periodOf, isoWeekOf, planPathOf, templateFor, TEMPLATES, TEMPLATES_FOLDER, templatePath, type Period, type PlanPeriodInput, type PlanPeriodPlan, type GoalInput, type AdHocInput, type ScheduleInput, type NoteEdit } from "./plans.js";
 export { rollOver, type RollOverPlan } from "./rollover.js";
 export { reviewPeriod, type PeriodReview, type GoalReview, type GoalStatus, type Effort, type ProjectEffort } from "./review.js";
+export { harvestWorkstream, resetChecklist, isPacket, PACKET_TYPE, type HarvestPlan, type PacketInput, type Candidate } from "./harvest.js";

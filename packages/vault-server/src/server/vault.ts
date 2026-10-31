@@ -40,6 +40,7 @@ Show the user a filing preview before executing it: moves change where their not
 - 'planning_overview', 'plan_period' — planning (ADR-KI-0062): projects split into workstreams, areas, and year, quarter, month, week and day plans in Plans/. Read planning_overview, work the plan out with the user, then preview plan_period, show the plan and the task edits, and execute. Every goal and task links a project, workstream or area; a goal below the year links the goal it serves one level up
 - 'roll_over' — at the start of a new week, month or quarter, move the closed period's open work into it at high priority with a #slipped/<period> tag; preview and show the user what slipped first
 - 'review_period' — where a period's effort went per project, workstream and area, how its goals stand down the chain, and what slipped
+- 'harvest_workstream' — when a workstream is done, list its candidates, agree with the user which are reusable, and write them as Intermediate Packets (always write the name in full, never 'IP')
 
 Only notes under 3.Resources are sparred, raw resources included. Sessions live in Coach/sessions/; a note's coach_id ties it to its sessions wherever it moves.
 

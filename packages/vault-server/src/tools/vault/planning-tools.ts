@@ -112,3 +112,25 @@ export function reviewPeriodTool(vault: Vault): ToolDef {
   },
   });
 }
+
+export function harvestWorkstreamTool(vault: Vault): ToolDef {
+  return defineTool({
+  name: "harvest_workstream",
+  description: "Turn a finished workstream into Intermediate Packets (ADR-KI-0062): small reusable outputs another project can start from, such as a checklist, a template, a design or a message. The workstream's status must be done. Call it without 'packets' to list candidates (its notes, sections holding 3+ checkboxes, and files); talk through with the user which are worth reusing and in what words; then pass the packets to preview them and execute: true to write. Each packet becomes a note in <project>/Intermediate Packets/ linking its project and workstream; checklists are reset to unticked without dates, and files it reuses are copied beside it. The workstream is not changed. When the project is archived, its packets move to 3.Resources/Intermediate Packets/<project>/.",
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  schema: {
+    project: z.string().describe("The project folder name, e.g. DevFest2026"),
+    workstream: z.string().describe("The workstream name, e.g. Workshops"),
+    packets: z.array(z.object({
+      title: z.string().min(1).describe("e.g. 'Workshop speaker onboarding checklist'"),
+      text: z.string().optional().describe("What it is and how to reuse it, in the user's words"),
+      from: z.array(z.string()).optional().describe("A note path, '<note path>#<section>' for one section, or a file path to copy"),
+    })).optional().describe("Omit to list candidates"),
+    execute: z.boolean().optional().describe("Write the packets (default: preview only)"),
+  },
+  handler: async (args) => {
+    const r = await vault.harvestWorkstream(args.project, args.workstream, args.packets, args.execute === true);
+    return r.errors.length ? fail(`harvest_workstream refused:\n- ${r.errors.join("\n- ")}${r.candidates.length ? `\ncandidates: ${JSON.stringify(r.candidates)}` : ""}`) : json(r);
+  },
+  });
+}
