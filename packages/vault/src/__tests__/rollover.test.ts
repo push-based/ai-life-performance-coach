@@ -83,6 +83,14 @@ describe("roll_over", () => {
     expect(p.tasks.find(t => t.text === "Badge design")).toMatchObject({ scheduled: "2026-11-03", state: "done" });
   });
 
+  it("leaves repeating tasks where they stand: a missed habit day is not a slip", async () => {
+    seed();
+    put("1.Projects/Promise/Workstreams/Morning.md", "- [ ] Up at 6:00 🔁 every day ⏳ 2026-11-06\n- [ ] Read 🔁 every day\n");
+    const plan = rollOver(dir, await scanVault(dir), "2026-W45");
+    expect(plan.tasks.map(e => e.note)).not.toContain("1.Projects/Promise/Workstreams/Morning.md");
+    expect(plan.warnings.join("\n")).not.toContain("Read");
+  });
+
   it("is safe to run twice", async () => {
     seed();
     const vault = createVault(dir);

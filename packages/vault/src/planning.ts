@@ -74,6 +74,8 @@ export interface Task {
   weight: number;
   /** Periods named by `#slipped/<period>` tags, in the order written. */
   slipped: string[];
+  /** The Tasks recurrence rule after `🔁`, e.g. `every day`; a repeating task is a habit, not a slip. */
+  recurrence: string | null;
   /** `^id` at the end of the line, for a child goal's parent link. */
   blockId: string | null;
   /** The goal this one serves, from `↑ [[<plan>#^<id>]]` (Decision 7). */
@@ -90,6 +92,7 @@ const DONE = DATE("✅");
 const PARENT = /↑\s*\[\[([^\]|#]+)#\^([A-Za-z0-9-]+)(?:\|[^\]]*)?\]\]/;
 const SIZE = /(?:^|\s)#([SML])(?=\s|$)/;
 const SLIPPED = /(?:^|\s)#slipped\/([0-9A-Za-z-]+)/g;
+const RECURRENCE = /🔁\uFE0F?\s*([^⏳✅📅🛫➕❌🔺⏫🔼🔽⏬↑#^]*)/u;
 const BLOCK_ID = /\s\^([A-Za-z0-9-]+)\s*$/;
 const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const FENCE_LINE = /^\s*(```|~~~)/;
@@ -113,11 +116,13 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
     const priority = [...rest].map(c => PRIORITY[c]).find(Boolean) ?? null;
     const size = (rest.match(SIZE)?.[1] as Size | undefined) ?? null;
     const slipped = [...rest.matchAll(SLIPPED)].map(s => s[1]);
+    const recurrence = rest.match(RECURRENCE)?.[1].trim() || null;
     const p = rest.match(PARENT);
     const parent = p ? { target: p[1].trim(), block: p[2] } : null;
     // Dates and priority first: Tasks may write a done date after the block id.
     rest = rest
       .replace(PARENT, "")
+      .replace(RECURRENCE, "")
       .replace(/[⏳✅📅🛫➕❌]\uFE0F?\s*\d{4}-\d{2}-\d{2}/g, "")
       .replace(/[🔺⏫🔼🔽⏬]\uFE0F?/g, "");
     const blockId = rest.match(BLOCK_ID)?.[1] ?? null;
@@ -127,7 +132,7 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
       .replace(SLIPPED, " ");
     out.push({
       note, line, text: rest.replace(/\s+/g, " ").trim(), state, scheduled, doneOn, priority, size,
-      weight: size ? SIZE_WEIGHTS[size] : 1, slipped, blockId, parent,
+      weight: size ? SIZE_WEIGHTS[size] : 1, slipped, recurrence, blockId, parent,
       goal: inGoals && plan !== null && plan.level !== "day",
       // The parent link points at a plan, not at the work, so it is not a link to an owner.
       links: extractLinks(m[2].replace(PARENT, "")),

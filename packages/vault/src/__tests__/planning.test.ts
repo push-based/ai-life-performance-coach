@@ -62,6 +62,13 @@ describe("parseTasks", () => {
     expect(t).toMatchObject({ text: "All posters out [[Marketing]]", blockId: "all-posters", doneOn: "2026-11-04" });
   });
 
+  it("reads a Tasks recurrence rule and keeps it out of the text", () => {
+    const [a, b] = parseTasks("n.md", "- [ ] Up at 6:00 🔁 every day ⏳ 2026-11-01\n- [ ] Run #M 🔁 every week on Sunday when done ⏫ ⏳ 2026-11-01 ^run");
+    expect(a).toMatchObject({ text: "Up at 6:00", recurrence: "every day", scheduled: "2026-11-01" });
+    expect(b).toMatchObject({ text: "Run", recurrence: "every week on Sunday when done", size: "M", priority: "high", blockId: "run" });
+    expect(parseTasks("n.md", "- [ ] Once")[0].recurrence).toBeNull();
+  });
+
   it("skips code blocks", () => {
     expect(parseTasks("n.md", body)).toHaveLength(5);
   });
