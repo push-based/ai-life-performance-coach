@@ -15,6 +15,7 @@ import { noteResolver } from "./graph.js";
 import { listNotePaths, type VaultNote } from "./scan.js";
 import { LEGACY_WORKSTREAMS_FOLDER, PLAN_LEVELS, STATUSES, WORKSTREAMS_FOLDER, type Status } from "./planning.js";
 import { declaresKey, insertKey } from "./identity.js";
+import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from "./plans.js";
 
 export const OLD_NOTES = posix.join(PARA_FOLDERS.archive, "old notes");
 
@@ -165,7 +166,8 @@ export function statusFromText(text: string): Status | null {
 }
 
 /**
- * The ADR-KI-0062 Decision 14 part of `init_vault`: `Plans/` and its level folders, each
+ * The ADR-KI-0062 Decision 14 part of `init_vault`: `Plans/`, its level folders and the
+ * five templates in `Plans/Templates/` when missing, each
  * project's `IP/` renamed to `Workstreams/`, missing project notes, the areas asked for,
  * and the top `Status:` line of project and workstream notes turned into a `status` key.
  * Runs only over a `1.Projects` folder that already exists under its own name.
@@ -175,8 +177,14 @@ function planPlanningLayout(root: string, plan: FilingPlan, renames: { from: str
   const originals = (plan.originals ??= {});
   const planned = new Set(plan.actions.flatMap(a => ("to" in a ? [a.to] : [])));
 
-  for (const folder of [PLANS_ROOT, ...Object.values(PLAN_LEVELS).map(l => posix.join(PLANS_ROOT, l))]) {
+  for (const folder of [PLANS_ROOT, ...Object.values(PLAN_LEVELS).map(l => posix.join(PLANS_ROOT, l)), TEMPLATES_FOLDER]) {
     if (!existsSync(join(root, folder))) plan.actions.push({ op: "create", to: folder });
+  }
+  for (const level of Object.keys(TEMPLATES) as (keyof typeof TEMPLATES)[]) {
+    const to = templatePath(level);
+    if (existsSync(join(root, to))) continue;
+    plan.actions.push({ op: "write", to });
+    contents[to] = TEMPLATES[level];
   }
 
   const projectsRoot = PARA_FOLDERS.projects;

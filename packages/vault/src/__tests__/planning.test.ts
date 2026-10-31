@@ -196,6 +196,12 @@ describe("init_vault and Plans/", () => {
       { op: "create", to: "Plans/Quarterly" },
       { op: "create", to: "Plans/Monthly" },
       { op: "create", to: "Plans/Daily" },
+      { op: "create", to: "Plans/Templates" },
+      { op: "write", to: "Plans/Templates/Yearly.md" },
+      { op: "write", to: "Plans/Templates/Quarterly.md" },
+      { op: "write", to: "Plans/Templates/Monthly.md" },
+      { op: "write", to: "Plans/Templates/Weekly.md" },
+      { op: "write", to: "Plans/Templates/Daily.md" },
     ]);
   });
 });
@@ -224,6 +230,12 @@ describe("init_vault planning migration (Decision 14)", () => {
       { op: "create", to: "Plans/Monthly" },
       { op: "create", to: "Plans/Weekly" },
       { op: "create", to: "Plans/Daily" },
+      { op: "create", to: "Plans/Templates" },
+      { op: "write", to: "Plans/Templates/Yearly.md" },
+      { op: "write", to: "Plans/Templates/Quarterly.md" },
+      { op: "write", to: "Plans/Templates/Monthly.md" },
+      { op: "write", to: "Plans/Templates/Weekly.md" },
+      { op: "write", to: "Plans/Templates/Daily.md" },
       { op: "rename", from: "1.Projects/AI-Coach/IP", to: "1.Projects/AI-Coach/Workstreams" },
       { op: "rename", from: "1.Projects/DevFest2026/IP", to: "1.Projects/DevFest2026/Workstreams" },
       { op: "write", to: "1.Projects/DevFest2026/DevFest2026.md" },

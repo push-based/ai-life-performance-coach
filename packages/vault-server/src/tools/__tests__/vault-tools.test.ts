@@ -37,8 +37,8 @@ afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 describe("vault tool registry", () => {
   it("lists every tool, with the writers marked as such", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "marked_passages", "create_concept", "reading_progress", "mark_read", "write_summary"]);
-    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept", "mark_read", "write_summary"]);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "marked_passages", "create_concept", "reading_progress", "mark_read", "write_summary", "planning_overview", "plan_period"]);
+    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept", "mark_read", "write_summary", "plan_period"]);
   });
 });
 
@@ -103,7 +103,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "create_concept", "due_for_review", "file_note", "find_passages", "init_vault", "list_notes", "list_raw", "mark_read", "marked_passages", "read_note", "reading_progress", "record_session", "search", "tier2_payload", "vault_graph", "write_summary"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "create_concept", "due_for_review", "file_note", "find_passages", "init_vault", "list_notes", "list_raw", "mark_read", "marked_passages", "plan_period", "planning_overview", "read_note", "reading_progress", "record_session", "search", "tier2_payload", "vault_graph", "write_summary"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
@@ -192,6 +192,12 @@ describe("filing tools", () => {
       { op: "create", to: "Plans/Monthly" },
       { op: "create", to: "Plans/Weekly" },
       { op: "create", to: "Plans/Daily" },
+      { op: "create", to: "Plans/Templates" },
+      { op: "write", to: "Plans/Templates/Yearly.md" },
+      { op: "write", to: "Plans/Templates/Quarterly.md" },
+      { op: "write", to: "Plans/Templates/Monthly.md" },
+      { op: "write", to: "Plans/Templates/Weekly.md" },
+      { op: "write", to: "Plans/Templates/Daily.md" },
     ]);
     const areas = (await call("init_vault", { areas: ["Health", "Public Speaking"], execute: true })).data;
     expect(areas.actions).toContainEqual({ op: "write", to: "2.Areas/Public Speaking.md" });

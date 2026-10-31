@@ -22,6 +22,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 import { markedPassages, type MarkedPassage } from "./marks.js";
 import { planning, type Planning } from "./planning.js";
+import { planPeriod, executePlanPeriod, type PlanPeriodInput, type PlanPeriodPlan } from "./plans.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -94,7 +95,11 @@ export interface Vault {
   setSummary(path: string, page: number | null, text: string, base?: string): Promise<PublicEdit>;
   /** Projects, workstreams, areas, plans and their tasks (ADR-KI-0062). */
   planning(): Promise<Planning>;
+  /** Write a plan's goals and ad-hoc tasks and schedule tasks into it (ADR-KI-0062 Decision 9); previews by default. */
+  planPeriod(input: PlanPeriodInput, execute: boolean): Promise<PlanPeriodResult>;
 }
+
+export type PlanPeriodResult = Omit<PlanPeriodPlan, "originals" | "writes"> & { executed: boolean };
 
 export type PublicEdit = { ok: true; text: string } | { ok: false; status: 400 | 404 | 409; error: string; text?: string };
 
@@ -269,6 +274,13 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       return edit(path, content => (page === null ? setChapterSummary(content, text) : setPageSummary(content, page, text, base)));
     },
     planning: async () => planning(root, await scanVault(root)),
+    async planPeriod(input, execute) {
+      const plan = planPeriod(root, await scanVault(root), input);
+      const { originals: _o, writes: _w, ...shown } = plan;
+      if (!execute || plan.errors.length) return { ...shown, executed: false };
+      await executePlanPeriod(root, plan);
+      return { ...shown, executed: true };
+    },
     findPassages: async (query, opts) => searchPassages(await scanVault(root), query, opts),
     async createConcept(input, execute) {
       const plan = planConcept(root, await scanVault(root), input, localDate(now()));
