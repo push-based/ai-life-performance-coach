@@ -24,6 +24,7 @@ import { markedPassages, type MarkedPassage } from "./marks.js";
 import { planning, type Planning } from "./planning.js";
 import { planPeriod, executePlanPeriod, executeWrites, type PlanPeriodInput, type PlanPeriodPlan } from "./plans.js";
 import { rollOver, type RollOverPlan } from "./rollover.js";
+import { reviewPeriod, type PeriodReview } from "./review.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -100,6 +101,8 @@ export interface Vault {
   planPeriod(input: PlanPeriodInput, execute: boolean): Promise<PlanPeriodResult>;
   /** Move a closed week's, month's or quarter's open work into the next period (ADR-KI-0062 Decision 10); previews by default. */
   rollOver(period: string, execute: boolean): Promise<RollOverResult>;
+  /** Where a period's effort went, and how its goals stand (ADR-KI-0062 Decision 11); `today` defaults to the clock. */
+  reviewPeriod(period: string, today?: string): Promise<PeriodReview | { error: string }>;
 }
 
 export type RollOverResult = Omit<RollOverPlan, "originals" | "writes" | "created"> & { executed: boolean };
@@ -286,6 +289,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       await executePlanPeriod(root, plan);
       return { ...shown, executed: true };
     },
+    reviewPeriod: async (period, today) => reviewPeriod(root, await scanVault(root), period, today ?? localDate(now())),
     async rollOver(period, execute) {
       const plan = rollOver(root, await scanVault(root), period);
       const { originals: _o, writes: _w, created: _c, ...shown } = plan;

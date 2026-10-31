@@ -113,14 +113,16 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
     const priority = [...rest].map(c => PRIORITY[c]).find(Boolean) ?? null;
     const size = (rest.match(SIZE)?.[1] as Size | undefined) ?? null;
     const slipped = [...rest.matchAll(SLIPPED)].map(s => s[1]);
-    const blockId = rest.match(BLOCK_ID)?.[1] ?? null;
     const p = rest.match(PARENT);
     const parent = p ? { target: p[1].trim(), block: p[2] } : null;
+    // Dates and priority first: Tasks may write a done date after the block id.
     rest = rest
       .replace(PARENT, "")
+      .replace(/[⏳✅📅🛫➕❌]\uFE0F?\s*\d{4}-\d{2}-\d{2}/g, "")
+      .replace(/[🔺⏫🔼🔽⏬]\uFE0F?/g, "");
+    const blockId = rest.match(BLOCK_ID)?.[1] ?? null;
+    rest = rest
       .replace(BLOCK_ID, "")
-      .replace(/[⏳✅📅🛫➕❌]️?\s*\d{4}-\d{2}-\d{2}/g, "")
-      .replace(/[🔺⏫🔼🔽⏬]️?/g, "")
       .replace(/(?:^|\s)#[SML](?=\s|$)/g, " ")
       .replace(SLIPPED, " ");
     out.push({
@@ -159,6 +161,8 @@ export interface Project {
   packets: string[];
   /** True while the project still keeps its workstreams in `IP/`. */
   legacyWorkstreams: boolean;
+  /** True for a project archived under `4.Archive/`, kept so reviews of past periods still count its work. */
+  archived: boolean;
 }
 
 export interface Area {
@@ -235,24 +239,35 @@ export function planning(root: string, notes: VaultNote[]): Planning {
   const warnings: string[] = [];
   const byPath = new Map(notes.map(n => [n.path, n]));
 
-  const projects: Project[] = dirsIn(join(root, PARA_FOLDERS.projects)).map(name => {
-    const folder = posix.join(PARA_FOLDERS.projects, name);
+  const project = (bucket: string, name: string, archived: boolean): Project => {
+    const folder = posix.join(bucket, name);
     const notePath = `${folder}/${name}.md`;
     const pn = byPath.get(notePath);
-    if (!pn) warnings.push(`${folder}: no project note ${notePath}`);
     const ws = posix.join(folder, WORKSTREAMS_FOLDER);
     const legacy = dirsIn(join(root, folder)).includes(LEGACY_WORKSTREAMS_FOLDER);
-    if (legacy) warnings.push(`${folder}: workstreams are still in ${LEGACY_WORKSTREAMS_FOLDER}/; init_vault renames it to ${WORKSTREAMS_FOLDER}/`);
+    if (!archived) {
+      if (!pn) warnings.push(`${folder}: no project note ${notePath}`);
+      if (legacy) warnings.push(`${folder}: workstreams are still in ${LEGACY_WORKSTREAMS_FOLDER}/; init_vault renames it to ${WORKSTREAMS_FOLDER}/`);
+    }
     return {
       name, folder, note: pn ? notePath : null,
-      status: statusOf(pn, warnings),
+      status: statusOf(pn, archived ? [] : warnings),
       deadline: text(pn?.frontmatter.deadline),
       doneWhen: text(pn?.frontmatter.done_when),
-      workstreams: units(root, ws, notes).map(u => ({ ...u, project: name, status: statusOf(byPath.get(u.note ?? ""), warnings) })),
+      workstreams: units(root, ws, notes).map(u => ({ ...u, project: name, status: statusOf(byPath.get(u.note ?? ""), archived ? [] : warnings) })),
       packets: notes.filter(n => under(n.path, posix.join(folder, PACKETS_FOLDER))).map(n => n.path),
       legacyWorkstreams: legacy,
+      archived,
     };
-  });
+  };
+  const active = dirsIn(join(root, PARA_FOLDERS.projects));
+  // An archived folder is a project when it kept a project note or workstreams; other archive folders are not.
+  const archivedNames = dirsIn(join(root, PARA_FOLDERS.archive)).filter(name =>
+    !active.includes(name) && (byPath.has(posix.join(PARA_FOLDERS.archive, name, `${name}.md`)) || dirsIn(join(root, PARA_FOLDERS.archive, name)).includes(WORKSTREAMS_FOLDER)));
+  const projects: Project[] = [
+    ...active.map(name => project(PARA_FOLDERS.projects, name, false)),
+    ...archivedNames.map(name => project(PARA_FOLDERS.archive, name, true)),
+  ];
 
   const areas: Area[] = units(root, PARA_FOLDERS.areas, notes).map(u => ({ ...u, status: statusOf(byPath.get(u.note ?? ""), warnings) }));
 
