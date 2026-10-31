@@ -25,6 +25,7 @@ import { planning, type Planning } from "./planning.js";
 import { planPeriod, executePlanPeriod, executeWrites, type PlanPeriodInput, type PlanPeriodPlan } from "./plans.js";
 import { rollOver, type RollOverPlan } from "./rollover.js";
 import { reviewPeriod, type PeriodReview } from "./review.js";
+import { harvestWorkstream, executeHarvest, type HarvestPlan, type PacketInput } from "./harvest.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -103,7 +104,14 @@ export interface Vault {
   rollOver(period: string, execute: boolean): Promise<RollOverResult>;
   /** Where a period's effort went, and how its goals stand (ADR-KI-0062 Decision 11); `today` defaults to the clock. */
   reviewPeriod(period: string, today?: string): Promise<PeriodReview | { error: string }>;
+  /**
+   * Turn a finished workstream into Intermediate Packets (ADR-KI-0062 Decision 12): without
+   * packets, lists the candidates; with packets, previews them, and writes with `execute`.
+   */
+  harvestWorkstream(project: string, workstream: string, packets: PacketInput[] | undefined, execute: boolean): Promise<HarvestResult>;
 }
+
+export type HarvestResult = Omit<HarvestPlan, "writes"> & { executed: boolean; contents: Record<string, string> };
 
 export type RollOverResult = Omit<RollOverPlan, "originals" | "writes" | "created"> & { executed: boolean };
 
@@ -288,6 +296,13 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       if (!execute || plan.errors.length) return { ...shown, executed: false };
       await executePlanPeriod(root, plan);
       return { ...shown, executed: true };
+    },
+    async harvestWorkstream(project, workstream, packets, execute) {
+      const plan = harvestWorkstream(root, await scanVault(root), project, workstream, packets, localDate(now()));
+      const { writes, ...shown } = plan;
+      const ok = execute && !plan.errors.length && !plan.collisions.length && plan.packets.length > 0;
+      if (ok) await executeHarvest(root, plan);
+      return { ...shown, contents: writes, executed: ok };
     },
     reviewPeriod: async (period, today) => reviewPeriod(root, await scanVault(root), period, today ?? localDate(now())),
     async rollOver(period, execute) {
