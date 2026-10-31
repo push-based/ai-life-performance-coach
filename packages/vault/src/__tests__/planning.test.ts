@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseTasks, planOf, planning } from "../planning.js";
 import { scanVault } from "../scan.js";
-import { planInit } from "../filing.js";
+import { executeFiling, planInit, statusFromText } from "../filing.js";
+import { createVault } from "../vault.js";
 
 let dir: string;
 
@@ -189,6 +190,96 @@ describe("init_vault and Plans/", () => {
     put("Plans/Weekly/2026-W45.md", "## Goals\n");
     put("Stray.md", "Outside PARA.\n");
     const plan = await planInit(dir);
-    expect(plan.actions).toEqual([{ op: "move", from: "Stray.md", to: "4.Archive/old notes/Stray.md" }]);
+    expect(plan.actions).toEqual([
+      { op: "move", from: "Stray.md", to: "4.Archive/old notes/Stray.md" },
+      { op: "create", to: "Plans/Yearly" },
+      { op: "create", to: "Plans/Quarterly" },
+      { op: "create", to: "Plans/Monthly" },
+      { op: "create", to: "Plans/Daily" },
+    ]);
+  });
+});
+
+describe("init_vault planning migration (Decision 14)", () => {
+  const read = (rel: string) => readFileSync(join(dir, rel), "utf-8");
+  function seedLegacy(): void {
+    for (const f of ["0.Inbox", "2.Areas", "3.Resources", "4.Archive"]) mkdirSync(join(dir, f));
+    put("1.Projects/DevFest2026/IP/Workshops.md", "Status: In Progress \n\n## Slots \n\nStatus: Done\n\n- [x] All slots taken\n");
+    put("1.Projects/DevFest2026/IP/Panels.md", "## Panels\n\n- [ ] Find a moderator\n");
+    put("1.Projects/DevFest2026/IP/Marketing/Items.md", "## Posters\n");
+    put("1.Projects/DevFest2026/IP/Agenda.jpeg", "binary");
+    put("1.Projects/AI-Coach/AI-Coach.md", "---\ndeadline: 2026-12-01\n---\nStatus: Waiting on slides\n");
+    put("1.Projects/AI-Coach/IP/Slides/Slides.md", "---\nstatus: todo\n---\nStatus: Done\n");
+  }
+
+  it("previews the layout, renames IP/, writes project notes, maps statuses and lists what it leaves", async () => {
+    seedLegacy();
+    const plan = await planInit(dir, { areas: ["Health", "Public Speaking"] });
+    expect(plan.errors).toEqual([]);
+    expect(plan.collisions).toEqual([]);
+    expect(plan.actions).toEqual([
+      { op: "create", to: "Plans" },
+      { op: "create", to: "Plans/Yearly" },
+      { op: "create", to: "Plans/Quarterly" },
+      { op: "create", to: "Plans/Monthly" },
+      { op: "create", to: "Plans/Weekly" },
+      { op: "create", to: "Plans/Daily" },
+      { op: "rename", from: "1.Projects/AI-Coach/IP", to: "1.Projects/AI-Coach/Workstreams" },
+      { op: "rename", from: "1.Projects/DevFest2026/IP", to: "1.Projects/DevFest2026/Workstreams" },
+      { op: "write", to: "1.Projects/DevFest2026/DevFest2026.md" },
+      { op: "edit", from: "1.Projects/DevFest2026/IP/Workshops.md", to: "1.Projects/DevFest2026/Workstreams/Workshops.md" },
+      { op: "write", to: "2.Areas/Health.md" },
+      { op: "write", to: "2.Areas/Public Speaking.md" },
+    ]);
+    expect(plan.warnings).toEqual([
+      '1.Projects/AI-Coach/AI-Coach.md: status "Waiting on slides" is not one of todo, in-progress, blocked, done; map it by hand',
+      "1.Projects/AI-Coach/Workstreams/Slides/Slides.md: already has a status key; its Status: line stays",
+      "1.Projects/DevFest2026/Workstreams/Marketing: a workstream folder without its own note Marketing/Marketing.md; it still counts, but has no status",
+      "1.Projects/DevFest2026/Workstreams/Workshops.md:5: a Status: line under a section stays as text",
+    ]);
+    expect(plan.contents!["1.Projects/DevFest2026/DevFest2026.md"]).toBe([
+      "---", "status: in-progress", "deadline:", "done_when:", "---", "# DevFest2026", "", "## Workstreams", "",
+      "- Marketing (folder)",
+      "- [[1.Projects/DevFest2026/Workstreams/Panels|Panels]]",
+      "- [[1.Projects/DevFest2026/Workstreams/Workshops|Workshops]]",
+      "",
+    ].join("\n"));
+    expect(plan.contents!["1.Projects/DevFest2026/Workstreams/Workshops.md"]).toBe("---\nstatus: in-progress\n---\n## Slots \n\nStatus: Done\n\n- [x] All slots taken\n");
+  });
+
+  it("applies the plan, after which planning reads the workstreams and a second run has nothing to do", async () => {
+    seedLegacy();
+    const vault = createVault(dir);
+    expect((await vault.initVault(true, { areas: ["Health"] })).executed).toBe(true);
+    expect(read("1.Projects/DevFest2026/Workstreams/Agenda.jpeg")).toBe("binary");
+    const p = await vault.planning();
+    const devfest = p.projects.find(x => x.name === "DevFest2026")!;
+    expect(devfest).toMatchObject({ status: "in-progress", legacyWorkstreams: false });
+    expect(devfest.workstreams.map(w => [w.name, w.status])).toEqual([["Marketing", null], ["Panels", null], ["Workshops", "in-progress"]]);
+    expect(p.areas.map(a => a.name)).toEqual(["Health"]);
+    expect((await vault.initVault(false, { areas: ["Health"] })).actions).toEqual([]);
+  });
+
+  it("refuses the rename onto an existing Workstreams/ folder", async () => {
+    seedLegacy();
+    put("1.Projects/DevFest2026/Workstreams/Other.md", "x");
+    const r = await createVault(dir).initVault(true);
+    expect(r.collisions).toEqual(["1.Projects/DevFest2026/Workstreams"]);
+    expect(r.executed).toBe(false);
+  });
+
+  it("refuses a status edit when the note changed after the preview", async () => {
+    seedLegacy();
+    const plan = await planInit(dir);
+    put("1.Projects/DevFest2026/IP/Workshops.md", "Status: Done\n");
+    await expect(executeFiling(dir, plan)).rejects.toThrow(/IP\/Workshops\.md changed since the preview/);
+    // Nothing moved: the check runs before the first action.
+    expect(read("1.Projects/DevFest2026/IP/Workshops.md")).toBe("Status: Done\n");
+    expect(existsSync(join(dir, "Plans"))).toBe(false);
+  });
+
+  it("maps the spellings of each status", () => {
+    expect(["Done", "in progress", "In-Progress", "BLOCKED", "To Do", "todo", "Waiting"].map(statusFromText))
+      .toEqual(["done", "in-progress", "in-progress", "blocked", "todo", "todo", null]);
   });
 });
