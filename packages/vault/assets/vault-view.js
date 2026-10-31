@@ -331,6 +331,12 @@
     camera();
 
     const shown = new Set(state.nodes.filter(visible).map(n => n.id));
+    // While a note is selected, only it and the notes it links or is linked from stay on screen.
+    const focal = selectedNote();
+    if (focal) {
+      const keep = neighbourhood(focal);
+      for (const id of [...shown]) if (!keep.has(id)) shown.delete(id);
+    }
     const edges = el("g", {}, root);
     const drawn = new Set();
     state.adj = new Map();
@@ -477,7 +483,35 @@
         g.addEventListener("keydown", ev => { if (ev.key === "Enter") select(p); });
       }
     }
-    $("status").textContent = `${shown.size} of ${state.nodes.length} notes`;
+    $("status").textContent = focal
+      ? `${shown.size} of ${state.nodes.length} notes · linked to ${focal.title} · Esc shows all`
+      : `${shown.size} of ${state.nodes.length} notes`;
+  }
+
+  /** The graph note the selection stands on: the note itself, or the chapter of a selected page. */
+  function selectedNote() {
+    const s = state.selected;
+    const n = s && (s.chapter || s);
+    return n && state.byId.get(n.id) === n ? n : null;
+  }
+
+  /**
+   * A note, every note it links or is linked from (folded chapters counted as their book,
+   * a reading note's chapter links as one link to the book), and the book around it: a
+   * book keeps its chapter ring, a chapter keeps its book and sibling chapters.
+   */
+  function neighbourhood(n) {
+    const keep = new Set([n.id]);
+    const book = n.rawRole === "index" ? n.id : n.book;
+    if (book) { keep.add(book); for (const c of state.chaptersOf.get(book) || []) keep.add(c.id); }
+    for (const [x, y] of state.links) {
+      let a = anchor(x), b = anchor(y);
+      if (a && b && isReading(a, b)) { if (b.book) b = state.byId.get(b.book); if (a.book) a = state.byId.get(a.book); }
+      if (!a || !b || a === b) continue;
+      if (a.id === n.id) keep.add(b.id);
+      if (b.id === n.id) keep.add(a.id);
+    }
+    return keep;
   }
 
   /** Light up a node, its neighbours and the links between them; fade the rest. */
