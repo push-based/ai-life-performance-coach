@@ -89,6 +89,7 @@
       border-radius: 10px; border: 1px solid var(--line); background: var(--raised); cursor: pointer; transition: background .15s, border-color .15s, transform .1s;
     }
     .icon-btn:hover { background: var(--raised-2); border-color: var(--line-strong); }
+    a.icon-btn { color: inherit; text-decoration: none; }
     .icon-btn:active { transform: scale(.96); }
     .icon-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
     .icon-btn svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -377,6 +378,9 @@
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="spacer"></div>
+    <a class="icon-btn" id="plans" href="/plans" title="Plans: goals and effort by week">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="txt hide-present">Plans</span>
+    </a>
     <button class="icon-btn" id="toggle-filters" type="button" aria-pressed="false" title="Filters and legend">
       <svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span class="txt hide-present">Filters</span>
     </button>

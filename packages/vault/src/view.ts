@@ -184,7 +184,9 @@ export interface ViewServerOptions {
 
 /**
  * The vault view server. Answers `/`, `/vault-view.js`, `/graph.json`,
- * `/page.json?note=<chapter>&page=<N>`, `/note.json?note=<note>`, and two writes from the page itself (ADR-KI-0061
+ * `/page.json?note=<chapter>&page=<N>`, `/note.json?note=<note>`, the read-only plans page
+ * `/plans` with `/plans-view.js` and `/plans.json?span=<period>&by=<level>` (ADR-KI-0063),
+ * and two writes from the page itself (ADR-KI-0061
  * Decision 10): `POST /api/mark` and `POST /api/summary`; everything else is 404.
  *
  * Every request must name this server's own loopback address in its Host header, which
@@ -227,6 +229,12 @@ export function createVaultViewServer(vault: Vault, opts: ViewServerOptions = {}
         return send(200, "text/html; charset=utf-8", page);
       }
       if (path === "/vault-view.js") return send(200, "text/javascript; charset=utf-8", asset("vault-view.js"));
+      if (path === "/plans") return send(200, "text/html; charset=utf-8", asset("plans-view.html"));
+      if (path === "/plans-view.js") return send(200, "text/javascript; charset=utf-8", asset("plans-view.js"));
+      if (path === "/plans.json") {
+        const view = await vault.plansView(url.searchParams.get("span") ?? undefined, url.searchParams.get("by") ?? undefined);
+        return "error" in view ? json(400, view) : json(200, { ...view, vaultName: posix.basename(vault.root.split("\\").join("/")) });
+      }
       if (path === "/graph.json") return json(200, await writeViewGraph(vault));
       if (path === "/note.json") {
         const note = await noteBody(vault, url.searchParams.get("note") ?? "");

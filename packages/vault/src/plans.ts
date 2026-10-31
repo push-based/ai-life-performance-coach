@@ -105,13 +105,22 @@ export function periodOf(name: string): Period | null {
   }
 }
 
-/** The period of the same level that follows this one. */
-export function nextPeriod(p: Period): Period {
-  const d = new Date(`${p.end}T00:00:00Z`);
-  const next = iso(utc(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
-  const name = { year: next.slice(0, 4), quarter: `${next.slice(0, 4)}-Q${Math.floor((Number(next.slice(5, 7)) - 1) / 3) + 1}`, month: next.slice(0, 7), week: isoWeekOf(next), day: next }[p.level];
+/** The period of a level that holds a day. */
+export function periodAt(level: PlanLevel, day: string): Period {
+  const name = { year: day.slice(0, 4), quarter: `${day.slice(0, 4)}-Q${Math.floor((Number(day.slice(5, 7)) - 1) / 3) + 1}`, month: day.slice(0, 7), week: isoWeekOf(day), day }[level];
   return periodOf(name)!;
 }
+
+const shift = (day: string, by: number) => {
+  const d = new Date(`${day}T00:00:00Z`);
+  return iso(utc(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + by));
+};
+
+/** The period of the same level that follows this one. */
+export const nextPeriod = (p: Period): Period => periodAt(p.level, shift(p.end, 1));
+
+/** The period of the same level before this one. */
+export const previousPeriod = (p: Period): Period => periodAt(p.level, shift(p.start, -1));
 
 export const planPathOf = (p: { level: PlanLevel; period: string }) => posix.join(PLANS_ROOT, PLAN_LEVELS[p.level], `${p.period}.md`);
 
