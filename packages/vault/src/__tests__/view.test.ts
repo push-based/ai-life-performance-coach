@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import type { Server } from "node:http";
 import { tmpdir } from "node:os";
@@ -100,6 +100,21 @@ describe("vault view server", () => {
       expect((await q(note, page)).status, `${note} ${page}`).toBe(404);
     }
     expect((await get("/page.json")).status).toBe(404);
+  });
+
+  it("serves any note in the graph read-only, without its frontmatter, and nothing outside it", async () => {
+    put("3.Resources/Concepts/Idea.md", '---\ncoach_id: "c-1"\ntype: "concept"\n---\n# Idea\n\nMy **own** words.\n');
+    const q = (note: string) => get(`/note.json?note=${encodeURIComponent(note)}`);
+    const own = await q("3.Resources/TS/Event loop.md");
+    expect(own.status).toBe(200);
+    expect(own.headers["content-security-policy"]).toMatch(/default-src 'none'/);
+    expect(JSON.parse(own.body)).toEqual({ note: "3.Resources/TS/Event loop.md", title: "Event loop", text: "Private body line. [[Promises]]\n" });
+    expect(JSON.parse((await q("3.Resources/Concepts/Idea.md")).body).text).toBe("# Idea\n\nMy **own** words.\n");
+    const session = `Coach/sessions/${readdirSync(join(dir, "Coach/sessions"))[0]}`;
+    for (const note of [session, "Coach/graph.json", "../../etc/passwd", "3.Resources/TS/Missing.md", "3.Resources/TS", ""]) {
+      expect((await q(note)).status, note).toBe(404);
+    }
+    expect((await get("/note.json", "POST")).status).toBe(405);
   });
 
   describe("editing a chapter from the page", () => {

@@ -35,7 +35,7 @@
   const body = document.body;
 
   const state = {
-    graph: null, nodes: [], byId: new Map(), chaptersOf: new Map(), links: [], adj: new Map(),
+    graph: null, nodes: [], byId: new Map(), chaptersOf: new Map(), links: [], adj: new Map(), readersOf: new Map(), readChapters: new Set(),
     view: { x: 0, y: 0, k: 1 }, hidden: new Set(["archive"]), hiddenMastery: new Set(), hiddenKinds: new Set(),
     expanded: new Set(), openChapters: new Set(), query: "", selected: null, root: null, intro: false, instant: false,
     pages: new Map(), focus: null,
@@ -168,6 +168,33 @@
   const ringOf = count => { const ry = 50 + count * 6; return { rx: ry * 1.25, ry }; };
 
   /**
+   * Reading notes: the user's own notes in Resources that link a book or one of its
+   * chapters, by book. They sit in a column beside their book, not in the force layout.
+   */
+  function readingNotes() {
+    const out = new Map();
+    for (const [a, b] of state.links) {
+      if (a.raw || a.concept || bucketOf(a) !== "resources") continue;
+      const book = b.rawRole === "index" ? b : b.book ? state.byId.get(b.book) : null;
+      if (!book) continue;
+      const list = out.get(book.id) || [];
+      if (!list.includes(a)) list.push(a);
+      out.set(book.id, list);
+    }
+    for (const list of out.values()) list.sort((x, y) => (x.title < y.title ? -1 : 1));
+    return out;
+  }
+
+  /** Chapters a reading note links: their spokes from the book take the reading colour. */
+  function readChapters() {
+    const out = new Set();
+    for (const [a, b] of state.links) if (b.book && (state.readersOf.get(b.book) || []).includes(a)) out.add(b.id);
+    return out;
+  }
+  const bookOf = n => (n.rawRole === "index" ? n.id : n.book);
+  const isReading = (a, b) => (state.readersOf.get(bookOf(b)) || []).includes(a) || (state.readersOf.get(bookOf(a)) || []).includes(b);
+
+  /**
    * Put an open book's chapters on a wide ellipse around it, in reading order clockwise
    * from just right of the top. Wider than tall, and with no chapter exactly at the top or
    * bottom, so labels there fan out to either side instead of stacking.
@@ -186,13 +213,21 @@
       // past the chapter labels, for as long as the book is open.
       if (!state.expanded.has(book)) continue;
       const ox = rx + 240, oy = ry + 60;
+      const readers = new Set(state.readersOf.get(book) || []);
       for (const n of state.nodes) {
-        if (n.book || n === b) continue;
+        if (n.book || n === b || readers.has(n)) continue;
         const dx = n.x - b.x, dy = n.y - b.y, e = Math.hypot(dx / ox, dy / oy);
         if (e >= 1) continue;
         const a = e < 1e-6 ? -Math.PI / 2 : Math.atan2(dy / oy, dx / ox);
         n.x = b.x + Math.cos(a) * ox; n.y = b.y + Math.sin(a) * oy;
       }
+    }
+    // Reading notes in a column at the book's left, past its ring when the book is open.
+    for (const [book, readers] of state.readersOf) {
+      const b = state.byId.get(book);
+      if (!b) continue;
+      const dx = state.expanded.has(book) ? ringOf((state.chaptersOf.get(book) || []).length).rx + 320 : 110;
+      readers.forEach((n, i) => { n.x = b.x - dx; n.y = b.y + (i - (readers.length - 1) / 2) * 48; });
     }
   }
 
@@ -301,23 +336,37 @@
     state.adj = new Map();
     const touch = (a, b) => { if (!state.adj.has(a)) state.adj.set(a, new Set()); state.adj.get(a).add(b); };
     for (const [x, y] of state.links) {
-      const a = anchor(x), b = anchor(y);
+      let a = anchor(x), b = anchor(y);
+      // A reading note draws one line to its book, never one per chapter across the ring.
+      if (a && b && isReading(a, b)) { if (b.book) b = state.byId.get(b.book); if (a.book) a = state.byId.get(a.book); }
       if (!a || !b || a === b || !shown.has(a.id) || !shown.has(b.id)) continue;
       const key = a.id < b.id ? a.id + "\0" + b.id : b.id + "\0" + a.id;
       if (drawn.has(key)) continue;
       drawn.add(key);
       touch(a.id, b.id); touch(b.id, a.id);
       const spoke = a.book === b.id || b.book === a.id;
+      const reading = !spoke && isReading(a, b);
       const dim = state.query && !(matches(a) || matches(b));
       let d;
-      if (spoke) d = `M${a.x},${a.y}L${b.x},${b.y}`;
+      if (spoke || reading) d = `M${a.x},${a.y}L${b.x},${b.y}`;
       else {
         // A gentle curve, always bowing the same way for the same pair.
         const [p, q] = a.id < b.id ? [a, b] : [b, a];
         const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, dx = q.x - p.x, dy = q.y - p.y;
         d = `M${p.x},${p.y}Q${mx - dy * 0.14},${my + dx * 0.14} ${q.x},${q.y}`;
       }
-      el("path", { d, class: `edge${spoke ? " spoke" : ""}${dim ? " dim" : ""}`, "data-a": a.id, "data-b": b.id }, edges);
+      const chapter = spoke ? (a.book ? a : b) : null;
+      const read = chapter && state.readChapters.has(chapter.id);
+      const progress = read && chapter.distill && chapter.distill.state !== "untouched" ? chapterFill(chapter) : null;
+      if (progress) {
+        // Read and being distilled: two strokes side by side, the reading colour and the chapter's.
+        const len = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = ((a.y - b.y) / len) * 1.6, ny = ((b.x - a.x) / len) * 1.6;
+        for (const [s, color] of [[1, null], [-1, progress]]) {
+          el("path", { d: `M${a.x + nx * s},${a.y + ny * s}L${b.x + nx * s},${b.y + ny * s}`, class: `edge spoke read${dim ? " dim" : ""}`, style: color ? `stroke:${color}` : "", "data-a": a.id, "data-b": b.id }, edges);
+        }
+        continue;
+      }
+      el("path", { d, class: `edge${spoke ? " spoke" : ""}${read ? " read" : ""}${reading ? " reading" : ""}${dim ? " dim" : ""}`, "data-a": a.id, "data-b": b.id }, edges);
     }
 
     // Page rings sit under the nodes so a chapter stays on top of its own ring.
@@ -372,7 +421,9 @@
       }
 
       const labelled = isBook || selected || hit || state.view.k > 1.3 || (!crowded && (!n.book || state.expanded.has(n.book)));
-      const cos = n.book ? Math.cos(n.angle) : 1, sin = n.book ? Math.sin(n.angle) : 0;
+      // A reading note sits at its book's left, so its label points away from the book.
+      const reader = !n.book && [...state.readersOf.values()].some(list => list.includes(n));
+      const cos = n.book ? Math.cos(n.angle) : reader ? -1 : 1, sin = n.book ? Math.sin(n.angle) : 0;
       const steep = n.book && Math.abs(cos) < 0.35;
       const off = isBook ? r + 16 : r + 7;
       // A chapter exactly at the top or bottom of the ring centres its label over or under it.
@@ -674,6 +725,7 @@
         h("div", { class: "path", textContent: n.id }),
         h("div", { class: "actions" }, link("Open in Obsidian", obsidian(n.id.replace(/\.md$/, "")))),
       ),
+      card(noteReader(n)),
       card(rows([
         ["PARA", label(BUCKETS, bucketOf(n))],
         ...(n.raw ? [] : [
@@ -687,6 +739,104 @@
         h("span", { class: "grow" }, h("b", { textContent: m.title }), h("small", { textContent: label(BUCKETS, bucketOf(m)) }))))))) : null,
       n.raw && n.notesFrom ? madeFrom(n, "source") : null,
     ].filter(Boolean);
+  }
+
+  /* ── Reading a note (ADR-KI-0061 Decision 14) ────────────────────────────────── */
+
+  /** The node a wikilink names: by path, then by file name, then by title. */
+  function nodeFor(target) {
+    const t = target.split("#")[0].trim();
+    if (!t) return null;
+    const path = t.endsWith(".md") ? t : `${t}.md`;
+    if (state.byId.has(path)) return state.byId.get(path);
+    const nodes = [...state.byId.values()];
+    return nodes.find(n => n.id.endsWith(`/${path}`) || n.id === path) || nodes.find(n => n.title === t) || null;
+  }
+
+  /**
+   * One line of a note's markdown as DOM, from text nodes only: `**`/`__` bold, `==`
+   * highlight, `[[target|alias]]` a link to that node in the graph, `[text](url)` its text.
+   */
+  function inline(text) {
+    const out = [];
+    let b = false, hl = false, buf = "";
+    const span = t => (b || hl ? h("span", { class: `${b ? "mk-b" : ""}${hl ? " mk-h" : ""}`.trim() }, t) : document.createTextNode(t));
+    const flush = () => { if (buf) out.push(span(buf)); buf = ""; };
+    for (let i = 0; i < text.length;) {
+      const two = text.slice(i, i + 2);
+      if (two === "**" || two === "__" || two === "==") { flush(); if (two === "==") hl = !hl; else b = !b; i += 2; continue; }
+      const wiki = /^!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/.exec(text.slice(i));
+      if (wiki) {
+        flush();
+        const target = nodeFor(wiki[1]);
+        const label = wiki[2] || wiki[1].split("/").pop();
+        out.push(target ? h("button", { type: "button", class: "wl", onclick: () => reveal(target) }, label) : h("span", { class: "wl missing" }, label));
+        i += wiki[0].length;
+        continue;
+      }
+      const md = /^\[([^\]]+)\]\(([^)]+)\)/.exec(text.slice(i));
+      if (md) { buf += md[1]; i += md[0].length; continue; }
+      buf += text[i]; i++;
+    }
+    flush();
+    return out;
+  }
+
+  /** A note's markdown as read-only DOM: headings, lists, callouts, code, paragraphs. */
+  function renderNote(text) {
+    const out = [];
+    const lines = text.replace(/\r\n/g, "\n").split("\n");
+    let para = [];
+    const flushPara = () => { if (para.length) out.push(h("p", {}, para.flatMap((l, i) => (i ? [document.createTextNode(" "), ...inline(l)] : inline(l))))); para = []; };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^```/.test(line)) {
+        flushPara();
+        const code = [];
+        for (i++; i < lines.length && !/^```/.test(lines[i]); i++) code.push(lines[i]);
+        out.push(h("pre", { class: "code" }, code.join("\n")));
+        continue;
+      }
+      if (/^>/.test(line)) {
+        flushPara();
+        const quote = [];
+        for (; i < lines.length && /^>/.test(lines[i]); i++) quote.push(lines[i].replace(/^>[ \t]?/, ""));
+        i--;
+        const callout = /^\[!(\w+)\][-+]?\s*(.*)$/.exec(quote[0] || "");
+        const rest = callout ? quote.slice(1) : quote;
+        out.push(h("div", { class: callout ? "summary-box" : "quote" },
+          callout ? h("b", { textContent: callout[2] || callout[1] }) : null,
+          renderNote(rest.join("\n"))));
+        continue;
+      }
+      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+      if (heading) { flushPara(); out.push(h(`h${Math.min(6, heading[1].length + 2)}`, { class: "nh" }, inline(heading[2]))); continue; }
+      const item = /^(\s*)([-*+]|\d+[.)])\s+(?:\[([ xX])\]\s+)?(.*)$/.exec(line);
+      if (item) {
+        flushPara();
+        const depth = Math.floor(item[1].replace(/\t/g, "  ").length / 2);
+        const mark = item[3] !== undefined ? (item[3].trim() ? "☑ " : "☐ ") : /\d/.test(item[2]) ? `${item[2]} ` : "• ";
+        out.push(h("div", { class: "li", style: { paddingLeft: `${depth * 18 + 18}px` } }, h("span", { class: "bullet", textContent: mark }), inline(item[4])));
+        continue;
+      }
+      if (!line.trim()) { flushPara(); continue; }
+      para.push(line.trim());
+    }
+    flushPara();
+    return out;
+  }
+
+  /** The note's text, read-only, fetched when its panel opens. */
+  function noteReader(n) {
+    const host = h("div", { class: "reader note" }, [100, 92, 96, 70].map(w => h("div", { class: "skeleton", style: { width: `${w}%` } })));
+    fetch(`note.json?note=${encodeURIComponent(n.id)}`, { cache: "no-store" })
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then(data => {
+        const body = data.text.replace(/^\s*#\s+.*\n/, "");
+        host.replaceChildren(...(body.trim() ? renderNote(body) : [h("p", { class: "muted", textContent: "This note is empty." })]));
+      })
+      .catch(() => host.replaceChildren(h("p", { class: "muted", textContent: "Could not load the note." })));
+    return host;
   }
 
   /* ── Reading and distilling a page (ADR-KI-0061 Decision 10) ────────────── */
@@ -1063,6 +1213,8 @@
     for (const [color, name, cls] of [["var(--untouched)", "Not marked", ""], ["var(--bold)", "Bolded", ""], ["var(--highlight)", "Highlighted", ""], ["var(--complete)", "Complete", "sq"], ["var(--text)", "Has a summary", "ring"]]) {
       legend.append(h("span", {}, h("i", { class: `mark${cls ? " " + cls : ""}`, style: cls === "ring" ? { borderColor: color } : { background: color } }), name));
     }
+    legend.append(h("span", {}, h("i", { class: "line reading" }), "Reading note"));
+    legend.append(h("span", {}, h("i", { class: "line read-progress" }), "Read, being distilled"));
   }
 
   function header() {
@@ -1113,6 +1265,8 @@
     state.openChapters = new Set([...state.openChapters].filter(id => state.byId.has(id)));
     if (location.hash === "#open-books") state.expanded = new Set(state.chaptersOf.keys());
     state.links = graph.edges.map(e => [state.byId.get(e.source), state.byId.get(e.target)]).filter(([a, b]) => a && b);
+    state.readersOf = readingNotes();
+    state.readChapters = readChapters();
     layout(window.innerWidth, window.innerHeight);
     // A refresh keeps every note that was already on screen where it was.
     if (keepView) for (const n of state.nodes) { const at = before.get(n.id); if (at && !n.book) Object.assign(n, at); }

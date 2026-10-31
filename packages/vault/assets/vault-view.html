@@ -23,7 +23,7 @@
       --attempted: #fb7185; --tier1: #fbbf24; --tier2: #34d399;
       --untouched: #3c475a; --bold: #22d3ee; --highlight: #fbbf24; --complete: #34d399;
       --bold-ink: #8ef0ff; --highlight-ink: #1d1400;
-      --edge: rgba(148, 163, 184, .2); --edge-spoke: rgba(148, 163, 184, .13);
+      --edge: rgba(148, 163, 184, .2); --edge-spoke: rgba(148, 163, 184, .13); --edge-reading: #e879f9;
     }
     :root[data-theme="light"] {
       color-scheme: light;
@@ -37,7 +37,7 @@
       --attempted: #e11d48; --tier1: #d97706; --tier2: #059669;
       --untouched: #cbd2dd; --bold: #0891b2; --highlight: #f59e0b; --complete: #10b981;
       --bold-ink: #0b6278; --highlight-ink: #1d1400;
-      --edge: rgba(15, 23, 42, .16); --edge-spoke: rgba(15, 23, 42, .1);
+      --edge: rgba(15, 23, 42, .16); --edge-spoke: rgba(15, 23, 42, .1); --edge-reading: #c026d3;
     }
 
     * { box-sizing: border-box; }
@@ -220,6 +220,18 @@
     .reader { cursor: text; }
     .reader ::selection { background: color-mix(in srgb, var(--accent) 45%, transparent); }
     .reader .head { font: 650 13px/1.35 var(--font); letter-spacing: .02em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+    /* Note reader: a note of the user's own, read-only */
+    .reader.note { cursor: auto; font-size: 15px; }
+    .reader.note .nh { font: 650 15px/1.35 var(--font); color: var(--text); margin: 18px 0 8px; }
+    .reader.note h3.nh { font-size: 17px; }
+    .reader.note .li { margin: 0 0 6px; position: relative; }
+    .reader.note .bullet { position: absolute; transform: translateX(-100%); padding-right: 6px; color: var(--muted); }
+    .reader.note .quote { border-left: 3px solid var(--line-strong); padding-left: 12px; margin: 0 0 14px; }
+    .reader.note .summary-box { margin: 0 0 14px; }
+    .reader.note .summary-box p:last-child, .reader.note .summary-box .li:last-child { margin-bottom: 0; }
+    .reader.note pre.code { font: 13px/1.5 var(--mono); white-space: pre-wrap; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--text) 6%, transparent); }
+    .reader.note .wl { all: unset; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+    .reader.note .wl.missing { cursor: default; color: var(--muted); }
     .summary-edit { margin: 0 0 18px; }
     .summary-box { position: relative; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--complete) 12%, transparent); border: 1px solid color-mix(in srgb, var(--complete) 35%, transparent); font: 14px/1.55 var(--font); }
     .summary-box b { display: block; margin-bottom: 4px; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--complete); }
@@ -306,6 +318,10 @@
     /* Graph elements */
     .edge { fill: none; stroke: var(--edge); stroke-width: 1.3; transition: opacity .2s, stroke .2s; }
     .edge.spoke { stroke: var(--edge-spoke); stroke-dasharray: 2 4; }
+    .edge.reading { stroke: var(--edge-reading); stroke-width: 2; opacity: .85; }
+    .edge.spoke.read { stroke: var(--edge-reading); stroke-width: 1.6; stroke-dasharray: none; opacity: .9; }
+    .legend .line.read-progress { display: inline-block; width: 16px; height: 2px; border-top: 2px solid var(--edge-reading); border-bottom: 2px solid var(--highlight); }
+    .legend .line.reading { display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--edge-reading); border-radius: 0; }
     .node { cursor: pointer; transition: opacity .2s; }
     .node .shape { transition: stroke .15s; }
     .label {
