@@ -105,6 +105,14 @@ export function periodOf(name: string): Period | null {
   }
 }
 
+/** The period of the same level that follows this one. */
+export function nextPeriod(p: Period): Period {
+  const d = new Date(`${p.end}T00:00:00Z`);
+  const next = iso(utc(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1));
+  const name = { year: next.slice(0, 4), quarter: `${next.slice(0, 4)}-Q${Math.floor((Number(next.slice(5, 7)) - 1) / 3) + 1}`, month: next.slice(0, 7), week: isoWeekOf(next), day: next }[p.level];
+  return periodOf(name)!;
+}
+
 export const planPathOf = (p: { level: PlanLevel; period: string }) => posix.join(PLANS_ROOT, PLAN_LEVELS[p.level], `${p.period}.md`);
 
 const PARENT_LEVEL: Record<PlanLevel, PlanLevel | null> = { year: null, quarter: "year", month: "quarter", week: "month", day: "week" };
@@ -169,7 +177,7 @@ export interface PlanPeriodPlan {
   writes: Record<string, string>;
 }
 
-const slug = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\x00-\x7f]/g, "").replace(/\[\[[^\]]*\|([^\]]*)\]\]|\[\[([^\]]*)\]\]/g, "$1$2")
+export const slug = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\x00-\x7f]/g, "").replace(/\[\[[^\]]*\|([^\]]*)\]\]|\[\[([^\]]*)\]\]/g, "$1$2")
   .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24).replace(/-+$/, "") || "goal";
 
 /** The template for a level: the vault's own if it has one, else the built-in. */
@@ -179,7 +187,7 @@ export function templateFor(root: string, level: PlanLevel): string {
 }
 
 /** Insert lines at the end of a `## <heading>` section, or append the section when it is missing. */
-function addToSection(content: string, heading: string, lines: string[]): string {
+export function addToSection(content: string, heading: string, lines: string[]): string {
   if (!lines.length) return content;
   const all = content.split("\n");
   const at = all.findIndex(l => /^#{1,6}\s/.test(l) && l.replace(/^#+\s*/, "").trim().toLowerCase() === heading.toLowerCase());
@@ -194,6 +202,42 @@ function addToSection(content: string, heading: string, lines: string[]): string
   const after = all.slice(last + 1);
   return [...before, ...body, ...(after.length && after[0].trim() !== "" ? [""] : after.length ? [] : [""]), ...after].join("\n");
 }
+
+/**
+ * Edits task lines in place, one note file read once, recording each note as it was
+ * for the stale-preview check. A task is addressed by its 0-based body line.
+ */
+export class TaskLineEditor {
+  private readonly files = new Map<string, string[]>();
+  readonly edits: NoteEdit[] = [];
+  constructor(private readonly root: string, private readonly originals: Record<string, string>) {}
+
+  /** Change one open task's line; returns an error, or null when it was edited or left as it was. */
+  edit(note: VaultNote, bodyLine: number, change: (line: string) => string): string | null {
+    const file = this.files.get(note.path) ?? readFileSync(join(this.root, note.path), "utf-8").split("\n");
+    if (!this.files.has(note.path)) { this.originals[note.path] = file.join("\n"); this.files.set(note.path, file); }
+    // The body starts after the frontmatter, if the note has one.
+    const i = file.length - note.body.split("\n").length + bodyLine;
+    const before = file[i];
+    if (!/^\s*[-*+]\s+\[ \]/.test(before ?? "")) return `line ${i + 1} of ${note.path} is not an open task`;
+    const after = change(before);
+    if (after !== before) { file[i] = after; this.edits.push({ note: note.path, line: i + 1, before, after }); }
+    return null;
+  }
+
+  /** Every changed note's new content. */
+  writes(): Record<string, string> {
+    const out: Record<string, string> = {};
+    const changed = new Set(this.edits.map(e => e.note));
+    for (const [note, lines] of this.files) if (changed.has(note)) out[note] = lines.join("\n");
+    return out;
+  }
+}
+
+const SCHEDULED_DATE = /⏳\uFE0F?\s*\d{4}-\d{2}-\d{2}/;
+/** Set a task line's scheduled date, replacing any it has. */
+export const scheduleLine = (line: string, day: string) =>
+  SCHEDULED_DATE.test(line) ? line.replace(SCHEDULED_DATE, `⏳ ${day}`) : insertBeforeBlockId(line, ` ⏳ ${day}`);
 
 export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodInput): PlanPeriodPlan {
   const period = periodOf(input.period);
@@ -289,7 +333,7 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   if (original === null || content !== original) out.writes[path] = content;
 
   // Scheduling: add or replace ⏳ on an open task's line, where it stands.
-  const edited = new Map<string, string[]>();
+  const editor = new TaskLineEditor(root, out.originals);
   for (const s of input.schedule ?? []) {
     const n = byPath.get(s.note) ?? byPath.get(`${s.note}.md`);
     if (!n) { out.errors.push(`schedule: no note ${s.note}`); continue; }
@@ -302,38 +346,43 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
     }
     const day = inPeriod(`schedule "${s.task}"`, s.date);
     if (!day) continue;
-    const file = edited.get(n.path) ?? readFileSync(join(root, n.path), "utf-8").split("\n");
-    if (!edited.has(n.path)) out.originals[n.path] = file.join("\n");
-    // The body starts after the frontmatter, if the note has one.
-    const offset = file.length - n.body.split("\n").length;
-    const i = offset + hits[0].line;
-    const before = file[i];
-    if (!/^\s*[-*+]\s+\[ \]/.test(before ?? "")) { out.errors.push(`schedule: line ${i + 1} of ${n.path} is not the open task "${hits[0].text}"`); continue; }
-    const after = /⏳️?\s*\d{4}-\d{2}-\d{2}/.test(before) ? before.replace(/⏳️?\s*\d{4}-\d{2}-\d{2}/, `⏳ ${day}`) : insertBeforeBlockId(before, ` ⏳ ${day}`);
-    if (after === before) { out.warnings.push(`schedule: "${hits[0].text}" is already scheduled on ${day}`); continue; }
-    file[i] = after;
-    edited.set(n.path, file);
-    out.edits.push({ note: n.path, line: i + 1, before, after });
+    const count = editor.edits.length;
+    const err = editor.edit(n, hits[0].line, line => scheduleLine(line, day));
+    if (err) out.errors.push(`schedule: ${err}`);
+    else if (editor.edits.length === count) out.warnings.push(`schedule: "${hits[0].text}" is already scheduled on ${day}`);
   }
-  for (const [note, lines] of edited) out.writes[note] = lines.join("\n");
+  out.edits = editor.edits;
+  Object.assign(out.writes, editor.writes());
 
   return out;
 }
 
 /** Put text before a trailing `^block-id`, so the id stays last on the line. */
-function insertBeforeBlockId(line: string, text: string): string {
+export function insertBeforeBlockId(line: string, text: string): string {
   const m = line.match(/\s\^[A-Za-z0-9-]+\s*$/);
   return m ? `${line.slice(0, m.index)}${text}${line.slice(m.index)}` : `${line.replace(/\s+$/, "")}${text}`;
 }
 
-export async function executePlanPeriod(root: string, plan: PlanPeriodPlan): Promise<void> {
-  if (plan.errors.length) throw new Error("refusing to apply a plan with errors");
-  for (const [note, text] of Object.entries(plan.originals)) {
+/** A set of note writes checked against the preview: edits of notes as they were, and new notes. */
+export interface NoteWrites {
+  errors: string[];
+  originals: Record<string, string>;
+  writes: Record<string, string>;
+  /** Notes the writes create; refused if one appeared since the preview. */
+  created: string[];
+}
+
+export async function executeWrites(root: string, w: NoteWrites): Promise<void> {
+  if (w.errors.length) throw new Error("refusing to apply a plan with errors");
+  for (const [note, text] of Object.entries(w.originals)) {
     if ((await readFile(join(root, note), "utf-8")) !== text) throw new Error(`${note} changed since the preview`);
   }
-  if (plan.creates && existsSync(join(root, plan.plan))) throw new Error(`${plan.plan} appeared since the preview`);
-  for (const [note, text] of Object.entries(plan.writes)) {
+  for (const note of w.created) if (existsSync(join(root, note))) throw new Error(`${note} appeared since the preview`);
+  for (const [note, text] of Object.entries(w.writes)) {
     await mkdir(dirname(join(root, note)), { recursive: true });
-    await writeFile(join(root, note), text, note === plan.plan && plan.creates ? { flag: "wx" } : {});
+    await writeFile(join(root, note), text, w.created.includes(note) ? { flag: "wx" } : {});
   }
 }
+
+export const executePlanPeriod = (root: string, plan: PlanPeriodPlan) =>
+  executeWrites(root, { ...plan, created: plan.creates ? [plan.plan] : [] });
