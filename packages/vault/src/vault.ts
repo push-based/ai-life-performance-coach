@@ -22,7 +22,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 import { markedPassages, type MarkedPassage } from "./marks.js";
 import { planning, type Planning } from "./planning.js";
-import { planPeriod, executePlanPeriod, type PlanPeriodInput, type PlanPeriodPlan } from "./plans.js";
+import { planPeriod, executePlanPeriod, executeWrites, type PlanPeriodInput, type PlanPeriodPlan } from "./plans.js";
+import { rollOver, type RollOverPlan } from "./rollover.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -97,7 +98,11 @@ export interface Vault {
   planning(): Promise<Planning>;
   /** Write a plan's goals and ad-hoc tasks and schedule tasks into it (ADR-KI-0062 Decision 9); previews by default. */
   planPeriod(input: PlanPeriodInput, execute: boolean): Promise<PlanPeriodResult>;
+  /** Move a closed week's, month's or quarter's open work into the next period (ADR-KI-0062 Decision 10); previews by default. */
+  rollOver(period: string, execute: boolean): Promise<RollOverResult>;
 }
+
+export type RollOverResult = Omit<RollOverPlan, "originals" | "writes" | "created"> & { executed: boolean };
 
 export type PlanPeriodResult = Omit<PlanPeriodPlan, "originals" | "writes"> & { executed: boolean };
 
@@ -279,6 +284,13 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       const { originals: _o, writes: _w, ...shown } = plan;
       if (!execute || plan.errors.length) return { ...shown, executed: false };
       await executePlanPeriod(root, plan);
+      return { ...shown, executed: true };
+    },
+    async rollOver(period, execute) {
+      const plan = rollOver(root, await scanVault(root), period);
+      const { originals: _o, writes: _w, created: _c, ...shown } = plan;
+      if (!execute || plan.errors.length) return { ...shown, executed: false };
+      await executeWrites(root, plan);
       return { ...shown, executed: true };
     },
     findPassages: async (query, opts) => searchPassages(await scanVault(root), query, opts),

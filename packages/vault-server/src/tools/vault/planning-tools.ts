@@ -79,3 +79,19 @@ export function planPeriodTool(vault: Vault): ToolDef {
   },
   });
 }
+
+export function rollOverTool(vault: Vault): ToolDef {
+  return defineTool({
+  name: "roll_over",
+  description: "Close a week, month or quarter (ADR-KI-0062): every open task scheduled in it is rescheduled to the next period's first day where it stands, raised to high priority (⏫) and tagged #slipped/<period>; every open goal of its plan is copied into the next period's plan with ⏫ and the slip tags, and the original stays open as the record. Slip tags accumulate. Refuses a year (review its goals instead) and a day. Run it at the start of the new period; preview, show the user what slips, then execute: true.",
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  schema: {
+    period: z.string().describe("The period being closed: YYYY-Www, YYYY-MM or YYYY-Qn"),
+    execute: z.boolean().optional().describe("Write it (default: preview only)"),
+  },
+  handler: async (args) => {
+    const r = await vault.rollOver(args.period, args.execute === true);
+    return r.errors.length ? fail(`roll_over refused:\n- ${r.errors.join("\n- ")}`) : json(r);
+  },
+  });
+}
