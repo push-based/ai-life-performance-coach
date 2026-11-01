@@ -21,7 +21,7 @@ function put(rel: string, content: string): void {
 /** A small vault on the fixed PARA folders, plus everything the scanner must skip. */
 function seedVault(): void {
   put("0.Inbox/Quick idea.md", "Ship the ugly prototype.\n");
-  put("1.Projects/DevFest2026/Talk outline.md", "# Talk outline\n\nSee [[Event loop]] and [judge](../../3.Resources/LLM/LLM%20as%20judge.md) and [again](<../../3.Resources/LLM/LLM as judge.md>).\n");
+  put("1.Projects/Expo2026/Talk outline.md", "# Talk outline\n\nSee [[Event loop]] and [judge](../../3.Resources/LLM/LLM%20as%20judge.md) and [again](<../../3.Resources/LLM/LLM as judge.md>).\n");
   put("2.Areas/Health/Sleep.md", "Eight hours.\n");
   put("3.Resources/TypeScript/Event loop.md", "---\ntitle: The event loop\ncoach_id: c-123\n---\nMicrotasks run before the next macrotask. [[Missing note]]\n");
   put("3.Resources/LLM/LLM as judge.md", "# LLM as judge\n\nZażółć gęślą jaźń: a judge scores claims. Links back to [[TypeScript/Event loop|the loop]].\n");
@@ -50,8 +50,8 @@ describe("resolveVaultRoot", () => {
   });
 
   it("expands a leading ~ against the home directory", () => {
-    mkdirSync(join(dir, "Documents", "life-vault"), { recursive: true });
-    expect(resolveVaultRoot({ ...base(), cwd: "/", flag: "~/Documents/life-vault" }).root).toBe(join(dir, "Documents", "life-vault"));
+    mkdirSync(join(dir, "vault"), { recursive: true });
+    expect(resolveVaultRoot({ ...base(), cwd: "/", flag: "~/vault" }).root).toBe(join(dir, "vault"));
   });
 
   it("throws when nothing names a vault, naming every source", () => {
@@ -84,7 +84,7 @@ describe("classify", () => {
   it("maps the five fixed folders and names the container", () => {
     const at = (bucket: string, container: string | null) => ({ bucket, container, raw: false, rawKind: null, rawAuthor: null, rawWork: null });
     expect(classify("0.Inbox/x.md")).toEqual(at("inbox", null));
-    expect(classify("1.Projects/DevFest2026/IP/x.md")).toEqual(at("projects", "DevFest2026"));
+    expect(classify("1.Projects/Expo2026/Workstreams/x.md")).toEqual(at("projects", "Expo2026"));
     expect(classify("2.Areas/Health/x.md")).toEqual(at("areas", "Health"));
     expect(classify("3.Resources/x.md")).toEqual(at("resources", null));
     expect(classify("4.Archive/old notes/ERC/x.md")).toEqual(at("archive", "old notes"));
@@ -92,9 +92,9 @@ describe("classify", () => {
 
   it("marks 3.Resources/0.Raw as raw, with its kind folder", () => {
     const raw = (rawKind: string | null, rawAuthor: string | null, rawWork: string | null) => ({ bucket: "resources", container: "0.Raw", raw: true, rawKind, rawAuthor, rawWork });
-    expect(classify("3.Resources/0.Raw/Books/Tiago Forte/Building a Second Brain/BASB.md")).toEqual(raw("Books", "Tiago Forte", "Building a Second Brain"));
-    expect(classify("3.Resources/0.Raw/Books/Tiago Forte/BASB.md")).toEqual(raw("Books", "Tiago Forte", null));
-    expect(classify("3.Resources/0.Raw/Books/BASB.md")).toEqual(raw("Books", null, null));
+    expect(classify("3.Resources/0.Raw/Books/Jane Doe/Notes That Work/NTW.md")).toEqual(raw("Books", "Jane Doe", "Notes That Work"));
+    expect(classify("3.Resources/0.Raw/Books/Jane Doe/NTW.md")).toEqual(raw("Books", "Jane Doe", null));
+    expect(classify("3.Resources/0.Raw/Books/NTW.md")).toEqual(raw("Books", null, null));
     expect(classify("3.Resources/0.Raw/Loose.md")).toEqual(raw(null, null, null));
     expect(classify("4.Archive/0.Raw/Books/x.md").raw).toBe(false);
   });
@@ -142,7 +142,7 @@ describe("scanVault", () => {
     const notes = await scanVault(dir);
     expect(notes.map(n => n.path)).toEqual([
       "0.Inbox/Quick idea.md",
-      "1.Projects/DevFest2026/Talk outline.md",
+      "1.Projects/Expo2026/Talk outline.md",
       "2.Areas/Health/Sleep.md",
       "3.Resources/LLM/LLM as judge.md",
       "3.Resources/Loose resource.md",
@@ -210,8 +210,8 @@ describe("buildVaultGraph", () => {
     const graph = buildVaultGraph(await scanVault(dir));
     expect(graph.nodes).toHaveLength(9);
     expect(graph.edges).toEqual([
-      { source: "1.Projects/DevFest2026/Talk outline.md", target: "3.Resources/TypeScript/Event loop.md", kind: "wikilink" },
-      { source: "1.Projects/DevFest2026/Talk outline.md", target: "3.Resources/LLM/LLM as judge.md", kind: "markdown" },
+      { source: "1.Projects/Expo2026/Talk outline.md", target: "3.Resources/TypeScript/Event loop.md", kind: "wikilink" },
+      { source: "1.Projects/Expo2026/Talk outline.md", target: "3.Resources/LLM/LLM as judge.md", kind: "markdown" },
       { source: "3.Resources/LLM/LLM as judge.md", target: "3.Resources/TypeScript/Event loop.md", kind: "wikilink" },
     ]);
     expect(graph.unresolved).toEqual([{ source: "3.Resources/TypeScript/Event loop.md", target: "Missing note" }]);
@@ -232,7 +232,7 @@ describe("searchNotes", () => {
     const notes = await scanVault(dir);
     const all = await searchNotes(notes, "loop");
     expect(all.length).toBeGreaterThan(1);
-    expect((await searchNotes(notes, "loop", { bucket: "projects" })).map(h => h.path)).toEqual(["1.Projects/DevFest2026/Talk outline.md"]);
+    expect((await searchNotes(notes, "loop", { bucket: "projects" })).map(h => h.path)).toEqual(["1.Projects/Expo2026/Talk outline.md"]);
     expect(await searchNotes(notes, "loop", { limit: 1 })).toHaveLength(1);
     expect(await searchNotes(notes, "   ")).toEqual([]);
   });

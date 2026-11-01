@@ -5,7 +5,7 @@ import { periodOf } from "@docs-mcp/vault/plans.js";
 import { json, fail } from "./json.js";
 
 const SIZE = z.enum(["S", "M", "L"]).optional().describe("Size: S weighs 1, M 3, L 8; none counts as S");
-const LINK = z.string().min(1).describe("The project, workstream or area it counts for: a name such as DevFest2026, Marketing or Health, or a note path");
+const LINK = z.string().min(1).describe("The project, workstream or area it counts for: a name such as Expo2026, Marketing or Health, or a note path");
 const DAY = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
 
 export function planningOverviewTool(vault: Vault): ToolDef {
@@ -59,7 +59,7 @@ export function planPeriodTool(vault: Vault): ToolDef {
       text: z.string().min(1).describe("The outcome, e.g. 'All workshop posters out'"),
       link: LINK,
       size: SIZE,
-      parent: z.string().optional().describe("The goal one level up it serves: <period>#^<block id>, e.g. 2026-Q4#^devfest-delivered"),
+      parent: z.string().optional().describe("The goal one level up it serves: <period>#^<block id>, e.g. 2026-Q4#^expo-delivered"),
     })).optional(),
     ad_hoc: z.array(z.object({
       text: z.string().min(1),
@@ -84,7 +84,7 @@ export function planPeriodTool(vault: Vault): ToolDef {
 export function rollOverTool(vault: Vault): ToolDef {
   return defineTool({
   name: "roll_over",
-  description: "Close a week, month or quarter (ADR-KI-0062): every open task scheduled in it is rescheduled to the next period's first day where it stands, raised to high priority (⏫) and tagged #slipped/<period>; every open goal of its plan is copied into the next period's plan with ⏫ and the slip tags, and the original stays open as the record. Slip tags accumulate. A repeating task (🔁) stays where it is: Tasks makes its next occurrence when ticked. Refuses a year (review its goals instead) and a day. Run it at the start of the new period; preview, show the user what slips, then execute: true.",
+  description: "Close a week, month or quarter (ADR-KI-0062): every open task scheduled in it is rescheduled to the next period's first day where it stands, raised to high priority (⏫) and tagged #slipped/<period>; every open goal of its plan is copied into the next period's plan with ⏫ and the slip tags, and the original stays open as the record. Slip tags accumulate. A repeating task (🔁) stays where it is: Tasks makes its next occurrence when ticked; so does an open task left in an archived project. Refuses a year (review its goals instead) and a day. Run it at the start of the new period; preview, show the user what slips, then execute: true.",
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
   schema: {
     period: z.string().describe("The period being closed: YYYY-Www, YYYY-MM or YYYY-Qn"),
@@ -119,7 +119,7 @@ export function harvestWorkstreamTool(vault: Vault): ToolDef {
   description: "Turn a finished workstream into Intermediate Packets (ADR-KI-0062): small reusable outputs another project can start from, such as a checklist, a template, a design or a message. The workstream's status must be done. Call it without 'packets' to list candidates (its notes, sections holding 3+ checkboxes, and files); talk through with the user which are worth reusing and in what words; then pass the packets to preview them and execute: true to write. Each packet becomes a note in <project>/Intermediate Packets/ linking its project and workstream; checklists are reset to unticked without dates, and files it reuses are copied beside it. The workstream is not changed. When the project is archived, its packets move to 3.Resources/Intermediate Packets/<project>/.",
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
   schema: {
-    project: z.string().describe("The project folder name, e.g. DevFest2026"),
+    project: z.string().describe("The project folder name, e.g. Expo2026"),
     workstream: z.string().describe("The workstream name, e.g. Workshops"),
     packets: z.array(z.object({
       title: z.string().min(1).describe("e.g. 'Workshop speaker onboarding checklist'"),

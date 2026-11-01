@@ -64,20 +64,20 @@ function put(rel: string, content: string | Buffer): void {
 }
 const read = (rel: string) => readFileSync(join(dir, rel), "utf-8");
 
-const BOOK = "3.Resources/0.Raw/Books/Second Brain.pdf";
-const HOME = "3.Resources/0.Raw/Books/Tiago Forte/Building a Second Brain";
+const BOOK = "3.Resources/0.Raw/Books/Notes That Work.pdf";
+const HOME = "3.Resources/0.Raw/Books/Jane Doe/Notes That Work";
 const PDF = `${HOME}/e-book.pdf`;
 const INDEX = `${HOME}/text.md`;
 const CH = (name: string) => `${HOME}/chapters/${name}.md`;
 
 /** Seven pages: title, intro, a part holding chapters 1 and 2, then the index. */
 const PAGES = [
-  "Building a Second Brain",
+  "Notes That Work",
   "Introduction text.\n# not a heading",
   "Part One",
   "Capture what resonates.",
   "Organize for action: PARA.",
-  "Distill with progressive summa-\nrization.",
+  "Distill with layered mark-\ning.",
   "Index: PARA, 5",
 ];
 const OUTLINE: Entry[] = [
@@ -93,12 +93,12 @@ const OUTLINE: Entry[] = [
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "vault-raw-"));
   vault = createVault(dir, { now: () => new Date("2026-10-24T12:00:00Z"), newSessionId: () => "s-1", newCoachId: () => "c-1" });
-  put(BOOK, makePdf(PAGES, { Title: "Building a Second Brain", Author: "Tiago Forte" }, OUTLINE));
+  put(BOOK, makePdf(PAGES, { Title: "Notes That Work", Author: "Jane Doe" }, OUTLINE));
   put("3.Resources/0.Raw/Articles/Clipped.md", "# Clipped article\n\nFull text.\n");
   put("3.Resources/PKM/PARA.md", [
-    "See [[Tiago Forte/Building a Second Brain/e-book.pdf#page=5]],",
-    "[book](../0.Raw/Books/Tiago%20Forte/Building%20a%20Second%20Brain/e-book.pdf)",
-    "and [[Building a Second Brain]].",
+    "See [[Jane Doe/Notes That Work/e-book.pdf#page=5]],",
+    "[book](../0.Raw/Books/Jane%20Doe/Notes%20That%20Work/e-book.pdf)",
+    "and [[Notes That Work]].",
   ].join(" ") + "\n");
 });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
@@ -124,14 +124,14 @@ describe("convert_raw splits a book into chapters", () => {
     expect(readdirSync(join(dir, HOME)).sort()).toEqual(["chapters", "e-book.pdf", "text.md"]);
 
     const ch = read(CH("03 Organize and Distill"));
-    expect(ch).toMatch(/^---\ntitle: "Chapter 2: Organize and Distill"\nraw_role: "chapter"\nbook: "Building a Second Brain"\nauthor: "Tiago Forte"\npart: "Part One: The Method"\nchapter: 3\npages: "5-6"\nconverted_from: "\.\.\/e-book\.pdf"\n---\n/);
+    expect(ch).toMatch(/^---\ntitle: "Chapter 2: Organize and Distill"\nraw_role: "chapter"\nbook: "Notes That Work"\nauthor: "Jane Doe"\npart: "Part One: The Method"\nchapter: 3\npages: "5-6"\nconverted_from: "\.\.\/e-book\.pdf"\n---\n/);
     expect(ch).toContain("## Page 5\n\nOrganize for action: PARA.");
-    expect(ch).toContain("## Page 6\n\nDistill with progressive summarization.");
+    expect(ch).toContain("## Page 6\n\nDistill with layered marking.");
     expect(ch).not.toContain("## Page 4");
     expect(read(CH("01 Introduction- The Promise"))).toContain("Introduction text.\n\\# not a heading");
 
     const index = read(INDEX);
-    expect(index).toMatch(/^---\ntitle: "Building a Second Brain"\naliases: \["Building a Second Brain"\]\nraw_role: "index"\nauthor: "Tiago Forte"\nconverted_from: "e-book\.pdf"\npages: 7\nchapters: 3\nconverted_at: "2026-10-24"\n---\n/);
+    expect(index).toMatch(/^---\ntitle: "Notes That Work"\naliases: \["Notes That Work"\]\nraw_role: "index"\nauthor: "Jane Doe"\nconverted_from: "e-book\.pdf"\npages: 7\nchapters: 3\nconverted_at: "2026-10-24"\n---\n/);
     expect(index).toContain(`## Part One: The Method\n\n- [[${CH("02 Capture").slice(0, -3)}|Chapter 1: Capture]] · pages 4–4`);
     expect(index).toContain(`- [[${PDF}#page=7|Index]] · page 7`);
     expect(index).not.toContain("## Page");
@@ -176,14 +176,14 @@ describe("converted books in the vault", () => {
     expect(await vault.listRaw()).toEqual([
       { path: "3.Resources/0.Raw/Articles/Clipped.md", kind: "Articles", author: null, work: null, note: "3.Resources/0.Raw/Articles/Clipped.md", convertible: false, notes: [], concepts: [] },
       // PARA.md links the book three ways (a page of the PDF, its title, a relative link): one note made from it.
-      { path: PDF, kind: "Books", author: "Tiago Forte", work: "Building a Second Brain", note: INDEX, convertible: true, notes: ["3.Resources/PKM/PARA.md"], concepts: [] },
+      { path: PDF, kind: "Books", author: "Jane Doe", work: "Notes That Work", note: INDEX, convertible: true, notes: ["3.Resources/PKM/PARA.md"], concepts: [] },
     ]);
   });
 
   it("spars no raw note, chapter or index; due_for_review lists only distilled notes", async () => {
     await vault.convertRaw(BOOK, true);
     const notes = await vault.notes();
-    expect(notes.find(n => n.path === CH("02 Capture"))).toMatchObject({ rawRole: "chapter", pageRange: [4, 4], raw: true, rawWork: "Building a Second Brain" });
+    expect(notes.find(n => n.path === CH("02 Capture"))).toMatchObject({ rawRole: "chapter", pageRange: [4, 4], raw: true, rawWork: "Notes That Work" });
     expect(notes.find(n => n.path === INDEX)).toMatchObject({ rawRole: "index", pageRange: null });
 
     for (const note of [INDEX, CH("02 Capture"), "3.Resources/0.Raw/Articles/Clipped.md"]) {
@@ -201,9 +201,9 @@ describe("converted books in the vault", () => {
     const para = notes.find(n => n.path === "3.Resources/PKM/PARA.md")!;
     const resolver = noteResolver(notes);
     expect(para.links.map(l => [l.target, l.page ?? null, resolver.resolve(para.path, l)])).toEqual([
-      ["Tiago Forte/Building a Second Brain/e-book.pdf", 5, CH("03 Organize and Distill")],
-      ["Building a Second Brain", null, INDEX],
-      ["../0.Raw/Books/Tiago Forte/Building a Second Brain/e-book.pdf", null, INDEX],
+      ["Jane Doe/Notes That Work/e-book.pdf", 5, CH("03 Organize and Distill")],
+      ["Notes That Work", null, INDEX],
+      ["../0.Raw/Books/Jane Doe/Notes That Work/e-book.pdf", null, INDEX],
     ]);
     const graph = buildVaultGraph(notes);
     expect(graph.unresolved).toEqual([]);
@@ -226,7 +226,7 @@ describe("converted books in the vault", () => {
   });
 
   it("takes author and title overrides, and renames a PDF already in its work folder", async () => {
-    expect((await vault.convertRaw(BOOK, false, { author: "T. Forte", title: "BASB: notes?" })).move!.to).toBe("3.Resources/0.Raw/Books/T. Forte/BASB- notes-/e-book.pdf");
+    expect((await vault.convertRaw(BOOK, false, { author: "J. Doe", title: "NTW: notes?" })).move!.to).toBe("3.Resources/0.Raw/Books/J. Doe/NTW- notes-/e-book.pdf");
     put(`${HOME}/Original name.pdf`, readFileSync(join(dir, BOOK)));
     expect((await vault.convertRaw(`${HOME}/Original name.pdf`, false)).move).toEqual({ from: `${HOME}/Original name.pdf`, to: PDF });
   });

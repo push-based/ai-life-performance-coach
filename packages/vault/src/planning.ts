@@ -16,8 +16,6 @@ import type { VaultNote } from "./scan.js";
 
 export const WORKSTREAMS_FOLDER = "Workstreams";
 export const PACKETS_FOLDER = "Intermediate Packets";
-/** The folder projects used for workstreams before ADR-KI-0062; `init_vault` renames it. */
-export const LEGACY_WORKSTREAMS_FOLDER = "IP";
 /** Plan templates, one per level, beside the plans; they are not plans and hold no tasks. */
 const TEMPLATES = `${PLANS_ROOT}/Templates`;
 
@@ -57,6 +55,20 @@ export function planOf(path: string): PlanRef | null {
 
 export type Priority = "highest" | "high" | "medium" | "low" | "lowest";
 const PRIORITY: Record<string, Priority> = { "🔺": "highest", "⏫": "high", "🔼": "medium", "🔽": "low", "⏬": "lowest" };
+
+/**
+ * Obsidian Tasks signifiers, defined once. Several are astral-plane emoji, so every pattern
+ * carries the `u` flag: without it a character class holds lone surrogates and strips half
+ * of any other emoji in the line.
+ */
+export const DATED_SIGNIFIER = /[⏳✅📅🛫➕❌]\uFE0F?\s*\d{4}-\d{2}-\d{2}/gu;
+export const PRIORITY_SIGNIFIER = /[🔺⏫🔼🔽⏬]\uFE0F?/gu;
+/** The first signifier or a trailing block id on a line: where a task's description ends. */
+export const FIRST_SIGNIFIER = /\s(?:[⏳✅📅🛫➕❌🔺⏫🔼🔽⏬🔁]|\^[A-Za-z0-9-]+\s*$)/u;
+/** A checkbox the Tasks plugin treats as not done: any status but done (`x`) or cancelled (`-`). */
+export const OPEN_CHECKBOX = /^\s*[-*+]\s+\[[^xX-]\]/;
+/** Split a note into lines, accepting CRLF as well as LF. */
+export const lines = (text: string) => text.split(/\r?\n/);
 
 export interface Task {
   /** The note the checkbox is written in. */
@@ -102,7 +114,7 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
   const out: Task[] = [];
   let fenced = false;
   let inGoals = false;
-  body.split("\n").forEach((raw, line) => {
+  lines(body).forEach((raw, line) => {
     if (FENCE_LINE.test(raw)) { fenced = !fenced; return; }
     if (fenced) return;
     const h = raw.match(HEADING);
@@ -123,8 +135,8 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
     rest = rest
       .replace(PARENT, "")
       .replace(RECURRENCE, "")
-      .replace(/[⏳✅📅🛫➕❌]\uFE0F?\s*\d{4}-\d{2}-\d{2}/g, "")
-      .replace(/[🔺⏫🔼🔽⏬]\uFE0F?/g, "");
+      .replace(DATED_SIGNIFIER, "")
+      .replace(PRIORITY_SIGNIFIER, "");
     const blockId = rest.match(BLOCK_ID)?.[1] ?? null;
     rest = rest
       .replace(BLOCK_ID, "")
@@ -164,8 +176,6 @@ export interface Project {
   workstreams: Workstream[];
   /** Notes under the project's `Intermediate Packets/` folder. */
   packets: string[];
-  /** True while the project still keeps its workstreams in `IP/`. */
-  legacyWorkstreams: boolean;
   /** True for a project archived under `4.Archive/`, kept so reviews of past periods still count its work. */
   archived: boolean;
 }
@@ -228,13 +238,15 @@ const under = (p: string, folder: string) => p.startsWith(`${folder}/`);
  * note is `<Name>/<Name>.md`.
  */
 function units(root: string, dir: string, notes: VaultNote[], skip: string[] = []) {
-  const names = new Set([...dirsIn(join(root, dir)), ...mdIn(join(root, dir))].filter(n => !skip.includes(n)));
+  const folders = new Set(dirsIn(join(root, dir)));
+  const names = new Set([...folders, ...mdIn(join(root, dir))].filter(n => !skip.includes(n)));
+  const inDir = notes.filter(n => under(n.path, dir));
   return [...names].sort().map(name => {
     const folder = posix.join(dir, name);
     const single = `${folder}.md`;
     const own = `${folder}/${name}.md`;
-    const isFolder = dirsIn(join(root, dir)).includes(name);
-    const members = notes.filter(n => (isFolder && under(n.path, folder)) || n.path === single).map(n => n.path);
+    const isFolder = folders.has(name);
+    const members = inDir.filter(n => (isFolder && under(n.path, folder)) || n.path === single).map(n => n.path);
     const note = members.includes(own) ? own : members.includes(single) ? single : null;
     return { name, path: isFolder ? folder : single, note, notes: members };
   });
@@ -249,11 +261,7 @@ export function planning(root: string, notes: VaultNote[]): Planning {
     const notePath = `${folder}/${name}.md`;
     const pn = byPath.get(notePath);
     const ws = posix.join(folder, WORKSTREAMS_FOLDER);
-    const legacy = dirsIn(join(root, folder)).includes(LEGACY_WORKSTREAMS_FOLDER);
-    if (!archived) {
-      if (!pn) warnings.push(`${folder}: no project note ${notePath}`);
-      if (legacy) warnings.push(`${folder}: workstreams are still in ${LEGACY_WORKSTREAMS_FOLDER}/; init_vault renames it to ${WORKSTREAMS_FOLDER}/`);
-    }
+    if (!archived && !pn) warnings.push(`${folder}: no project note ${notePath}`);
     return {
       name, folder, note: pn ? notePath : null,
       status: statusOf(pn, archived ? [] : warnings),
@@ -261,7 +269,6 @@ export function planning(root: string, notes: VaultNote[]): Planning {
       doneWhen: text(pn?.frontmatter.done_when),
       workstreams: units(root, ws, notes).map(u => ({ ...u, project: name, status: statusOf(byPath.get(u.note ?? ""), archived ? [] : warnings) })),
       packets: notes.filter(n => under(n.path, posix.join(folder, PACKETS_FOLDER))).map(n => n.path),
-      legacyWorkstreams: legacy,
       archived,
     };
   };
@@ -284,12 +291,15 @@ export function planning(root: string, notes: VaultNote[]): Planning {
     else warnings.push(`${n.path}: not a plan name; expected ${PLANS_ROOT}/<${Object.values(PLAN_LEVELS).join("|")}>/<period>.md`);
   }
 
-  // Owner of a note by where it sits.
+  // Owner of a note by where it sits. An Intermediate Packet is reusable material, not the
+  // project's open work, so its checkboxes belong to no one.
   const ownerByNote = new Map<string, Owner>();
-  for (const p of projects) {
-    for (const n of notes) if (under(n.path, p.folder)) ownerByNote.set(n.path, { project: p.name, workstream: null, area: null });
-    for (const w of p.workstreams) for (const n of w.notes) ownerByNote.set(n, { project: p.name, workstream: w.name, area: null });
+  const projectByFolder = new Map(projects.map(p => [p.folder, p]));
+  for (const n of notes) {
+    const p = projectByFolder.get(n.path.split("/").slice(0, 2).join("/"));
+    if (p && !under(n.path, posix.join(p.folder, PACKETS_FOLDER))) ownerByNote.set(n.path, { project: p.name, workstream: null, area: null });
   }
+  for (const p of projects) for (const w of p.workstreams) for (const n of w.notes) ownerByNote.set(n, { project: p.name, workstream: w.name, area: null });
   for (const a of areas) for (const n of a.notes) ownerByNote.set(n, { project: null, workstream: null, area: a.name });
   // A project folder linked by a plan resolves through its project note; a workstream folder through its own note.
   const resolver = noteResolver(notes);

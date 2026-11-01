@@ -48,24 +48,24 @@ describe("periodOf", () => {
 
 describe("plan_period", () => {
   function seed(): void {
-    put("1.Projects/DevFest2026/DevFest2026.md", "---\nstatus: in-progress\n---\n# DevFest2026\n");
-    put("1.Projects/DevFest2026/Workstreams/Marketing/Marketing.md", "# Marketing\n");
-    put("1.Projects/DevFest2026/Workstreams/Marketing/Items.md", "---\nstatus: in-progress\n---\n## Posters\n\n- [ ] Workshop posters #S\n- [ ] Panel posters #M ⏳ 2026-10-20 ^pp\n- [x] Badge design ✅ 2026-10-01\n");
-    put("1.Projects/DevFest2026/Workstreams/Workshops.md", "- [ ] Confirm rooms\n- [ ] Confirm catering\n");
+    put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\n---\n# Expo2026\n");
+    put("1.Projects/Expo2026/Workstreams/Marketing/Marketing.md", "# Marketing\n");
+    put("1.Projects/Expo2026/Workstreams/Marketing/Items.md", "---\nstatus: in-progress\n---\n## Posters\n\n- [ ] Workshop posters #S\n- [ ] Panel posters #M ⏳ 2026-10-20 ^pp\n- [x] Badge design ✅ 2026-10-01\n");
+    put("1.Projects/Expo2026/Workstreams/Workshops.md", "- [ ] Confirm rooms\n- [ ] Confirm catering\n");
     put("2.Areas/Health.md", "# Health\n");
-    put("Plans/Quarterly/2026-Q4.md", "# 2026-Q4\n\n## Goals\n\n- [ ] DevFest delivered [[DevFest2026]] ^devfest-delivered\n\n## Review\n");
+    put("Plans/Quarterly/2026-Q4.md", "# 2026-Q4\n\n## Goals\n\n- [ ] Expo delivered [[Expo2026]] ^expo-delivered\n\n## Review\n");
   }
 
   it("creates a week plan from the built-in template with linked goals, parents and block ids", async () => {
     seed();
-    put("Plans/Monthly/2026-11.md", "## Goals\n\n- [ ] Posters printed [[Marketing]] ↑ [[2026-Q4#^devfest-delivered]] ^posters-printed\n");
+    put("Plans/Monthly/2026-11.md", "## Goals\n\n- [ ] Posters printed [[Marketing]] ↑ [[2026-Q4#^expo-delivered]] ^posters-printed\n");
     const plan = planPeriod(dir, await scanVault(dir), {
       period: "2026-W45",
       goals: [
         { text: "All workshop posters out", link: "Marketing", size: "M", parent: "2026-11#^posters-printed" },
         { text: "Sleep eight hours", link: "Health" },
       ],
-      adHoc: [{ text: "Call the venue", link: "DevFest2026", size: "S", date: "2026-11-04" }],
+      adHoc: [{ text: "Call the venue", link: "Expo2026", size: "S", date: "2026-11-04" }],
     });
     expect(plan.errors).toEqual([]);
     expect(plan.warnings).toEqual(['goal "Sleep eight hours" has no parent goal']);
@@ -79,13 +79,13 @@ describe("plan_period", () => {
       "",
     ]);
     expect(plan.content).toContain("```tasks\nnot done\nscheduled in 2026-W45\ngroup by folder\n```");
-    expect(plan.content).toContain("## Ad-hoc\n\n- [ ] Call the venue [[DevFest2026]] #S ⏳ 2026-11-04\n\n## Done");
+    expect(plan.content).toContain("## Ad-hoc\n\n- [ ] Call the venue [[Expo2026]] #S ⏳ 2026-11-04\n\n## Done");
 
     await executePlanPeriod(dir, plan);
     const p = planning(dir, await scanVault(dir));
     const goals = p.tasks.filter(t => t.plan?.period === "2026-W45" && t.goal);
     expect(goals.map(g => [g.text, g.owner, g.parent])).toEqual([
-      ["All workshop posters out [[Marketing]]", { project: "DevFest2026", workstream: "Marketing", area: null }, { target: "2026-11", block: "posters-printed" }],
+      ["All workshop posters out [[Marketing]]", { project: "Expo2026", workstream: "Marketing", area: null }, { target: "2026-11", block: "posters-printed" }],
       ["Sleep eight hours [[Health]]", { project: null, workstream: null, area: "Health" }, null],
     ]);
     expect(p.warnings.filter(w => w.includes("2026-W45"))).toEqual(['Plans/Weekly/2026-W45.md:6: goal "Sleep eight hours [[Health]]" links no parent goal']);
@@ -94,18 +94,18 @@ describe("plan_period", () => {
   it("uses the vault's own template when it has one", async () => {
     seed();
     put("Plans/Templates/Monthly.md", "# My month {{title}}\n\n## Goals\n\n## Notes\n");
-    const plan = planPeriod(dir, await scanVault(dir), { period: "2026-11", goals: [{ text: "Posters printed", link: "Marketing", parent: "2026-Q4#^devfest-delivered" }] });
-    expect(plan.content).toBe("# My month 2026-11\n\n## Goals\n\n- [ ] Posters printed [[Marketing]] ↑ [[2026-Q4#^devfest-delivered]] ^posters-printed\n\n## Notes\n");
+    const plan = planPeriod(dir, await scanVault(dir), { period: "2026-11", goals: [{ text: "Posters printed", link: "Marketing", parent: "2026-Q4#^expo-delivered" }] });
+    expect(plan.content).toBe("# My month 2026-11\n\n## Goals\n\n- [ ] Posters printed [[Marketing]] ↑ [[2026-Q4#^expo-delivered]] ^posters-printed\n\n## Notes\n");
   });
 
   it("adds to an existing plan without touching what is there, keeping block ids unique", async () => {
     seed();
-    const plan = planPeriod(dir, await scanVault(dir), { period: "2026-Q4", goals: [{ text: "DevFest delivered", link: "DevFest2026", parent: "2026#^x" }] });
-    expect(plan.errors).toEqual(["goal \"DevFest delivered\": no goal ^x in Plans/Yearly/2026.md"]);
-    const ok = planPeriod(dir, await scanVault(dir), { period: "2026-Q4", goals: [{ text: "DevFest delivered", link: "DevFest2026" }], adHoc: [{ text: "Book flights", link: "Health" }] });
+    const plan = planPeriod(dir, await scanVault(dir), { period: "2026-Q4", goals: [{ text: "Expo delivered", link: "Expo2026", parent: "2026#^x" }] });
+    expect(plan.errors).toEqual(["goal \"Expo delivered\": no goal ^x in Plans/Yearly/2026.md"]);
+    const ok = planPeriod(dir, await scanVault(dir), { period: "2026-Q4", goals: [{ text: "Expo delivered", link: "Expo2026" }], adHoc: [{ text: "Book flights", link: "Health" }] });
     expect(ok.errors).toEqual([]);
     expect(ok.creates).toBe(false);
-    expect(ok.content).toBe("# 2026-Q4\n\n## Goals\n\n- [ ] DevFest delivered [[DevFest2026]] ^devfest-delivered\n- [ ] DevFest delivered [[DevFest2026]] ^devfest-delivered-2\n\n## Review\n\n## Ad-hoc\n\n- [ ] Book flights [[Health]]\n");
+    expect(ok.content).toBe("# 2026-Q4\n\n## Goals\n\n- [ ] Expo delivered [[Expo2026]] ^expo-delivered\n- [ ] Expo delivered [[Expo2026]] ^expo-delivered-2\n\n## Review\n\n## Ad-hoc\n\n- [ ] Book flights [[Health]]\n");
   });
 
   it("schedules existing open tasks where they stand, after any frontmatter and before a block id", async () => {
@@ -113,17 +113,17 @@ describe("plan_period", () => {
     const plan = planPeriod(dir, await scanVault(dir), {
       period: "2026-W45",
       schedule: [
-        { note: "1.Projects/DevFest2026/Workstreams/Marketing/Items.md", task: "workshop posters", date: "2026-11-03" },
-        { note: "1.Projects/DevFest2026/Workstreams/Marketing/Items.md", task: "Panel posters" },
+        { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", task: "workshop posters", date: "2026-11-03" },
+        { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", task: "Panel posters" },
       ],
     });
     expect(plan.errors).toEqual([]);
     expect(plan.edits).toEqual([
-      { note: "1.Projects/DevFest2026/Workstreams/Marketing/Items.md", line: 6, before: "- [ ] Workshop posters #S", after: "- [ ] Workshop posters #S ⏳ 2026-11-03" },
-      { note: "1.Projects/DevFest2026/Workstreams/Marketing/Items.md", line: 7, before: "- [ ] Panel posters #M ⏳ 2026-10-20 ^pp", after: "- [ ] Panel posters #M ⏳ 2026-11-02 ^pp" },
+      { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", line: 6, before: "- [ ] Workshop posters #S", after: "- [ ] Workshop posters #S ⏳ 2026-11-03" },
+      { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", line: 7, before: "- [ ] Panel posters #M ⏳ 2026-10-20 ^pp", after: "- [ ] Panel posters #M ⏳ 2026-11-02 ^pp" },
     ]);
     await executePlanPeriod(dir, plan);
-    expect(read("1.Projects/DevFest2026/Workstreams/Marketing/Items.md")).toBe("---\nstatus: in-progress\n---\n## Posters\n\n- [ ] Workshop posters #S ⏳ 2026-11-03\n- [ ] Panel posters #M ⏳ 2026-11-02 ^pp\n- [x] Badge design ✅ 2026-10-01\n");
+    expect(read("1.Projects/Expo2026/Workstreams/Marketing/Items.md")).toBe("---\nstatus: in-progress\n---\n## Posters\n\n- [ ] Workshop posters #S ⏳ 2026-11-03\n- [ ] Panel posters #M ⏳ 2026-11-02 ^pp\n- [x] Badge design ✅ 2026-10-01\n");
     expect(existsSync(join(dir, "Plans/Weekly/2026-W45.md"))).toBe(true);
   });
 
@@ -133,12 +133,12 @@ describe("plan_period", () => {
       period: "2026-W45",
       goals: [
         { text: "A", link: "Nowhere" },
-        { text: "B", link: "Marketing", parent: "2026-Q4#^devfest-delivered" },
+        { text: "B", link: "Marketing", parent: "2026-Q4#^expo-delivered" },
       ],
       adHoc: [{ text: "C", link: "Health", date: "2026-11-20" }],
       schedule: [
-        { note: "1.Projects/DevFest2026/Workstreams/Workshops.md", task: "Confirm" },
-        { note: "1.Projects/DevFest2026/Workstreams/Marketing/Items.md", task: "Badge" },
+        { note: "1.Projects/Expo2026/Workstreams/Workshops.md", task: "Confirm" },
+        { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", task: "Badge" },
         { note: "3.Resources/Elsewhere.md", task: "x" },
       ],
     });
@@ -146,8 +146,8 @@ describe("plan_period", () => {
       'goal "A": "Nowhere" is not a project note, workstream note or area note',
       'goal "B": a week goal\'s parent is a month goal, not a quarter goal',
       "task \"C\": 2026-11-20 is not a day in 2026-W45 (2026-11-02 to 2026-11-08)",
-      'schedule: 2 open tasks in 1.Projects/DevFest2026/Workstreams/Workshops.md match "Confirm": Confirm rooms; Confirm catering',
-      'schedule: no open task in 1.Projects/DevFest2026/Workstreams/Marketing/Items.md match "Badge"',
+      'schedule: 2 open tasks in 1.Projects/Expo2026/Workstreams/Workshops.md match "Confirm": Confirm rooms; Confirm catering',
+      'schedule: no open task in 1.Projects/Expo2026/Workstreams/Marketing/Items.md match "Badge"',
       "schedule: no note 3.Resources/Elsewhere.md",
     ]);
     expect(planPeriod(dir, await scanVault(dir), { period: "2026-11-03", goals: [{ text: "x", link: "Health" }] }).errors)
@@ -158,12 +158,12 @@ describe("plan_period", () => {
   it("previews by default, and refuses to write over a note changed after the preview", async () => {
     seed();
     const vault = createVault(dir);
-    const input = { period: "2026-W45", schedule: [{ note: "1.Projects/DevFest2026/Workstreams/Workshops.md", task: "rooms" }] };
+    const input = { period: "2026-W45", schedule: [{ note: "1.Projects/Expo2026/Workstreams/Workshops.md", task: "rooms" }] };
     const preview = await vault.planPeriod(input, false);
     expect(preview.executed).toBe(false);
     expect(existsSync(join(dir, "Plans/Weekly/2026-W45.md"))).toBe(false);
     const plan = planPeriod(dir, await scanVault(dir), input);
-    put("1.Projects/DevFest2026/Workstreams/Workshops.md", "- [ ] Confirm rooms\n");
+    put("1.Projects/Expo2026/Workstreams/Workshops.md", "- [ ] Confirm rooms\n");
     await expect(executePlanPeriod(dir, plan)).rejects.toThrow(/Workshops\.md changed since the preview/);
     expect(existsSync(join(dir, "Plans/Weekly/2026-W45.md"))).toBe(false);
     expect((await vault.planPeriod(input, true)).executed).toBe(true);
@@ -175,5 +175,22 @@ describe("plan_period", () => {
       expect(t).not.toMatch(/- \[ \]/);
     }
     expect(TEMPLATES.day).not.toContain("## Goals");
+  });
+});
+
+describe("plan_period edge cases", () => {
+  it("keeps new goals when it also schedules a task in the same plan", async () => {
+    put("2.Areas/Health.md", "# Health\n");
+    put("Plans/Weekly/2026-W45.md", "## Goals\n\n## Ad-hoc\n\n- [ ] Call the physio [[Health]]\n");
+    const r = planPeriod(dir, await scanVault(dir), {
+      period: "2026-W45",
+      goals: [{ text: "Sleep eight hours", link: "Health" }],
+      schedule: [{ note: "Plans/Weekly/2026-W45.md", task: "Call the physio", date: "2026-11-05" }],
+    });
+    expect(r.errors).toEqual([]);
+    const written = r.writes["Plans/Weekly/2026-W45.md"];
+    expect(written).toBe(r.content);
+    expect(written).toContain("- [ ] Sleep eight hours [[Health]] ^sleep-eight-hours");
+    expect(written).toContain("- [ ] Call the physio [[Health]] ⏳ 2026-11-05");
   });
 });

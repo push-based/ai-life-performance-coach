@@ -20,8 +20,8 @@ beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "plansview-")); });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 function seed(): void {
-  put("1.Projects/DevFest2026/DevFest2026.md", "---\nstatus: in-progress\ndeadline: 2026-11-22\n---\n- [x] Book the venue #L ✅ 2026-10-20\n");
-  put("1.Projects/DevFest2026/Workstreams/Marketing.md", [
+  put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\ndeadline: 2026-11-22\n---\n- [x] Book the venue #L ✅ 2026-10-20\n");
+  put("1.Projects/Expo2026/Workstreams/Marketing.md", [
     "---", "status: in-progress", "---",
     "- [x] Workshop posters #S ✅ 2026-11-03",
     "- [x] Panel posters #M ✅ 2026-11-04",
@@ -29,13 +29,13 @@ function seed(): void {
     "- [ ] Later #S ⏳ 2027-01-04",
     "- [-] Dropped #L ⏳ 2026-11-10",
   ].join("\n"));
-  put("1.Projects/DevFest2026/Intermediate Packets/Onboarding checklist.md", "---\ntype: intermediate-packet\n---\n# Onboarding checklist\n");
+  put("1.Projects/Expo2026/Intermediate Packets/Onboarding checklist.md", "---\ntype: intermediate-packet\n---\n# Onboarding checklist\n");
   put("4.Archive/OldTalk/OldTalk.md", "- [x] Send slides #M ✅ 2026-11-05\n");
   put("2.Areas/Health.md", "- [x] Run #S ✅ 2026-11-04\n");
   put("Plans/Yearly/2026.md", "## Goals\n\n- [ ] Grow as a speaker [[Health]] ^speaker\n");
-  put("Plans/Quarterly/2026-Q4.md", "## Goals\n\n- [ ] DevFest delivered [[DevFest2026]] ↑ [[2026#^speaker]] ^devfest\n");
-  put("Plans/Monthly/2026-11.md", "## Goals\n\n- [ ] Posters printed [[Marketing]] ↑ [[2026-Q4#^devfest]] ^posters\n");
-  put("Plans/Weekly/2026-W45.md", "## Goals\n- [x] All posters out [[Marketing]] ↑ [[2026-11#^posters]] ^all ✅ 2026-11-04\n- [ ] Rooms [[DevFest2026]] #slipped/2026-W44 ↑ [[2026-11#^posters]] ^rooms\n## Ad-hoc\n- [x] Call the venue #S ✅ 2026-11-03\n");
+  put("Plans/Quarterly/2026-Q4.md", "## Goals\n\n- [ ] Expo delivered [[Expo2026]] ↑ [[2026#^speaker]] ^expo\n");
+  put("Plans/Monthly/2026-11.md", "## Goals\n\n- [ ] Posters printed [[Marketing]] ↑ [[2026-Q4#^expo]] ^posters\n");
+  put("Plans/Weekly/2026-W45.md", "## Goals\n- [x] All posters out [[Marketing]] ↑ [[2026-11#^posters]] ^all ✅ 2026-11-04\n- [ ] Rooms [[Expo2026]] #slipped/2026-W44 ↑ [[2026-11#^posters]] ^rooms\n## Ad-hoc\n- [x] Call the venue #S ✅ 2026-11-03\n");
   put("Plans/Monthly/2027-01.md", "## Goals\n\n- [ ] Next year [[Health]] ^next\n");
 }
 
@@ -58,17 +58,17 @@ describe("plansView", () => {
     const row = (id: string) => v.rows.find(r => r.id === id)!;
     const w45 = v.columns.findIndex(c => c.period === "2026-W45");
     const w46 = w45 + 1;
-    expect(v.rows.map(r => r.id)).toEqual(["p:DevFest2026", "w:DevFest2026/Marketing", "p:OldTalk", "a:Health", "unlinked"]);
-    expect(row("w:DevFest2026/Marketing").cells[w45]).toEqual({ done: 4, planned: 0 });
-    expect(row("w:DevFest2026/Marketing").cells[w46]).toEqual({ done: 0, planned: 3 });
-    expect(row("p:DevFest2026").cells[w45]).toEqual({ done: 4, planned: 0 });
-    expect(row("p:DevFest2026").cells[v.columns.findIndex(c => c.period === "2026-W43")]).toEqual({ done: 8, planned: 0 });
+    expect(v.rows.map(r => r.id)).toEqual(["p:Expo2026", "w:Expo2026/Marketing", "p:OldTalk", "a:Health", "unlinked"]);
+    expect(row("w:Expo2026/Marketing").cells[w45]).toEqual({ done: 4, planned: 0 });
+    expect(row("w:Expo2026/Marketing").cells[w46]).toEqual({ done: 0, planned: 3 });
+    expect(row("p:Expo2026").cells[w45]).toEqual({ done: 4, planned: 0 });
+    expect(row("p:Expo2026").cells[v.columns.findIndex(c => c.period === "2026-W43")]).toEqual({ done: 8, planned: 0 });
     expect(row("p:OldTalk")).toMatchObject({ archived: true, kind: "project" });
     expect(row("a:Health").cells[w45]).toEqual({ done: 1, planned: 0 });
     expect(row("unlinked").cells[w45]).toEqual({ done: 1, planned: 0 });
-    expect(row("p:DevFest2026")).toMatchObject({ deadline: "2026-11-22", status: "in-progress", note: "1.Projects/DevFest2026/DevFest2026.md", packets: [{ path: "1.Projects/DevFest2026/Intermediate Packets/Onboarding checklist.md", title: "Onboarding checklist" }] });
+    expect(row("p:Expo2026")).toMatchObject({ deadline: "2026-11-22", status: "in-progress", note: "1.Projects/Expo2026/Expo2026.md", packets: [{ path: "1.Projects/Expo2026/Intermediate Packets/Onboarding checklist.md", title: "Onboarding checklist" }] });
     // Cancelled work and work outside the span are left out.
-    expect(row("w:DevFest2026/Marketing").tasks.map(t => t.text)).toEqual(["Workshop posters", "Panel posters", "Social posts"]);
+    expect(row("w:Expo2026/Marketing").tasks.map(t => t.text)).toEqual(["Workshop posters", "Panel posters", "Social posts"]);
   });
 
   it("nests the goals of every overlapping plan under the goal they serve", async () => {
@@ -77,10 +77,10 @@ describe("plansView", () => {
     const shape = (gs: PlansView["goals"]): unknown[] => gs.map(g => [g.period, g.status, g.row, g.slipped.length, shape(g.children)]);
     expect(shape(v.goals)).toEqual([
       ["2026", "open", "a:Health", 0, [
-        ["2026-Q4", "open", "p:DevFest2026", 0, [
-          ["2026-11", "open", "w:DevFest2026/Marketing", 0, [
-            ["2026-W45", "met", "w:DevFest2026/Marketing", 0, []],
-            ["2026-W45", "open", "p:DevFest2026", 1, []],
+        ["2026-Q4", "open", "p:Expo2026", 0, [
+          ["2026-11", "open", "w:Expo2026/Marketing", 0, [
+            ["2026-W45", "met", "w:Expo2026/Marketing", 0, []],
+            ["2026-W45", "open", "p:Expo2026", 1, []],
           ]],
         ]],
       ]],
@@ -135,5 +135,17 @@ describe("the plans page on the view server", () => {
     const bad = await get("/plans.json?span=2026-W45&by=year");
     expect(bad.status).toBe(400);
     expect(JSON.parse(bad.body).error).toMatch(/not a level below week/);
+  });
+});
+
+describe("plans view periods", () => {
+  it("gives each goal its first and last day, and the periods for Today and for zooming", async () => {
+    put("2.Areas/Health.md", "# Health\n");
+    put("Plans/Weekly/2026-W45.md", "## Goals\n\n- [ ] Run twice [[Health]] ^run\n");
+    const v = plansView(dir, await scanVault(dir), "2026-Q4", "week", "2026-11-04") as PlansView;
+    expect(v.goals.map(g => [g.period, g.start, g.end])).toEqual([["2026-W45", "2026-11-02", "2026-11-08"]]);
+    expect(v.todayAt).toEqual({ year: "2026", quarter: "2026-Q4", month: "2026-11", week: "2026-W45", day: "2026-11-04" });
+    const past = plansView(dir, await scanVault(dir), "2026-Q3", "week", "2026-11-04") as PlansView;
+    expect(past.focusAt).toEqual({ year: "2026", quarter: "2026-Q3", month: "2026-07", week: "2026-W27", day: "2026-07-01" });
   });
 });

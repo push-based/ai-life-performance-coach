@@ -8,7 +8,6 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
 import { createVault } from "@docs-mcp/vault/vault.js";
 import { defaultVaultConfigFile, resolveVaultRoot, type ResolvedVaultRoot } from "@docs-mcp/vault/root.js";
@@ -22,16 +21,16 @@ export interface ServeVaultOptions {
 
 /** `--vault <path>` or `--vault=<path>`; a bare `--vault` defers to the environment and config. */
 export function parseVaultFlags(argv: string[]): { vault?: string; vaultConfig?: string } {
-  const { values } = parseArgs({
-    args: argv,
-    options: { vault: { type: "string" }, "vault-config": { type: "string" } },
-    strict: false,
-    allowPositionals: true,
-  });
-  return {
-    vault: typeof values.vault === "string" ? values.vault : undefined,
-    vaultConfig: typeof values["vault-config"] === "string" ? values["vault-config"] : undefined,
+  // By hand rather than parseArgs: a flag whose value is optional must not take the next
+  // option as its value, as in `--vault --port=5000`.
+  const value = (name: string): string | undefined => {
+    for (let i = 0; i < argv.length; i++) {
+      if (argv[i].startsWith(`--${name}=`)) return argv[i].slice(name.length + 3) || undefined;
+      if (argv[i] === `--${name}`) return argv[i + 1] !== undefined && !argv[i + 1].startsWith("-") ? argv[i + 1] : undefined;
+    }
+    return undefined;
   };
+  return { vault: value("vault"), vaultConfig: value("vault-config") };
 }
 
 /** Every directory from `cwd` upward that holds a docs-mcp.config.json. */

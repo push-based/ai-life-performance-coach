@@ -132,7 +132,7 @@ async function applyWrite(root: string, plan: WritePlan, execute: boolean): Prom
   return { ...shown, executed: true };
 }
 
-export type FilingResult = Omit<FilingPlan, "contents" | "originals"> & { executed: boolean };
+export type FilingResult = Omit<FilingPlan, "contents"> & { executed: boolean };
 
 /** A raw file with what was made from it (ADR-KI-0061): the user's notes and concept notes. */
 export interface RawListing extends RawItem {
@@ -141,7 +141,7 @@ export interface RawListing extends RawItem {
 }
 
 async function apply(root: string, plan: FilingPlan, execute: boolean): Promise<FilingResult> {
-  const { contents: _contents, originals: _originals, ...shown } = plan;
+  const { contents: _contents, ...shown } = plan;
   if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
   await executeFiling(root, plan);
   return { ...shown, executed: true };

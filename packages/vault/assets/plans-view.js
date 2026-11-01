@@ -36,23 +36,6 @@
   /** The row a goal counts for, as a short name. */
   const ownerName = g => g.owner.workstream || g.owner.project || g.owner.area || null;
 
-  /* ── Periods, as the server names them ─────────────────────────────────── */
-
-  const iso = d => d.toISOString().slice(0, 10);
-  const isoWeek = day => {
-    const d = new Date(`${day}T00:00:00Z`);
-    const th = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7)));
-    const y = th.getUTCFullYear();
-    const jan4 = new Date(Date.UTC(y, 0, 4));
-    const w1 = Date.UTC(y, 0, 4 - ((jan4.getUTCDay() + 6) % 7));
-    return `${y}-W${String(1 + Math.round((th - w1 - 3 * 864e5) / (7 * 864e5))).padStart(2, "0")}`;
-  };
-  const periodAt = (level, day) => ({
-    year: day.slice(0, 4), quarter: `${day.slice(0, 4)}-Q${Math.floor((Number(day.slice(5, 7)) - 1) / 3) + 1}`,
-    month: day.slice(0, 7), week: isoWeek(day), day,
-  })[level];
-  const today = () => iso(new Date(Date.now() - new Date().getTimezoneOffset() * 6e4));
-
   /* ── Loading and the URL ───────────────────────────────────────────────── */
 
   function readHash() {
@@ -95,7 +78,7 @@
     $("timeline-title").textContent = `Effort by ${d.by} · ${d.span.start} to ${d.span.end}`;
     $("zoom").replaceChildren(...ZOOM.map(([level, by, name]) => el("button", {
       class: "btn", "aria-pressed": String(d.span.level === level), text: name, title: `${name} by ${by}`,
-      onclick: () => go(periodAt(level, d.span.start <= d.today && d.today <= d.span.end ? d.today : d.span.start), by),
+      onclick: () => go(d.focusAt[level], by),
     })));
     $("archived").setAttribute("aria-pressed", String(state.archived));
   }
@@ -128,29 +111,8 @@
     return out;
   }
   function within(g, col) {
-    const p = periodBounds(g.period);
-    return p.start >= col.start && p.end <= col.end;
+    return g.start >= col.start && g.end <= col.end;
   }
-  /** Start and end of a period name, computed the way the server does. */
-  function periodBounds(name) {
-    if (/^\d{4}$/.test(name)) return { start: `${name}-01-01`, end: `${name}-12-31` };
-    if (/^\d{4}-Q\d$/.test(name)) {
-      const y = Number(name.slice(0, 4)), q = Number(name.slice(6));
-      return { start: iso(new Date(Date.UTC(y, (q - 1) * 3, 1))), end: iso(new Date(Date.UTC(y, q * 3, 0))) };
-    }
-    if (/^\d{4}-\d{2}$/.test(name)) {
-      const y = Number(name.slice(0, 4)), m = Number(name.slice(5, 7));
-      return { start: `${name}-01`, end: iso(new Date(Date.UTC(y, m, 0))) };
-    }
-    if (/^\d{4}-W\d{2}$/.test(name)) {
-      const y = Number(name.slice(0, 4)), w = Number(name.slice(6));
-      const jan4 = new Date(Date.UTC(y, 0, 4));
-      const start = new Date(Date.UTC(y, 0, 4 - ((jan4.getUTCDay() + 6) % 7) + (w - 1) * 7));
-      return { start: iso(start), end: iso(new Date(start.getTime() + 6 * 864e5)) };
-    }
-    return { start: name, end: name };
-  }
-
   function timeline() {
     const d = state.data;
     const rows = d.rows.filter(r => state.archived || !r.archived)
@@ -278,7 +240,7 @@
 
   $("prev").addEventListener("click", () => state.data && go(state.data.previous, state.by));
   $("next").addEventListener("click", () => state.data && go(state.data.next, state.by));
-  $("today").addEventListener("click", () => state.data && go(periodAt(state.data.span.level, today()), state.by));
+  $("today").addEventListener("click", () => state.data && go(state.data.todayAt[state.data.span.level], state.by));
   $("archived").addEventListener("click", () => { state.archived = !state.archived; writeHash(); render(); });
   $("theme").addEventListener("click", () => {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";

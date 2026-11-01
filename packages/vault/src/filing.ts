@@ -2,19 +2,16 @@
  * Filing (ADR-KI-0058 Decisions 4, 8 and 9): bring a vault onto the five PARA folders,
  * capture into the inbox, file a note, archive a project. Every operation is a plan
  * first; `execute` applies a plan that has no errors and no collisions, and nothing is
- * ever moved onto an existing path. Note content is edited in one place only: the
- * ADR-KI-0062 migration turns a note's top `Status:` line into a `status` key, and an
- * edit is refused if the note changed after the preview.
+ * ever moved onto an existing path, and no filing operation edits a note's content.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { link, mkdir, readdir, readFile, rename, rmdir, unlink, writeFile } from "node:fs/promises";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { link, mkdir, readdir, rename, rmdir, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 import { classify, COACH_ROOT, PLANS_ROOT, PARA_BUCKETS, PARA_FOLDERS, type ParaBucket } from "./para.js";
 import { noteResolver } from "./graph.js";
 import { listNotePaths, type VaultNote } from "./scan.js";
-import { LEGACY_WORKSTREAMS_FOLDER, PACKETS_FOLDER, PLAN_LEVELS, STATUSES, WORKSTREAMS_FOLDER, type Status } from "./planning.js";
-import { declaresKey, insertKey } from "./identity.js";
+import { PACKETS_FOLDER, PLAN_LEVELS, WORKSTREAMS_FOLDER } from "./planning.js";
 import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from "./plans.js";
 
 export const OLD_NOTES = posix.join(PARA_FOLDERS.archive, "old notes");
@@ -24,8 +21,6 @@ export type FilingAction =
   | { op: "create"; to: string }
   | { op: "move"; from: string; to: string }
   | { op: "write"; to: string }
-  /** `from` is where the note is before the plan runs, `to` where it is edited. */
-  | { op: "edit"; from: string; to: string }
   | { op: "remove_empty"; from: string };
 
 export interface FilingPlan {
@@ -35,10 +30,8 @@ export interface FilingPlan {
   errors: string[];
   /** Things the plan leaves alone or cannot fix, worth showing the user. */
   warnings: string[];
-  /** Content for `write` and `edit` actions, by target path. */
+  /** Content for `write` actions, by target path. */
   contents?: Record<string, string>;
-  /** For `edit` actions: the note as previewed; the edit is refused if it differs. */
-  originals?: Record<string, string>;
   /** `archive_project` only: notes in the project that look worth keeping in Resources. */
   suggestions?: KeepSuggestion[];
 }
@@ -155,26 +148,14 @@ export async function planInit(root: string, opts: InitOptions = {}): Promise<Fi
   return plan;
 }
 
-const STATUS_LINE = /^\s*Status\s*:\s*(.*?)\s*$/i;
-const HEADING_LINE = /^#{1,6}\s/;
-
-/** A hand-written status mapped onto the vocabulary, or null when it is not one of its spellings. */
-export function statusFromText(text: string): Status | null {
-  const key = text.toLowerCase().replace(/[\s_-]+/g, "");
-  const found = STATUSES.find(s => s.replace(/-/g, "") === key);
-  return found ?? null;
-}
-
 /**
  * The ADR-KI-0062 Decision 14 part of `init_vault`: `Plans/`, its level folders and the
- * five templates in `Plans/Templates/` when missing, each
- * project's `IP/` renamed to `Workstreams/`, missing project notes, the areas asked for,
- * and the top `Status:` line of project and workstream notes turned into a `status` key.
- * Runs only over a `1.Projects` folder that already exists under its own name.
+ * five templates in `Plans/Templates/` when missing, missing project notes, and the areas
+ * asked for. Project notes are written only under a `1.Projects` folder that already
+ * exists under its own name.
  */
 function planPlanningLayout(root: string, plan: FilingPlan, renames: { from: string; to: string }[], opts: InitOptions): void {
   const contents = (plan.contents ??= {});
-  const originals = (plan.originals ??= {});
   const planned = new Set(plan.actions.flatMap(a => ("to" in a ? [a.to] : [])));
 
   for (const folder of [PLANS_ROOT, ...Object.values(PLAN_LEVELS).map(l => posix.join(PLANS_ROOT, l)), TEMPLATES_FOLDER]) {
@@ -189,36 +170,20 @@ function planPlanningLayout(root: string, plan: FilingPlan, renames: { from: str
 
   const projectsRoot = PARA_FOLDERS.projects;
   if (renames.some(r => r.to === projectsRoot) || !existsSync(join(root, projectsRoot))) {
-    plan.warnings.push(`${projectsRoot} is created or renamed by this run; run init_vault again to bring its projects onto workstreams`);
+    plan.warnings.push(`${projectsRoot} is created or renamed by this run; run init_vault again to write its missing project notes`);
   } else {
     for (const name of dirsIn(join(root, projectsRoot))) {
       const folder = posix.join(projectsRoot, name);
       const ws = posix.join(folder, WORKSTREAMS_FOLDER);
-      const legacy = posix.join(folder, LEGACY_WORKSTREAMS_FOLDER);
-      const hasLegacy = dirsIn(join(root, folder)).includes(LEGACY_WORKSTREAMS_FOLDER);
-      if (hasLegacy) {
-        if (existsSync(join(root, ws))) plan.collisions.push(ws);
-        else plan.actions.push({ op: "rename", from: legacy, to: ws });
-      }
-      // Workstreams as they will be after the rename: a note, or a folder with its own note.
-      const onDisk = hasLegacy ? legacy : ws;
-      const units = [
-        ...dirsIn(join(root, onDisk)).map(d => ({ name: d, note: existsSync(join(root, onDisk, d, `${d}.md`)) ? `${d}/${d}.md` : null })),
-        ...readdirOrEmpty(join(root, onDisk)).filter(f => f.endsWith(".md")).map(f => ({ name: f.slice(0, -3), note: f })),
-      ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-
       const projectNote = posix.join(folder, `${name}.md`);
-      if (existsSync(join(root, projectNote))) {
-        migrateStatus(root, projectNote, projectNote, plan, contents, originals);
-      } else if (!planned.has(projectNote)) {
-        const list = units.map(u => (u.note ? `- [[${posix.join(ws, u.note).slice(0, -3)}|${u.name}]]` : `- ${u.name} (folder)`));
-        plan.actions.push({ op: "write", to: projectNote });
-        contents[projectNote] = `---\nstatus: in-progress\ndeadline:\ndone_when:\n---\n# ${name}\n\n## Workstreams\n\n${list.length ? list.join("\n") : "None yet."}\n`;
-      }
-      for (const u of units) {
-        if (u.note) migrateStatus(root, posix.join(onDisk, u.note), posix.join(ws, u.note), plan, contents, originals);
-        else plan.warnings.push(`${posix.join(ws, u.name)}: a workstream folder without its own note ${u.name}/${u.name}.md; it still counts, but has no status`);
-      }
+      if (existsSync(join(root, projectNote)) || planned.has(projectNote)) continue;
+      const units = [
+        ...dirsIn(join(root, ws)).map(d => ({ name: d, note: existsSync(join(root, ws, d, `${d}.md`)) ? `${d}/${d}.md` : null })),
+        ...readdirOrEmpty(join(root, ws)).filter(f => f.endsWith(".md")).map(f => ({ name: f.slice(0, -3), note: f })),
+      ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      const list = units.map(u => (u.note ? `- [[${posix.join(ws, u.note).slice(0, -3)}|${u.name}]]` : `- ${u.name} (folder)`));
+      plan.actions.push({ op: "write", to: projectNote });
+      contents[projectNote] = `---\nstatus: in-progress\ndeadline:\ndone_when:\n---\n# ${name}\n\n## Workstreams\n\n${list.length ? list.join("\n") : "None yet."}\n`;
     }
   }
 
@@ -227,7 +192,8 @@ function planPlanningLayout(root: string, plan: FilingPlan, renames: { from: str
     const name = safeName(raw);
     if (!name) { plan.errors.push(`area name "${raw}" is empty once characters Obsidian forbids are removed`); continue; }
     const to = posix.join(areasRoot, `${name}.md`);
-    if (existsSync(join(root, to)) || existsSync(join(root, areasRoot, name)) || planned.has(to)) continue;
+    // Seen through the planned renames: an `Areas/` folder about to become `2.Areas` already holds its notes.
+    if (existsSync(join(root, unmap(renames, to))) || existsSync(join(root, unmap(renames, posix.join(areasRoot, name)))) || planned.has(to)) continue;
     if (!existsSync(join(root, areasRoot)) && !plan.actions.some(a => a.op === "create" && a.to === areasRoot) && !renames.some(r => r.to === areasRoot)) {
       plan.actions.push({ op: "create", to: areasRoot });
     }
@@ -239,42 +205,6 @@ function planPlanningLayout(root: string, plan: FilingPlan, renames: { from: str
 
 function readdirOrEmpty(abs: string): string[] {
   try { return readdirSync(abs, { withFileTypes: true }).filter(e => e.isFile()).map(e => e.name).sort(); } catch { return []; }
-}
-
-/** Plan turning a note's top `Status:` line into a `status` key, and name section-level ones. */
-function migrateStatus(root: string, onDisk: string, after: string, plan: FilingPlan, contents: Record<string, string>, originals: Record<string, string>): void {
-  const content = readFileSync(join(root, onDisk), "utf-8");
-  const eol = content.includes("\r\n") ? "\r\n" : "\n";
-  const lines = content.split(eol);
-  let start = 0;
-  if (lines[0] === "---") {
-    const close = lines.indexOf("---", 1);
-    if (close > 0) start = close + 1;
-  }
-  let top = -1;
-  let seenContent = false;
-  let underHeading = false;
-  for (let i = start; i < lines.length; i++) {
-    const l = lines[i];
-    if (HEADING_LINE.test(l)) { underHeading = true; seenContent = true; continue; }
-    if (STATUS_LINE.test(l)) {
-      if (!seenContent && !underHeading && top < 0) top = i;
-      else plan.warnings.push(`${after}:${i + 1}: a Status: line under a section stays as text`);
-      seenContent = true;
-      continue;
-    }
-    if (l.trim()) seenContent = true;
-  }
-  if (top < 0) return;
-  const value = lines[top].match(STATUS_LINE)![1];
-  const status = statusFromText(value);
-  if (!status) { plan.warnings.push(`${after}: status "${value}" is not one of ${STATUSES.join(", ")}; map it by hand`); return; }
-  if (declaresKey(content, "status")) { plan.warnings.push(`${after}: already has a status key; its Status: line stays`); return; }
-  // Drop the line, and one blank line after it so the body does not open with a gap.
-  const rest = [...lines.slice(0, top), ...lines.slice(lines[top + 1]?.trim() === "" ? top + 2 : top + 1)].join(eol);
-  plan.actions.push({ op: "edit", from: onDisk, to: after });
-  contents[after] = insertKey(rest, "status", status).replace(`status: "${status}"`, `status: ${status}`);
-  originals[after] = content;
 }
 
 const UNSAFE = /[\\/:*?"<>|#^[\]]/g;
@@ -457,10 +387,6 @@ async function removeIfEmpty(abs: string): Promise<void> {
 
 export async function executeFiling(root: string, plan: FilingPlan): Promise<void> {
   if (plan.errors.length || plan.collisions.length) throw new Error("refusing to apply a plan with errors or collisions");
-  // Check every edit before anything moves, so a stale preview changes nothing.
-  for (const a of plan.actions) {
-    if (a.op === "edit" && (await readFile(join(root, a.from), "utf-8")) !== plan.originals![a.to]) throw new Error(`${a.from} changed since the preview`);
-  }
   for (const a of plan.actions) {
     switch (a.op) {
       case "rename": await moveDirNoClobber(join(root, a.from), join(root, a.to)); break;
@@ -472,12 +398,6 @@ export async function executeFiling(root: string, plan: FilingPlan): Promise<voi
         break;
       }
       case "write": await writeFile(join(root, a.to), plan.contents![a.to], { flag: "wx" }); break;
-      case "edit": {
-        const abs = join(root, a.to);
-        if ((await readFile(abs, "utf-8")) !== plan.originals![a.to]) throw new Error(`${a.to} changed since the preview`);
-        await writeFile(abs, plan.contents![a.to]);
-        break;
-      }
       case "remove_empty": await removeIfEmpty(join(root, a.from)); break;
     }
   }
