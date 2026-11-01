@@ -21,9 +21,9 @@ export { insertCoachId, declaresCoachId, insertKey, declaresKey } from "./identi
 export { histories, type Mastery, type NoteHistory, type HistoryEntry } from "./mastery.js";
 export { planSession, type RecordSessionInput, type SessionItemInput, type RecordPlan } from "./record.js";
 export { tier2Payload, PAYLOAD_ITEM_KEYS, PAYLOAD_OPTIONAL_KEYS, type Tier2Payload } from "./payload.js";
-export { planInit, planCapture, planFileNote, planArchiveProject, keepSuggestions, RESOURCE_PACKETS, safeName, statusFromText, OLD_NOTES, type FilingPlan, type FilingAction, type KeepSuggestion, type ArchiveOptions, type InitOptions } from "./filing.js";
+export { planInit, planCapture, planFileNote, planArchiveProject, keepSuggestions, RESOURCE_PACKETS, safeName, OLD_NOTES, type FilingPlan, type FilingAction, type KeepSuggestion, type ArchiveOptions, type InitOptions } from "./filing.js";
 export { listRaw, planConvert, planUnits, extractPdf, renderChapter, renderIndex, chapterFile, pagesOf, RAW_ROOT, RAW_PDF, RAW_TEXT, RAW_CHAPTERS, MAX_UNIT_CHARS, type RawItem, type ConvertPlan, type ConvertOptions, type PdfText, type OutlineEntry, type Unit, type UnitPlan } from "./convert.js";
-export { planning, parseTasks, planOf, PLAN_LEVELS, STATUSES, SIZE_WEIGHTS, WORKSTREAMS_FOLDER, PACKETS_FOLDER, LEGACY_WORKSTREAMS_FOLDER, type Planning, type Project, type Workstream, type Area, type Plan, type PlanRef, type PlanLevel, type Task, type OwnedTask, type Owner, type Status, type Size, type Priority } from "./planning.js";
+export { planning, parseTasks, planOf, PLAN_LEVELS, STATUSES, SIZE_WEIGHTS, WORKSTREAMS_FOLDER, PACKETS_FOLDER, type Planning, type Project, type Workstream, type Area, type Plan, type PlanRef, type PlanLevel, type Task, type OwnedTask, type Owner, type Status, type Size, type Priority } from "./planning.js";
 export { planPeriod, executeWrites, nextPeriod, previousPeriod, periodAt, periodOf, isoWeekOf, planPathOf, templateFor, TEMPLATES, TEMPLATES_FOLDER, templatePath, type Period, type PlanPeriodInput, type PlanPeriodPlan, type GoalInput, type AdHocInput, type ScheduleInput, type NoteEdit } from "./plans.js";
 export { rollOver, type RollOverPlan } from "./rollover.js";
 export { reviewPeriod, type PeriodReview, type GoalReview, type GoalStatus, type Effort, type ProjectEffort } from "./review.js";

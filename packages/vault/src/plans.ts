@@ -10,7 +10,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 import { PLANS_ROOT } from "./para.js";
 import { noteResolver } from "./graph.js";
-import { planning, planOf, parseTasks, PLAN_LEVELS, SIZE_WEIGHTS, type PlanLevel, type Planning, type Size } from "./planning.js";
+import { OPEN_CHECKBOX, planning, planOf, parseTasks, PLAN_LEVELS, SIZE_WEIGHTS, type PlanLevel, type Planning, type Size } from "./planning.js";
 import type { VaultNote } from "./scan.js";
 
 /** Templates live beside the plans, one per level; Periodic Notes reads them (Decision 9). */
@@ -131,7 +131,7 @@ export interface GoalInput {
   /** A project, workstream or area: its name, or a note path. */
   link: string;
   size?: Size;
-  /** The goal one level up it serves: `<period>#^<block id>`, e.g. `2026-Q4#^devfest`. */
+  /** The goal one level up it serves: `<period>#^<block id>`, e.g. `2026-Q4#^expo`. */
   parent?: string;
 }
 
@@ -223,22 +223,34 @@ export class TaskLineEditor {
 
   /** Change one open task's line; returns an error, or null when it was edited or left as it was. */
   edit(note: VaultNote, bodyLine: number, change: (line: string) => string): string | null {
-    const file = this.files.get(note.path) ?? readFileSync(join(this.root, note.path), "utf-8").split("\n");
-    if (!this.files.has(note.path)) { this.originals[note.path] = file.join("\n"); this.files.set(note.path, file); }
+    let file = this.files.get(note.path);
+    if (!file) {
+      const text = readFileSync(join(this.root, note.path), "utf-8");
+      this.originals[note.path] = text;
+      file = text.split("\n");
+      this.files.set(note.path, file);
+    }
     // The body starts after the frontmatter, if the note has one.
     const i = file.length - note.body.split("\n").length + bodyLine;
-    const before = file[i];
-    if (!/^\s*[-*+]\s+\[ \]/.test(before ?? "")) return `line ${i + 1} of ${note.path} is not an open task`;
+    const raw = file[i] ?? "";
+    if (!OPEN_CHECKBOX.test(raw)) return `line ${i + 1} of ${note.path} is not an open task`;
+    // A CRLF note keeps its line ending: the change sees the line without it.
+    const cr = raw.endsWith("\r") ? "\r" : "";
+    const before = cr ? raw.slice(0, -1) : raw;
     const after = change(before);
-    if (after !== before) { file[i] = after; this.edits.push({ note: note.path, line: i + 1, before, after }); }
+    if (after !== before) { file[i] = after + cr; this.edits.push({ note: note.path, line: i + 1, before, after }); }
     return null;
+  }
+
+  /** A note's content with the edits so far, or null when no edit touched it. */
+  contentOf(path: string): string | null {
+    return this.edits.some(e => e.note === path) ? this.files.get(path)!.join("\n") : null;
   }
 
   /** Every changed note's new content. */
   writes(): Record<string, string> {
     const out: Record<string, string> = {};
-    const changed = new Set(this.edits.map(e => e.note));
-    for (const [note, lines] of this.files) if (changed.has(note)) out[note] = lines.join("\n");
+    for (const note of new Set(this.edits.map(e => e.note))) out[note] = this.contentOf(note)!;
     return out;
   }
 }
@@ -329,7 +341,6 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
     out.goalIds.push({ text: g.text, id });
     if (link !== null) goalLines.push(`- [ ] ${g.text} ${link}${meta(g.size)}${parent} ^${id}`);
   }
-  content = addToSection(content, "Goals", goalLines);
 
   const adHocLines: string[] = [];
   for (const t of input.adHoc ?? []) {
@@ -337,9 +348,6 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
     const day = t.date === undefined ? null : inPeriod(`task "${t.text}"`, t.date);
     if (link !== null) adHocLines.push(`- [ ] ${t.text} ${link}${meta(t.size)}${day ? ` ⏳ ${day}` : ""}`);
   }
-  content = addToSection(content, "Ad-hoc", adHocLines);
-  out.content = content;
-  if (original === null || content !== original) out.writes[path] = content;
 
   // Scheduling: add or replace ⏳ on an open task's line, where it stands.
   const editor = new TaskLineEditor(root, out.originals);
@@ -362,6 +370,11 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   }
   out.edits = editor.edits;
   Object.assign(out.writes, editor.writes());
+
+  // Goals and ad-hoc tasks go in last, on top of any scheduling edit made to the plan itself.
+  content = addToSection(addToSection(editor.contentOf(path) ?? content, "Goals", goalLines), "Ad-hoc", adHocLines);
+  out.content = content;
+  if (original === null || content !== original) out.writes[path] = content;
 
   return out;
 }

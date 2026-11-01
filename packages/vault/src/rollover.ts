@@ -8,7 +8,8 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { planning, parseTasks } from "./planning.js";
+import { PARA_FOLDERS } from "./para.js";
+import { FIRST_SIGNIFIER, planning, parseTasks } from "./planning.js";
 import { addToSection, nextPeriod, periodOf, planPathOf, scheduleLine, slug, templateFor, TaskLineEditor, type NoteEdit, type NoteWrites, type Period } from "./plans.js";
 import type { VaultNote } from "./scan.js";
 
@@ -25,19 +26,19 @@ export interface RollOverPlan extends NoteWrites {
   warnings: string[];
 }
 
-const SIGNIFIER = /\s(?:[⏳✅📅🛫➕❌🔺⏫🔼🔽⏬]|\^[A-Za-z0-9-]+\s*$)/u;
-const PRIORITY = /\s?[⏫🔼🔽⏬]️?/gu;
+// Priorities below highest; 🔺 is kept as it is.
+const LOWER_PRIORITY = /\s?[⏫🔼🔽⏬]\uFE0F?/gu;
 
 /** Put text before the first Tasks signifier or block id, so the description stays first. */
 function beforeSignifiers(line: string, text: string): string {
-  const m = line.match(SIGNIFIER);
+  const m = line.match(FIRST_SIGNIFIER);
   return m ? `${line.slice(0, m.index)}${text}${line.slice(m.index)}` : `${line.replace(/\s+$/, "")}${text}`;
 }
 
 /** Raise a line to high priority, keeping a highest one. */
 function raise(line: string): string {
   if (line.includes("🔺")) return line;
-  const plain = line.replace(PRIORITY, "");
+  const plain = line.replace(LOWER_PRIORITY, "");
   const m = plain.match(/\s\^[A-Za-z0-9-]+\s*$/);
   return m ? `${plain.slice(0, m.index)} ⏫${plain.slice(m.index)}` : `${plain.replace(/\s+$/, "")} ⏫`;
 }
@@ -59,6 +60,8 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
   const editor = new TaskLineEditor(root, out.originals);
   for (const t of p.tasks) {
     if (t.goal || t.recurrence || t.state !== "open" || !t.scheduled || t.scheduled < from.start || t.scheduled > from.end) continue;
+    // An archived project's leftovers stay where they were left; only live work slips.
+    if (t.note.startsWith(`${PARA_FOLDERS.archive}/`)) continue;
     const err = editor.edit(byPath.get(t.note)!, t.line, line => {
       const tagged = t.slipped.includes(from.period) ? line : beforeSignifiers(line, ` ${tag}`);
       return raise(scheduleLine(tagged, to.start));
@@ -98,7 +101,8 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
   }
   out.creates = !target && lines.length > 0;
   if (lines.length) {
-    out.writes[out.plan] = addToSection(content, "Goals", lines);
+    // On top of any task this run rescheduled inside the next plan itself.
+    out.writes[out.plan] = addToSection(editor.contentOf(out.plan) ?? content, "Goals", lines);
     if (out.creates) out.created.push(out.plan);
   }
 

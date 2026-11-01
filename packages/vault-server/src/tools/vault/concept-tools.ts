@@ -11,7 +11,7 @@ export function findPassagesTool(vault: Vault): ToolDef {
   annotations: { readOnlyHint: true, idempotentHint: true },
   schema: {
     query: z.string().min(1).describe("What to look for, e.g. a phrase from the user's reading notes"),
-    within: z.string().optional().describe("Only raw notes under this folder, e.g. 3.Resources/0.Raw/Books/Tiago Forte/Building a Second Brain"),
+    within: z.string().optional().describe("Only raw notes under this folder, e.g. 3.Resources/0.Raw/Books/Jane Doe/Notes That Work"),
     limit: z.number().int().min(1).max(50).optional().describe("Maximum hits (default 10)"),
   },
   handler: async (args) => json(await vault.findPassages(args.query, { within: args.within, limit: args.limit })),

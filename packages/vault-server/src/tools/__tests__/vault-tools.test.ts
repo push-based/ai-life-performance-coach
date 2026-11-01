@@ -26,7 +26,7 @@ const call = async (name: string, args: Record<string, unknown> = {}) => {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "vault-tools-"));
-  put("1.Projects/DevFest2026/Talk.md", "# Talk\n\nBuilds on [[Event loop]].\n");
+  put("1.Projects/Expo2026/Talk.md", "# Talk\n\nBuilds on [[Event loop]].\n");
   put("3.Resources/TypeScript/Event loop.md", "---\ncoach_id: c-1\n---\nMicrotasks first. [[Gone]]\n");
   put("3.Resources/TypeScript/Promises.md", "Promises resolve as microtasks, see [[Event loop]].\n");
   put("Stray.md", "Outside PARA.\n");
@@ -55,7 +55,7 @@ describe("list_notes", () => {
   it("filters by bucket, out_of_place, and container", async () => {
     expect((await call("list_notes", { bucket: "resources" })).data.notes).toHaveLength(2);
     expect((await call("list_notes", { bucket: "out_of_place" })).data.notes.map((n: { path: string }) => n.path)).toEqual(["Stray.md"]);
-    expect((await call("list_notes", { container: "DevFest2026" })).data.notes).toHaveLength(1);
+    expect((await call("list_notes", { container: "Expo2026" })).data.notes).toHaveLength(1);
   });
 });
 
@@ -78,7 +78,7 @@ describe("search", () => {
     const all = (await call("search", { query: "event loop" })).data;
     expect(all[0].path).toBe("3.Resources/TypeScript/Event loop.md");
     const projects = (await call("search", { query: "event loop", bucket: "projects" })).data;
-    expect(projects.map((h: { path: string }) => h.path)).toEqual(["1.Projects/DevFest2026/Talk.md"]);
+    expect(projects.map((h: { path: string }) => h.path)).toEqual(["1.Projects/Expo2026/Talk.md"]);
   });
 });
 
@@ -142,7 +142,7 @@ describe("sparring tools", () => {
   });
 
   it("record_session reports refusals as an error", async () => {
-    const { res } = await call("record_session", { tier: 1, items: [{ note: "1.Projects/DevFest2026/Talk.md", challenge: "c", answer: "a", verdict: "fail", next_review: "2026-11-01" }], execute: true });
+    const { res } = await call("record_session", { tier: 1, items: [{ note: "1.Projects/Expo2026/Talk.md", challenge: "c", answer: "a", verdict: "fail", next_review: "2026-11-01" }], execute: true });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/not under 3\.Resources/);
   });
@@ -183,7 +183,7 @@ describe("filing tools", () => {
     expect((await call("file_note", { path: "Stray.md", to: "3.Resources", execute: true })).data.executed).toBe(true);
     expect((await call("list_notes", { bucket: "out_of_place" })).data.notes).toEqual([]);
     expect((await call("capture", { title: "Idea", body: "x", execute: true })).data.executed).toBe(true);
-    expect((await call("archive_project", { project: "DevFest2026", execute: true })).data.executed).toBe(true);
+    expect((await call("archive_project", { project: "Expo2026", execute: true })).data.executed).toBe(true);
     expect((await call("init_vault", {})).data.actions).toEqual([
       { op: "create", to: "2.Areas" },
       { op: "create", to: "Plans" },
@@ -282,6 +282,8 @@ describe("serve-vault helpers", () => {
     expect(parseVaultFlags(["--vault", "/v"])).toEqual({ vault: "/v", vaultConfig: undefined });
     expect(parseVaultFlags(["--vault=/v", "--vault-config=/c.json"])).toEqual({ vault: "/v", vaultConfig: "/c.json" });
     expect(parseVaultFlags(["--vault"]).vault).toBeUndefined();
+    expect(parseVaultFlags(["--vault", "--port=5000"])).toEqual({ vault: undefined, vaultConfig: undefined });
+    expect(parseVaultFlags(["--vault", "--vault-config=/c.json"])).toEqual({ vault: undefined, vaultConfig: "/c.json" });
   });
 
   it("finds every docs-mcp workspace from cwd upward", () => {

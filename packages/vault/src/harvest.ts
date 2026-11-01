@@ -11,7 +11,7 @@ import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 import { safeName } from "./filing.js";
 import { noteResolver } from "./graph.js";
-import { parseTasks, planning, PACKETS_FOLDER, type Project, type Workstream } from "./planning.js";
+import { DATED_SIGNIFIER, parseTasks, planning, PACKETS_FOLDER, PRIORITY_SIGNIFIER, type Project, type Workstream } from "./planning.js";
 import type { VaultNote } from "./scan.js";
 
 export const PACKET_TYPE = "intermediate-packet";
@@ -48,14 +48,16 @@ export interface HarvestPlan {
 
 const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const CHECKBOX = /^(\s*[-*+]\s+)\[(.)\]/;
+const SPACED_DATE = new RegExp(`\\s*${DATED_SIGNIFIER.source}`, "gu");
+const SPACED_PRIORITY = new RegExp(`\\s*${PRIORITY_SIGNIFIER.source}`, "gu");
 
 /** A checklist made reusable: unticked, without dates, priorities, slips or block ids; size tags stay. */
 export function resetChecklist(text: string): string {
   return text.split("\n").map(l => {
     if (!CHECKBOX.test(l)) return l;
     return l.replace(CHECKBOX, "$1[ ]")
-      .replace(/\s*[⏳✅📅🛫➕❌]️?\s*\d{4}-\d{2}-\d{2}/g, "")
-      .replace(/\s*[🔺⏫🔼🔽⏬]️?/g, "")
+      .replace(SPACED_DATE, "")
+      .replace(SPACED_PRIORITY, "")
       .replace(/\s+#slipped\/[0-9A-Za-z-]+/g, "")
       .replace(/\s+\^[A-Za-z0-9-]+\s*$/, "")
       .replace(/\s+$/, "");
@@ -152,7 +154,10 @@ export function harvestWorkstream(root: string, notes: VaultNote[], project: str
         body.push(`## ${part.heading}`, "", resetChecklist(part.text), "");
       } else if (existsSync(join(root, src)) && statSync(join(root, src)).isFile()) {
         const to = posix.join(folder, posix.basename(src));
-        if (claim(to)) out.copies.push({ from: src, to });
+        // Packets that reuse the same file share one copy of it.
+        const shared = out.copies.find(c => c.to === to);
+        if (!shared) { if (claim(to)) out.copies.push({ from: src, to }); }
+        else if (shared.from !== src) out.collisions.push(to);
         files.push(to);
         body.push(`![[${posix.basename(src)}]]`, "");
       } else out.errors.push(`packet "${k.title}": no note or file ${src}`);

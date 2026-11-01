@@ -74,7 +74,7 @@ describe("init_vault", () => {
       { op: "write", to: "Plans/Templates/Weekly.md" },
       { op: "write", to: "Plans/Templates/Daily.md" },
     ]);
-    expect(preview.warnings).toEqual(["1.Projects is created or renamed by this run; run init_vault again to bring its projects onto workstreams"]);
+    expect(preview.warnings).toEqual(["1.Projects is created or renamed by this run; run init_vault again to write its missing project notes"]);
     expect(fingerprint()).toEqual(before);
 
     const done = await vault.initVault(true);
@@ -96,7 +96,7 @@ describe("init_vault", () => {
     const { actions, warnings } = await vault.initVault(true);
     expect(actions).toContainEqual({ op: "rename", from: "PARA/1.Projects", to: "1.Projects" });
     expect(actions).toContainEqual({ op: "move", from: "PARA/Misc/z.md", to: "4.Archive/old notes/PARA/Misc/z.md" });
-    expect(warnings).toEqual(["1.Projects is created or renamed by this run; run init_vault again to bring its projects onto workstreams"]);
+    expect(warnings).toEqual(["1.Projects is created or renamed by this run; run init_vault again to write its missing project notes"]);
     expect(has("PARA")).toBe(false);
     expect(read("1.Projects/A/x.md")).toBe("x");
     expect(read("4.Archive/y.md")).toBe("y");
@@ -206,13 +206,13 @@ describe("file_note", () => {
 
 describe("archive_project", () => {
   it("moves a project folder whole into 4.Archive", async () => {
-    put("1.Projects/DevFest2026/IP/Workshops.md", "w");
-    put("1.Projects/DevFest2026/Plan.md", "p");
-    const preview = await vault.archiveProject("DevFest2026", false);
-    expect(preview.actions).toEqual([{ op: "create", to: "4.Archive" }, { op: "move", from: "1.Projects/DevFest2026", to: "4.Archive/DevFest2026" }]);
-    await vault.archiveProject("DevFest2026", true);
-    expect(has("1.Projects/DevFest2026")).toBe(false);
-    expect(read("4.Archive/DevFest2026/IP/Workshops.md")).toBe("w");
+    put("1.Projects/Expo2026/Workstreams/Workshops.md", "w");
+    put("1.Projects/Expo2026/Plan.md", "p");
+    const preview = await vault.archiveProject("Expo2026", false);
+    expect(preview.actions).toEqual([{ op: "create", to: "4.Archive" }, { op: "move", from: "1.Projects/Expo2026", to: "4.Archive/Expo2026" }]);
+    await vault.archiveProject("Expo2026", true);
+    expect(has("1.Projects/Expo2026")).toBe(false);
+    expect(read("4.Archive/Expo2026/Workstreams/Workshops.md")).toBe("w");
   });
 
   it("refuses an existing archive folder, a missing project and a path", async () => {

@@ -21,8 +21,8 @@ beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "rollover-")); });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 function seed(): void {
-  put("1.Projects/DevFest2026/DevFest2026.md", "---\nstatus: in-progress\n---\n# DevFest2026\n");
-  put("1.Projects/DevFest2026/Workstreams/Marketing.md", [
+  put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\n---\n# Expo2026\n");
+  put("1.Projects/Expo2026/Workstreams/Marketing.md", [
     "---", "status: in-progress", "---",
     "- [ ] Workshop posters #S ⏳ 2026-11-04",
     "- [ ] Panel posters #M #slipped/2026-W44 🔼 ⏳ 2026-11-02 ^pp",
@@ -40,7 +40,7 @@ function seed(): void {
     "- [x] Sleep eight hours [[Health]] ^sleep",
     "- [ ] Run twice [[Health]] #slipped/2026-W44 ^run-twice",
     "", "## Ad-hoc", "",
-    "- [ ] Call the venue [[DevFest2026]] ⏳ 2026-11-06",
+    "- [ ] Call the venue [[Expo2026]] ⏳ 2026-11-06",
     "- [ ] Water the plants [[Health]]",
     "",
   ].join("\n"));
@@ -66,7 +66,7 @@ describe("roll_over", () => {
       [4, "- [ ] Workshop posters #S #slipped/2026-W45 ⏳ 2026-11-09 ⏫"],
       [5, "- [ ] Panel posters #M #slipped/2026-W44 #slipped/2026-W45 ⏳ 2026-11-09 ⏫ ^pp"],
       [6, "- [ ] Urgent thing #slipped/2026-W45 🔺 ⏳ 2026-11-09"],
-      [11, "- [ ] Call the venue [[DevFest2026]] #slipped/2026-W45 ⏳ 2026-11-09 ⏫"],
+      [11, "- [ ] Call the venue [[Expo2026]] #slipped/2026-W45 ⏳ 2026-11-09 ⏫"],
     ]);
     expect(plan.goals).toEqual([{ text: "All posters out [[Marketing]]", id: "all-posters-out" }, { text: "Run twice [[Health]]", id: "run-twice" }]);
     expect(plan).toMatchObject({ plan: "Plans/Weekly/2026-W46.md", creates: true });
@@ -108,11 +108,11 @@ describe("roll_over", () => {
 
   it("rolls a month into the next month and warns when a goal's parent does not reach it", async () => {
     seed();
-    put("Plans/Monthly/2026-12.md", "## Goals\n\n- [ ] Retro written [[DevFest2026]] ↑ [[2026-Q4#^devfest]] ^retro-written\n");
+    put("Plans/Monthly/2026-12.md", "## Goals\n\n- [ ] Retro written [[Expo2026]] ↑ [[2026-Q4#^expo]] ^retro-written\n");
     const plan = rollOver(dir, await scanVault(dir), "2026-12");
     expect(plan.to?.period).toBe("2027-01");
-    expect(plan.warnings).toContain('goal "Retro written [[DevFest2026]]": its parent in 2026-Q4 does not overlap 2027-01; link a new parent if it moved on');
-    expect(plan.goals).toEqual([{ text: "Retro written [[DevFest2026]]", id: "retro-written" }]);
+    expect(plan.warnings).toContain('goal "Retro written [[Expo2026]]": its parent in 2026-Q4 does not overlap 2027-01; link a new parent if it moved on');
+    expect(plan.goals).toEqual([{ text: "Retro written [[Expo2026]]", id: "retro-written" }]);
   });
 
   it("adds to an existing next plan, keeping block ids unique", async () => {
@@ -134,10 +134,54 @@ describe("roll_over", () => {
 
   it("previews by default and writes nothing", async () => {
     seed();
-    const before = read("1.Projects/DevFest2026/Workstreams/Marketing.md");
+    const before = read("1.Projects/Expo2026/Workstreams/Marketing.md");
     const r = await createVault(dir).rollOver("2026-W45", false);
     expect(r.executed).toBe(false);
-    expect(read("1.Projects/DevFest2026/Workstreams/Marketing.md")).toBe(before);
+    expect(read("1.Projects/Expo2026/Workstreams/Marketing.md")).toBe(before);
     expect(existsSync(join(dir, "Plans/Weekly/2026-W46.md"))).toBe(false);
+  });
+});
+
+describe("roll_over edge cases", () => {
+  it("keeps other emoji in a goal's text whole", async () => {
+    put("2.Areas/Reading.md", "# Reading\n");
+    put("Plans/Weekly/2026-W45.md", "## Goals\n\n- [ ] 📚 Read 3 books [[Reading]] 🔼 ^read\n");
+    const plan = rollOver(dir, await scanVault(dir), "2026-W45");
+    expect(plan.errors).toEqual([]);
+    expect(plan.writes["Plans/Weekly/2026-W46.md"]).toContain("- [ ] 📚 Read 3 books [[Reading]] #slipped/2026-W45 ⏫ ^read");
+  });
+
+  it("rolls a task with a custom open status such as [/]", async () => {
+    put("1.Projects/Expo2026/Workstreams/Marketing.md", "- [/] Draft slides ⏳ 2026-11-04\n");
+    const plan = rollOver(dir, await scanVault(dir), "2026-W45");
+    expect(plan.errors).toEqual([]);
+    expect(plan.tasks.map(t => t.after)).toEqual(["- [/] Draft slides #slipped/2026-W45 ⏳ 2026-11-09 ⏫"]);
+  });
+
+  it("reads and edits a CRLF note, keeping its line endings", async () => {
+    put("1.Projects/Expo2026/Workstreams/Marketing.md", "---\r\nstatus: todo\r\n---\r\n- [ ] Print badges ⏳ 2026-11-04\r\n- [x] Done ✅ 2026-11-03\r\n");
+    const notes = await scanVault(dir);
+    expect(planning(dir, notes).tasks.map(t => t.text)).toEqual(["Print badges", "Done"]);
+    const plan = rollOver(dir, notes, "2026-W45");
+    await executeWrites(dir, plan);
+    expect(read("1.Projects/Expo2026/Workstreams/Marketing.md"))
+      .toBe("---\r\nstatus: todo\r\n---\r\n- [ ] Print badges #slipped/2026-W45 ⏳ 2026-11-09 ⏫\r\n- [x] Done ✅ 2026-11-03\r\n");
+  });
+
+  it("leaves an archived project's open tasks where they were left", async () => {
+    put("4.Archive/Old/Old.md", "---\nstatus: done\n---\n- [ ] Send invoice ⏳ 2026-11-04\n");
+    const plan = rollOver(dir, await scanVault(dir), "2026-W45");
+    expect(plan.tasks).toEqual([]);
+  });
+
+  it("adds rolled goals on top of a task it rescheduled inside the next plan", async () => {
+    put("2.Areas/Health.md", "# Health\n");
+    put("Plans/Weekly/2026-W45.md", "## Goals\n\n- [ ] Run twice [[Health]] ^run\n");
+    put("Plans/Weekly/2026-W46.md", "## Goals\n\n## Ad-hoc\n\n- [ ] Book a physio [[Health]] ⏳ 2026-11-06\n");
+    const plan = rollOver(dir, await scanVault(dir), "2026-W45");
+    expect(plan.errors).toEqual([]);
+    const next = plan.writes["Plans/Weekly/2026-W46.md"];
+    expect(next).toContain("- [ ] Run twice [[Health]] #slipped/2026-W45 ⏫ ^run");
+    expect(next).toContain("- [ ] Book a physio [[Health]] #slipped/2026-W45 ⏳ 2026-11-09 ⏫");
   });
 });

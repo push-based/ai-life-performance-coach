@@ -66,7 +66,7 @@ export class LinkResolver {
    * converted from, so `[[Book.pdf#page=42]]` resolves to the note (ADR-KI-0059).
    */
   /**
-   * `aliases` pairs a note with an Obsidian `aliases` entry, so `[[Building a Second Brain]]`
+   * `aliases` pairs a note with an Obsidian `aliases` entry, so `[[Notes That Work]]`
    * reaches a book's `text.md`; a note's own name wins over an alias.
    */
   private readonly byAlias = new Map<string, string>();

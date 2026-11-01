@@ -199,10 +199,10 @@ describe("graph labels and book folding", () => {
   const chapter = (title: string, section?: string) => ({ title, rawRole: "chapter" as const, frontmatter: section ? { section } : {} });
 
   it("shortens chapter titles to a number and their first words", () => {
-    expect(shortLabel(chapter("Chapter 4: Capture—Keep What Resonates (1 of 3)", "1 of 3"))).toBe("4. Capture (1/3)");
-    expect(shortLabel(chapter("Chapter 2: What Is a Second Brain? (2 of 2)", "2 of 2"))).toBe("2. What Is a Second Brain? (2/2)");
-    expect(shortLabel(chapter("Introduction: The Promise of a Second Brain"))).toBe("Introduction");
-    expect(shortLabel(chapter("Chapter 9: The Essential Habits of Digital Organizers (1 of 3)", "1 of 3"))).toBe("9. The Essential Habits of… (1/3)");
+    expect(shortLabel(chapter("Chapter 4: Capture—Keep What Matters (1 of 3)", "1 of 3"))).toBe("4. Capture (1/3)");
+    expect(shortLabel(chapter("Chapter 2: What Is a Note? (2 of 2)", "2 of 2"))).toBe("2. What Is a Note? (2/2)");
+    expect(shortLabel(chapter("Introduction: The Promise of Notes"))).toBe("Introduction");
+    expect(shortLabel(chapter("Chapter 9: The Essential Habits of Careful Readers (1 of 3)", "1 of 3"))).toBe("9. The Essential Habits of… (1/3)");
     expect(shortLabel({ title: "A note with a rather long title that keeps going", rawRole: null, frontmatter: {} })).toBe("A note with a rather long t…");
   });
 

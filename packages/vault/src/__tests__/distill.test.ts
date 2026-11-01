@@ -17,20 +17,20 @@ function put(rel: string, content: string): void {
 }
 const read = (rel: string) => readFileSync(join(dir, rel), "utf-8");
 
-const WORK = "3.Resources/0.Raw/Books/Tiago Forte/Building a Second Brain";
+const WORK = "3.Resources/0.Raw/Books/Jane Doe/Notes That Work";
 const INDEX = `${WORK}/text.md`;
 const CH1 = `${WORK}/chapters/01 Capture.md`;
 const CH2 = `${WORK}/chapters/02 Distill.md`;
 
 const chapter = (title: string, from: number, pages: string[]) => [
-  "---", `title: "${title}"`, 'raw_role: "chapter"', 'book: "Building a Second Brain"', `pages: "${from}-${from + pages.length - 1}"`, "---", "",
-  `# ${title}`, "", "From [[Building a Second Brain]].",
+  "---", `title: "${title}"`, 'raw_role: "chapter"', 'book: "Notes That Work"', `pages: "${from}-${from + pages.length - 1}"`, "---", "",
+  `# ${title}`, "", "From [[Notes That Work]].",
   ...pages.flatMap((text, i) => ["", `## Page ${from + i}`, "", text]), "",
 ].join("\n");
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "vault-distill-"));
-  put(INDEX, '---\ntitle: "Building a Second Brain"\naliases: ["Building a Second Brain"]\nraw_role: "index"\nauthor: "Tiago Forte"\n---\n# Building a Second Brain\n');
+  put(INDEX, '---\ntitle: "Notes That Work"\naliases: ["Notes That Work"]\nraw_role: "index"\nauthor: "Jane Doe"\n---\n# Notes That Work\n');
   put(CH1, chapter("Chapter 1: Capture", 1, ["Keep what resonates with you.", "Capture ideas as they come.", "_(no text on this page)_"]));
   put(CH2, chapter("Chapter 2: Distill", 4, ["Bold the best ten percent of the passages.", "Then highlight the best of the bolded."]));
   vault = createVault(dir, { now: () => new Date("2026-10-24T09:00:00Z") });
@@ -84,12 +84,12 @@ describe("a book's stages", () => {
     expect(preview).toMatchObject({ executed: false, errors: [], path: INDEX, change: `add read_on: "2026-10-20" to ${INDEX}` });
     expect((await stage()).stage).toBe("unread");
     expect((await vault.markRead(INDEX, "2026-10-20", true)).executed).toBe(true);
-    expect(read(INDEX)).toMatch(/^---\nread_on: "2026-10-20"\ntitle: "Building a Second Brain"/);
+    expect(read(INDEX)).toMatch(/^---\nread_on: "2026-10-20"\ntitle: "Notes That Work"/);
     expect(await stage()).toMatchObject({ stage: "read", steps: { readOn: "2026-10-20" } });
     expect((await vault.markRead(WORK, undefined, true)).errors).toEqual([`${INDEX} is already marked read on 2026-10-20`]);
 
-    put("0.Inbox/BASB notes.md", "What resonated in [[Building a Second Brain]]: capture less.\n");
-    expect(await stage()).toMatchObject({ stage: "notes", steps: { notes: ["0.Inbox/BASB notes.md"] } });
+    put("0.Inbox/NTW notes.md", "What resonated in [[Notes That Work]]: capture less.\n");
+    expect(await stage()).toMatchObject({ stage: "notes", steps: { notes: ["0.Inbox/NTW notes.md"] } });
 
     put(CH2, read(CH2).replace("Bold the best", "**Bold the best**"));
     expect(await stage()).toMatchObject({ stage: "distilling", steps: { chaptersComplete: 0, chaptersInProgress: 1, chapters: 2 } });
@@ -98,7 +98,7 @@ describe("a book's stages", () => {
     expect(await stage()).toMatchObject({ stage: "distilled", steps: { chaptersComplete: 2, chaptersInProgress: 0 } });
 
     put("3.Resources/Concepts/Distill.md", `---\ntype: "concept"\ncore_assertions: ["x"]\n---\nSee [[${CH2.replace(/\.md$/, "")}#Page 4|p. 4]].\n`);
-    expect(await stage()).toMatchObject({ stage: "concepts", steps: { concepts: ["3.Resources/Concepts/Distill.md"], notes: ["0.Inbox/BASB notes.md"] } });
+    expect(await stage()).toMatchObject({ stage: "concepts", steps: { concepts: ["3.Resources/Concepts/Distill.md"], notes: ["0.Inbox/NTW notes.md"] } });
   });
 
   it("reports a skipped step: distilling without having marked the book read", async () => {
@@ -198,9 +198,9 @@ describe("marking text from the graph view", () => {
   });
 
   it("merges marks left line by line when the page is edited, and never across a blank line", () => {
-    const t = "**The technique is simple: you**\n**highlight the main points.**\nPlain.\n\n**Next paragraph.**";
+    const t = "**The method is plain: you**\n**highlight the main points.**\nPlain.\n\n**Next paragraph.**";
     expect(applyMark(t, ...at(t, "Plain"), "highlight"))
-      .toBe("**The technique is simple: you\nhighlight the main points.**\n==Plain==.\n\n**Next paragraph.**");
+      .toBe("**The method is plain: you\nhighlight the main points.**\n==Plain==.\n\n**Next paragraph.**");
   });
 
   it("ends a mark before a line break when the next line starts unmarked", () => {

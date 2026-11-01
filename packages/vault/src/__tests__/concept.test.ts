@@ -15,13 +15,13 @@ function put(rel: string, content: string): void {
   writeFileSync(abs, content);
 }
 
-const WORK = "3.Resources/0.Raw/Books/Tiago Forte/Building a Second Brain";
+const WORK = "3.Resources/0.Raw/Books/Jane Doe/Notes That Work";
 const INDEX = `${WORK}/text.md`;
 const DISTILL = `${WORK}/chapters/08 Distill.md`;
-const READING = "0.Inbox/BASB reading notes.md";
+const READING = "0.Inbox/NTW reading notes.md";
 
 const input = (over: Partial<ConceptInput> = {}): ConceptInput => ({
-  title: "Progressive Summarization",
+  title: "Layered Marking",
   summary: "Compress a note in layers, and only when a project needs it.",
   core_assertions: ["Each layer keeps about 10-20% of the one before.", "Notes are compressed just in time, when touched for a project."],
   forbidden_buzzwords: ["PKM"],
@@ -32,9 +32,9 @@ const input = (over: Partial<ConceptInput> = {}): ConceptInput => ({
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "vault-concept-"));
-  put(INDEX, '---\ntitle: "Building a Second Brain"\naliases: ["Building a Second Brain"]\nraw_role: "index"\n---\n# Building a Second Brain\n');
+  put(INDEX, '---\ntitle: "Notes That Work"\naliases: ["Notes That Work"]\nraw_role: "index"\n---\n# Notes That Work\n');
   put(DISTILL, [
-    "---", 'title: "Chapter 8: Distill"', 'raw_role: "chapter"', 'book: "Building a Second Brain"', 'pages: "136-138"', "---", "",
+    "---", 'title: "Chapter 8: Distill"', 'raw_role: "chapter"', 'book: "Notes That Work"', 'pages: "136-138"', "---", "",
     "# Chapter 8: Distill", "",
     "## Page 136", "", "In the second layer you bold the best 10–20 percent of the passages. Do not com-", "press everything at once.", "",
     "## Page 137", "", "\\# A heading-like line. You only summarize a note when you", "",
@@ -77,7 +77,7 @@ describe("quote matching", () => {
   it("quotes only raw text: not an index, not a distilled note, not a missing note", async () => {
     const notes = await vault.notes();
     const problems = checkPassages(notes, [
-      { note: INDEX, quote: "Building a Second Brain" },
+      { note: INDEX, quote: "Notes That Work" },
       { note: "3.Resources/PKM/PARA.md", quote: "PARA is a system" },
       { note: "3.Resources/0.Raw/Nope.md", quote: "something long enough" },
     ]).map(p => p.problem);
@@ -92,16 +92,16 @@ describe("quote matching", () => {
 describe("create_concept", () => {
   it("previews with each passage checked, writes nothing until execute, then writes a concept note", async () => {
     const preview = await vault.createConcept(input(), false);
-    expect(preview).toMatchObject({ executed: false, errors: [], collisions: [], path: "3.Resources/Concepts/Progressive Summarization.md" });
+    expect(preview).toMatchObject({ executed: false, errors: [], collisions: [], path: "3.Resources/Concepts/Layered Marking.md" });
     expect(preview.passages).toEqual([{ note: DISTILL, quote: "bold the best 10–20 percent", pages: "136", found: true }]);
-    expect(await vault.note("3.Resources/Concepts/Progressive Summarization.md")).toBeNull();
+    expect(await vault.note("3.Resources/Concepts/Layered Marking.md")).toBeNull();
 
     const done = await vault.createConcept(input(), true);
     expect(done.executed).toBe(true);
     const text = readFileSync(join(dir, done.path!), "utf-8");
     expect(text).toContain('type: "concept"');
-    expect(text).toContain(`> bold the best 10–20 percent\n> — [[${DISTILL.replace(/\.md$/, "")}#Page 136|Building a Second Brain, p. 136]]`);
-    expect(text).toContain("## From my reading notes\n\n- [[0.Inbox/BASB reading notes|BASB reading notes]]");
+    expect(text).toContain(`> bold the best 10–20 percent\n> — [[${DISTILL.replace(/\.md$/, "")}#Page 136|Notes That Work, p. 136]]`);
+    expect(text).toContain("## From my reading notes\n\n- [[0.Inbox/NTW reading notes|NTW reading notes]]");
 
     const notes = await vault.notes();
     const note = notes.find(n => n.path === done.path)!;
@@ -138,10 +138,10 @@ describe("create_concept", () => {
       `passages[0]: not found in ${DISTILL}`,
     ]);
 
-    put("3.Resources/Concepts/Progressive Summarization.md", "mine");
+    put("3.Resources/Concepts/Layered Marking.md", "mine");
     const taken = await vault.createConcept(input(), true);
-    expect(taken).toMatchObject({ executed: false, collisions: ["3.Resources/Concepts/Progressive Summarization.md"] });
-    expect(readFileSync(join(dir, "3.Resources/Concepts/Progressive Summarization.md"), "utf-8")).toBe("mine");
+    expect(taken).toMatchObject({ executed: false, collisions: ["3.Resources/Concepts/Layered Marking.md"] });
+    expect(readFileSync(join(dir, "3.Resources/Concepts/Layered Marking.md"), "utf-8")).toBe("mine");
   });
 
   it("re-checks passages on read, so a changed raw note shows the quote as lost", async () => {
@@ -170,14 +170,14 @@ describe("sparring concept notes, not raw text", () => {
 
     const due = await vault.dueForReview("2026-10-24");
     expect(due.unsparred).toEqual([
-      { path: "3.Resources/Concepts/Progressive Summarization.md", title: "Progressive Summarization", concept: true },
+      { path: "3.Resources/Concepts/Layered Marking.md", title: "Layered Marking", concept: true },
       { path: "3.Resources/PKM/PARA.md", title: "PARA", concept: false },
     ]);
 
     const ok = await vault.recordSession({ tier: 1, items: [{ note: path!, challenge: "c", answer: "a", verdict: "pass", next_review: "2026-10-24" }] }, true);
     expect(ok.errors).toEqual([]);
     expect((await vault.dueForReview("2026-10-24")).due).toEqual([
-      { path, title: "Progressive Summarization", concept: true, coachId: "c-concept", nextReview: "2026-10-24", mastery: "tier1_passed" },
+      { path, title: "Layered Marking", concept: true, coachId: "c-concept", nextReview: "2026-10-24", mastery: "tier1_passed" },
     ]);
     // The coach_id insert keeps the concept fields readable.
     expect(conceptOf((await vault.note(path!))!)!.problems).toEqual([]);
@@ -187,7 +187,7 @@ describe("sparring concept notes, not raw text", () => {
 describe("find_passages", () => {
   it("returns pages of raw text, leaving distilled notes and the index out, optionally within one work", async () => {
     const hits = await vault.findPassages("summarize a note just in time");
-    expect(hits[0]).toMatchObject({ note: DISTILL, source: "Building a Second Brain", title: "Chapter 8: Distill" });
+    expect(hits[0]).toMatchObject({ note: DISTILL, source: "Notes That Work", title: "Chapter 8: Distill" });
     expect(hits.map(h => h.page)).toEqual(expect.arrayContaining([137, 138]));
     expect(hits.every(h => h.note.startsWith("3.Resources/0.Raw/") && h.note !== INDEX)).toBe(true);
 

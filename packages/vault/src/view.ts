@@ -13,7 +13,7 @@
 import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { join, posix } from "node:path";
 import { COACH_ROOT, type ParaBucket } from "./para.js";
 import { buildVaultGraph } from "./graph.js";
@@ -110,8 +110,10 @@ export async function writeViewGraph(vault: Vault, now: Date = new Date()): Prom
   };
   const abs = join(vault.root, GRAPH_FILE);
   await mkdir(join(vault.root, COACH_ROOT), { recursive: true });
-  await writeFile(`${abs}.tmp`, `${JSON.stringify(graph, null, 2)}\n`);
-  await rename(`${abs}.tmp`, abs);
+  // A tmp file per write: overlapping requests must not truncate each other's file.
+  const tmp = `${abs}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(tmp, `${JSON.stringify(graph, null, 2)}\n`);
+  await rename(tmp, abs);
   return graph;
 }
 

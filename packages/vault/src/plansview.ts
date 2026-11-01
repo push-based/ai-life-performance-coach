@@ -54,6 +54,9 @@ export interface GoalNode {
   note: string;
   level: PlanLevel;
   period: string;
+  /** The period's first and last day, so the page never redoes the calendar. */
+  start: string;
+  end: string;
   blockId: string | null;
   status: "met" | "open" | "missed" | "dropped";
   slipped: string[];
@@ -72,6 +75,10 @@ export interface PlansView {
   columns: (Period & { current: boolean })[];
   rows: Row[];
   goals: GoalNode[];
+  /** The period of each level holding today, for the Today button. */
+  todayAt: Record<PlanLevel, string>;
+  /** The period of each level to zoom to: today's when the span holds today, else the span's first. */
+  focusAt: Record<PlanLevel, string>;
 }
 
 export const rowOf = (o: Owner): string | null =>
@@ -137,7 +144,7 @@ export function plansView(root: string, notes: VaultNote[], spanName: string, by
   const node = (g: OwnedTask): GoalNode => {
     const gp = periodOf(g.plan!.period)!;
     return {
-      text: g.text, note: g.note, level: gp.level, period: gp.period, blockId: g.blockId,
+      text: g.text, note: g.note, level: gp.level, period: gp.period, start: gp.start, end: gp.end, blockId: g.blockId,
       status: g.state === "done" ? "met" : g.state === "cancelled" ? "dropped" : today > gp.end ? "missed" : "open",
       slipped: g.slipped, owner: g.owner, row: rowOf(g.owner), children: [],
     };
@@ -155,5 +162,7 @@ export function plansView(root: string, notes: VaultNote[], spanName: string, by
   };
   sort(roots);
 
-  return { today, span, by, previous: previousPeriod(span).period, next: nextPeriod(span).period, columns, rows, goals: roots };
+  const at = (day: string) => Object.fromEntries(ORDER.map(l => [l, periodAt(l, day).period])) as Record<PlanLevel, string>;
+  const focus = span.start <= today && today <= span.end ? today : span.start;
+  return { today, span, by, previous: previousPeriod(span).period, next: nextPeriod(span).period, columns, rows, goals: roots, todayAt: at(today), focusAt: at(focus) };
 }

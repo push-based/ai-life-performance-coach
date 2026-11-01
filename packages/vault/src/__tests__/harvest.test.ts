@@ -6,6 +6,7 @@ import { harvestWorkstream, resetChecklist } from "../harvest.js";
 import { scanVault } from "../scan.js";
 import { createVault } from "../vault.js";
 import { buildVaultGraph } from "../graph.js";
+import { planning } from "../planning.js";
 
 let dir: string;
 
@@ -15,13 +16,13 @@ function put(rel: string, content: string): void {
   writeFileSync(abs, content);
 }
 const read = (rel: string) => readFileSync(join(dir, rel), "utf-8");
-const WS = "1.Projects/DevFest2026/Workstreams";
+const WS = "1.Projects/Expo2026/Workstreams";
 
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "harvest-")); });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 function seed(): void {
-  put("1.Projects/DevFest2026/DevFest2026.md", "---\nstatus: in-progress\n---\n# DevFest2026\n");
+  put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\n---\n# Expo2026\n");
   put(`${WS}/Workshops.md`, [
     "---", "status: done", "---",
     "## Slots", "",
@@ -51,7 +52,7 @@ describe("harvest_workstream", () => {
   it("lists candidates: notes, sections with three or more checkboxes, and files", async () => {
     seed();
     put(`${WS}/Marketing/Marketing.md`, "---\nstatus: done\n---\n# Marketing\n");
-    const plan = harvestWorkstream(dir, await scanVault(dir), "DevFest2026", "Marketing", undefined, "2026-11-30");
+    const plan = harvestWorkstream(dir, await scanVault(dir), "Expo2026", "Marketing", undefined, "2026-11-30");
     expect(plan.errors).toEqual([]);
     expect(plan.candidates).toEqual([
       { kind: "note", path: `${WS}/Marketing/Items.md`, title: "Items", tasks: 3 },
@@ -65,27 +66,27 @@ describe("harvest_workstream", () => {
   it("refuses a workstream that is not done, or not there", async () => {
     seed();
     const notes = await scanVault(dir);
-    expect(harvestWorkstream(dir, notes, "DevFest2026", "Marketing", undefined, "2026-11-30").errors)
+    expect(harvestWorkstream(dir, notes, "Expo2026", "Marketing", undefined, "2026-11-30").errors)
       .toEqual(["Marketing is in-progress: set its status to done first, then harvest it"]);
-    expect(harvestWorkstream(dir, notes, "DevFest2026", "Catering", undefined, "2026-11-30").errors[0]).toMatch(/no workstream Catering .* it has Marketing, Workshops/);
+    expect(harvestWorkstream(dir, notes, "Expo2026", "Catering", undefined, "2026-11-30").errors[0]).toMatch(/no workstream Catering .* it has Marketing, Workshops/);
     expect(harvestWorkstream(dir, notes, "Nope", "x", undefined, "2026-11-30").errors).toEqual(["no project Nope in 1.Projects"]);
   });
 
   it("writes a packet from a section, reset for reuse, linking its project and workstream", async () => {
     seed();
     const vault = createVault(dir, { now: () => new Date(2026, 10, 30, 12) });
-    const r = await vault.harvestWorkstream("DevFest2026", "Workshops", [{
+    const r = await vault.harvestWorkstream("Expo2026", "Workshops", [{
       title: "Workshop speaker onboarding checklist",
       text: "Run it for every speaker once their slot is confirmed.",
       from: [`${WS}/Workshops.md#Onboarding`],
     }], true);
     expect(r.errors).toEqual([]);
     expect(r.executed).toBe(true);
-    const path = "1.Projects/DevFest2026/Intermediate Packets/Workshop speaker onboarding checklist.md";
+    const path = "1.Projects/Expo2026/Intermediate Packets/Workshop speaker onboarding checklist.md";
     expect(read(path)).toBe([
-      "---", "type: intermediate-packet", 'project: "[[DevFest2026]]"', 'workstream: "[[Workshops]]"', "harvested: 2026-11-30", "---",
+      "---", "type: intermediate-packet", 'project: "[[Expo2026]]"', 'workstream: "[[Workshops]]"', "harvested: 2026-11-30", "---",
       "# Workshop speaker onboarding checklist", "",
-      "From [[DevFest2026]] → [[Workshops]].", "",
+      "From [[Expo2026]] → [[Workshops]].", "",
       "Run it for every speaker once their slot is confirmed.", "",
       "## Onboarding", "",
       "- [ ] Found", "- [ ] Announced on social media #S", "- [ ] Moved to Discord", "  - [ ] Sent the invite", "",
@@ -93,7 +94,7 @@ describe("harvest_workstream", () => {
     // The workstream is not changed, and the packet links into the graph.
     expect(read(`${WS}/Workshops.md`)).toContain("- [x] Found ⏫ ✅ 2026-10-01");
     const edges = buildVaultGraph(await scanVault(dir)).edges.filter(e => e.source === path).map(e => e.target);
-    expect(edges).toEqual(["1.Projects/DevFest2026/DevFest2026.md", `${WS}/Workshops.md`]);
+    expect(edges).toEqual(["1.Projects/Expo2026/Expo2026.md", `${WS}/Workshops.md`]);
   });
 
   it("copies a reused file beside the packet and embeds it, refusing to overwrite", async () => {
@@ -101,21 +102,21 @@ describe("harvest_workstream", () => {
     put(`${WS}/Marketing/Marketing.md`, "---\nstatus: done\n---\n# Marketing\n");
     const vault = createVault(dir);
     const input = [{ title: "Poster design", from: [`${WS}/Marketing/Poster.jpeg`, `${WS}/Marketing/Items.md#Posters`] }];
-    const preview = await vault.harvestWorkstream("DevFest2026", "Marketing", input, false);
-    expect(preview.copies).toEqual([{ from: `${WS}/Marketing/Poster.jpeg`, to: "1.Projects/DevFest2026/Intermediate Packets/Poster.jpeg" }]);
-    expect(preview.contents["1.Projects/DevFest2026/Intermediate Packets/Poster design.md"]).toContain("![[Poster.jpeg]]\n\n## Posters\n\n- [ ] Workshops people");
-    expect(existsSync(join(dir, "1.Projects/DevFest2026/Intermediate Packets"))).toBe(false);
-    expect((await vault.harvestWorkstream("DevFest2026", "Marketing", input, true)).executed).toBe(true);
-    expect(read("1.Projects/DevFest2026/Intermediate Packets/Poster.jpeg")).toBe("jpeg");
+    const preview = await vault.harvestWorkstream("Expo2026", "Marketing", input, false);
+    expect(preview.copies).toEqual([{ from: `${WS}/Marketing/Poster.jpeg`, to: "1.Projects/Expo2026/Intermediate Packets/Poster.jpeg" }]);
+    expect(preview.contents["1.Projects/Expo2026/Intermediate Packets/Poster design.md"]).toContain("![[Poster.jpeg]]\n\n## Posters\n\n- [ ] Workshops people");
+    expect(existsSync(join(dir, "1.Projects/Expo2026/Intermediate Packets"))).toBe(false);
+    expect((await vault.harvestWorkstream("Expo2026", "Marketing", input, true)).executed).toBe(true);
+    expect(read("1.Projects/Expo2026/Intermediate Packets/Poster.jpeg")).toBe("jpeg");
     expect(read(`${WS}/Marketing/Poster.jpeg`)).toBe("jpeg");
-    const again = await vault.harvestWorkstream("DevFest2026", "Marketing", input, true);
+    const again = await vault.harvestWorkstream("Expo2026", "Marketing", input, true);
     expect(again.executed).toBe(false);
-    expect(again.collisions).toEqual(["1.Projects/DevFest2026/Intermediate Packets/Poster.jpeg", "1.Projects/DevFest2026/Intermediate Packets/Poster design.md"]);
+    expect(again.collisions).toEqual(["1.Projects/Expo2026/Intermediate Packets/Poster.jpeg", "1.Projects/Expo2026/Intermediate Packets/Poster design.md"]);
   });
 
   it("refuses sources outside the workstream and packets with nothing in them", async () => {
     seed();
-    const r = harvestWorkstream(dir, await scanVault(dir), "DevFest2026", "Workshops", [
+    const r = harvestWorkstream(dir, await scanVault(dir), "Expo2026", "Workshops", [
       { title: "A", from: [`${WS}/Marketing/Items.md`] },
       { title: "B" },
       { title: "C", from: [`${WS}/Workshops.md#Catering`] },
@@ -131,10 +132,10 @@ describe("harvest_workstream", () => {
 describe("harvest_workstream links", () => {
   it("links by path, and says so, when the project's name is also another note's", async () => {
     seed();
-    put("0.Inbox/DevFest2026.md", "An idea.\n");
-    const r = harvestWorkstream(dir, await scanVault(dir), "DevFest2026", "Workshops", [{ title: "X", text: "y" }], "2026-11-30");
-    expect(r.warnings).toEqual(["DevFest2026 names more than one note, so the packet links 1.Projects/DevFest2026/DevFest2026.md by path; that link breaks when the project is archived"]);
-    expect(r.writes["1.Projects/DevFest2026/Intermediate Packets/X.md"]).toContain("From [[1.Projects/DevFest2026/DevFest2026|DevFest2026]] → [[Workshops]].");
+    put("0.Inbox/Expo2026.md", "An idea.\n");
+    const r = harvestWorkstream(dir, await scanVault(dir), "Expo2026", "Workshops", [{ title: "X", text: "y" }], "2026-11-30");
+    expect(r.warnings).toEqual(["Expo2026 names more than one note, so the packet links 1.Projects/Expo2026/Expo2026.md by path; that link breaks when the project is archived"]);
+    expect(r.writes["1.Projects/Expo2026/Intermediate Packets/X.md"]).toContain("From [[1.Projects/Expo2026/Expo2026|Expo2026]] → [[Workshops]].");
   });
 });
 
@@ -142,19 +143,41 @@ describe("archive_project with Intermediate Packets (Decision 13)", () => {
   it("moves the packets to Resources before archiving, and their links follow the archived project", async () => {
     seed();
     const vault = createVault(dir);
-    await vault.harvestWorkstream("DevFest2026", "Workshops", [{ title: "Onboarding checklist", from: [`${WS}/Workshops.md#Onboarding`] }], true);
-    const r = await vault.archiveProject("DevFest2026", true);
+    await vault.harvestWorkstream("Expo2026", "Workshops", [{ title: "Onboarding checklist", from: [`${WS}/Workshops.md#Onboarding`] }], true);
+    const r = await vault.archiveProject("Expo2026", true);
     expect(r.actions.slice(0, 2)).toEqual([
       { op: "create", to: "3.Resources/Intermediate Packets" },
-      { op: "move", from: "1.Projects/DevFest2026/Intermediate Packets", to: "3.Resources/Intermediate Packets/DevFest2026" },
+      { op: "move", from: "1.Projects/Expo2026/Intermediate Packets", to: "3.Resources/Intermediate Packets/Expo2026" },
     ]);
     expect(r.suggestions?.some(s => s.path.includes("Intermediate Packets"))).toBe(false);
-    expect(existsSync(join(dir, "3.Resources/Intermediate Packets/DevFest2026/Onboarding checklist.md"))).toBe(true);
-    expect(existsSync(join(dir, "4.Archive/DevFest2026/DevFest2026.md"))).toBe(true);
+    expect(existsSync(join(dir, "3.Resources/Intermediate Packets/Expo2026/Onboarding checklist.md"))).toBe(true);
+    expect(existsSync(join(dir, "4.Archive/Expo2026/Expo2026.md"))).toBe(true);
     // The packet's wikilinks name notes, so they resolve to the archived project.
     const edges = buildVaultGraph(await scanVault(dir)).edges.filter(e => e.source.endsWith("Onboarding checklist.md")).map(e => e.target);
-    expect(edges).toEqual(["4.Archive/DevFest2026/DevFest2026.md", "4.Archive/DevFest2026/Workstreams/Workshops.md"]);
+    expect(edges).toEqual(["4.Archive/Expo2026/Expo2026.md", "4.Archive/Expo2026/Workstreams/Workshops.md"]);
     const p = await vault.planning();
-    expect(p.projects.find(x => x.name === "DevFest2026")).toMatchObject({ archived: true, folder: "4.Archive/DevFest2026" });
+    expect(p.projects.find(x => x.name === "Expo2026")).toMatchObject({ archived: true, folder: "4.Archive/Expo2026" });
+  });
+});
+
+describe("harvest edge cases", () => {
+  it("keeps emoji that are not Tasks signifiers when it resets a checklist", () => {
+    expect(resetChecklist("- [x] 💡 idea 🔼 ✅ 2026-11-01")).toBe("- [ ] 💡 idea");
+  });
+
+  it("copies a file reused by two packets once", async () => {
+    put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\n---\n# Expo2026\n");
+    put("1.Projects/Expo2026/Workstreams/Marketing/Marketing.md", "---\nstatus: done\n---\n# Marketing\n");
+    put("1.Projects/Expo2026/Workstreams/Marketing/poster.png", "png");
+    const from = ["1.Projects/Expo2026/Workstreams/Marketing/poster.png"];
+    const r = harvestWorkstream(dir, await scanVault(dir), "Expo2026", "Marketing", [{ title: "Poster", from }, { title: "Kit", from }], "2026-11-30");
+    expect(r.collisions).toEqual([]);
+    expect(r.copies).toEqual([{ from: from[0], to: "1.Projects/Expo2026/Intermediate Packets/poster.png" }]);
+  });
+
+  it("does not count a packet's checklist as the project's open work", async () => {
+    put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\n---\n# Expo2026\n");
+    put("1.Projects/Expo2026/Intermediate Packets/Checklist.md", "- [ ] Book the room\n");
+    expect(planning(dir, await scanVault(dir)).tasks).toEqual([]);
   });
 });

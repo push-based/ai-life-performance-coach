@@ -14,12 +14,12 @@ function put(rel: string, content: string): void {
   writeFileSync(abs, content);
 }
 
-const WORK = "3.Resources/0.Raw/Books/Tiago Forte/Building a Second Brain";
+const WORK = "3.Resources/0.Raw/Books/Jane Doe/Notes That Work";
 const CH1 = `${WORK}/chapters/07 Distill (1 of 2).md`;
 const CH2 = `${WORK}/chapters/08 Distill (2 of 2).md`;
 
 const chapter = (title: string, from: number, pages: string[]) => [
-  "---", `title: "${title}"`, 'raw_role: "chapter"', 'book: "Building a Second Brain"', `pages: "${from}-${from + pages.length - 1}"`, "---", "",
+  "---", `title: "${title}"`, 'raw_role: "chapter"', 'book: "Notes That Work"', `pages: "${from}-${from + pages.length - 1}"`, "---", "",
   `# ${title}`, "", "> [!summary]", "> My words about distilling.",
   ...pages.flatMap((text, i) => ["", `## Page ${from + i}`, "", text]), "",
 ].join("\n");
@@ -28,24 +28,24 @@ const chapter = (title: string, from: number, pages: string[]) => [
 // bold per PDF line, highlights inside, and a heading line above the paragraph.
 const PAGE_100 = [
   "Chapter 6",
-  "Distill—Find the Essence",
+  "Distill—Find the Gist",
   "school. Here is the long first line of the page so the others are measured against it.",
-  "**The technique is simple: you highlight the ==main points of a note==, and then**",
-  "**highlight the main points of those highlights, and so on, ==distilling the essence== of a**",
-  "**note in several “layers.” Each of these ==layers== uses a different kind of formatting so**",
-  "**you can easily tell them apart.**",
-  "Here is a snapshot of the four layers of Progressive Summarization, unmarked here.",
+  "**The method is plain: you highlight the ==main points of a note==, and then**",
+  "**highlight the main points of those highlights, and so on, ==distilling the gist== of a**",
+  "**note in several “layers.” Every one of these ==layers== takes its own style of marking so**",
+  "**you can see them at a glance.**",
+  "Here is a snapshot of the four layers of Layered Marking, unmarked here.",
 ].join("\n");
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "vault-marks-"));
-  put(`${WORK}/text.md`, '---\ntitle: "Building a Second Brain"\nraw_role: "index"\nauthor: "Tiago Forte"\n---\n# Building a Second Brain\n');
+  put(`${WORK}/text.md`, '---\ntitle: "Notes That Work"\nraw_role: "index"\nauthor: "Jane Doe"\n---\n# Notes That Work\n');
   put(CH1, chapter("Chapter 6: Distill (1 of 2)", 100, [
     PAGE_100,
     "Nothing marked on this page at all, which is a long enough line to set the width.\nStill nothing.",
   ]));
   put(CH2, chapter("Chapter 6: Distill (2 of 2)", 102, [
-    "At layer two, this note is already dramatically more discoverable after distillation.\nIt is **worth it. Really** worth it, and the next sentence stands apart. Unmarked tail.",
+    "At layer two, this note is already far easier to find after distillation.\nIt is **worth it. Really** worth it, and the next sentence stands apart. Unmarked tail.",
   ]));
   vault = createVault(dir);
 });
@@ -60,12 +60,12 @@ describe("marked passages", () => {
       chapter: "Chapter 6: Distill (1 of 2)",
       page: 100,
       depth: "highlight",
-      quote: "The technique is simple: you highlight the main points of a note, and then highlight the main points of those highlights, and so on, distilling the essence of a note in several “layers.” Each of these layers uses a different kind of formatting so you can easily tell them apart.",
+      quote: "The method is plain: you highlight the main points of a note, and then highlight the main points of those highlights, and so on, distilling the gist of a note in several “layers.” Every one of these layers takes its own style of marking so you can see them at a glance.",
     });
     expect(p.marked.map(m => `${m.mark}:${m.text}`)).toEqual([
-      "bold:The technique is simple: you highlight the main points of a note, and then highlight the main points of those highlights, and so on, distilling the essence of a note in several “layers.” Each of these layers uses a different kind of formatting so you can easily tell them apart.",
+      "bold:The method is plain: you highlight the main points of a note, and then highlight the main points of those highlights, and so on, distilling the gist of a note in several “layers.” Every one of these layers takes its own style of marking so you can see them at a glance.",
       "highlight:main points of a note",
-      "highlight:distilling the essence",
+      "highlight:distilling the gist",
       "highlight:layers",
     ]);
   });
@@ -73,10 +73,10 @@ describe("marked passages", () => {
   it("returns quotes create_concept accepts as given", async () => {
     const passages = (await vault.markedPassages(`${WORK}/text.md`))!;
     const r = await vault.createConcept({
-      title: "Layers of Progressive Summarization",
+      title: "Layers of Layered Marking",
       summary: "Bold the best, highlight the best of the bold.",
       core_assertions: ["Each layer is picked from the layer below it."],
-      forbidden_buzzwords: ["essence"],
+      forbidden_buzzwords: ["gist"],
       passages: passages.map(p => ({ note: p.note, quote: p.quote, pages: String(p.page) })),
     }, false);
     expect(r.errors).toEqual([]);
@@ -111,11 +111,11 @@ describe("marked passages", () => {
 describe("concept warnings", () => {
   const notes = async () => vault.notes();
   const base = (over: Partial<ConceptInput> = {}): ConceptInput => ({
-    title: "Layers of Progressive Summarization",
+    title: "Layers of Layered Marking",
     summary: "Mine.",
     core_assertions: ["Each layer is picked only from the layer below it."],
-    forbidden_buzzwords: ["essence"],
-    passages: [{ note: CH1, quote: "Each of these layers uses a different kind of formatting so you can easily tell them apart." }],
+    forbidden_buzzwords: ["gist"],
+    passages: [{ note: CH1, quote: "Every one of these layers takes its own style of marking so you can see them at a glance." }],
     ...over,
   });
 
@@ -134,9 +134,9 @@ describe("concept warnings", () => {
       forbidden_buzzwords: [],
       passages: [
         { note: CH1, quote: "main points of a note" },
-        { note: CH1, quote: "you can easily tell them apart." },
-        { note: CH1, quote: "The technique is simple: you highlight the main points of a note, and then" },
-        { note: CH2, quote: "At layer two, this note is already dramatically more discoverable after distillation." },
+        { note: CH1, quote: "you can see them at a glance." },
+        { note: CH1, quote: "The method is plain: you highlight the main points of a note, and then" },
+        { note: CH2, quote: "At layer two, this note is already far easier to find after distillation." },
       ],
     }), await notes());
     expect(w.filter(x => x.startsWith("passages["))).toHaveLength(3);
