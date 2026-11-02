@@ -5,12 +5,14 @@
  * if its note changed after the preview.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 import { PLANS_ROOT } from "./para.js";
 import { noteResolver } from "./graph.js";
-import { OPEN_CHECKBOX, planning, planOf, parseTasks, PLAN_LEVELS, SIZE_WEIGHTS, type PlanLevel, type Planning, type Size } from "./planning.js";
+import { OPEN_CHECKBOX, planning, planOf, parseTasks, PLAN_LEVELS, SIZE_WEIGHTS, type PlanLevel, type Planning, type Priority, type Size } from "./planning.js";
+import { isRecurrence, TaskLine } from "./task-line.js";
 import type { VaultNote } from "./scan.js";
 
 /** Templates live beside the plans, one per level; Periodic Notes reads them (Decision 9). */
@@ -128,16 +130,31 @@ const PARENT_LEVEL: Record<PlanLevel, PlanLevel | null> = { year: null, quarter:
 
 export interface GoalInput {
   text: string;
-  /** A project, workstream or area: its name, or a note path. */
-  link: string;
+  /** A project, workstream or area: its name, or a note path. Defaults to the first of `links`. */
+  link?: string;
+  /** Further notes it links after its owner, e.g. an area beside a workstream. */
+  links?: string[];
   size?: Size;
   /** The goal one level up it serves: `<period>#^<block id>`, e.g. `2026-Q4#^expo`. */
   parent?: string;
 }
 
-export interface AdHocInput {
+/** The Tasks fields a new task can carry beside its text, links and size (ADR-KI-0064). */
+export interface TaskFields {
+  priority?: Priority;
+  /** A Tasks recurrence rule, e.g. "every week on Monday". */
+  recurrence?: string;
+  /** A `🆔` unique among the vault's planned tasks. */
+  id?: string;
+  /** `🆔`s of tasks this one waits on, written as `⛔`. */
+  blockedBy?: string[];
+}
+
+export interface AdHocInput extends TaskFields {
   text: string;
-  link: string;
+  /** The owner: a project, workstream or area. Defaults to the first of `links`. */
+  link?: string;
+  links?: string[];
   size?: Size;
   /** A day inside the period; the task is scheduled on it. */
   date?: string;
@@ -219,21 +236,28 @@ export function addToSection(content: string, heading: string, lines: string[]):
 export class TaskLineEditor {
   private readonly files = new Map<string, string[]>();
   readonly edits: NoteEdit[] = [];
-  constructor(private readonly root: string, private readonly originals: Record<string, string>) {}
+  /**
+   * `overlay` holds notes as an earlier step of the same call left them, unwritten; a note
+   * read from it keeps the original from disk for the stale-preview check.
+   */
+  constructor(private readonly root: string, private readonly originals: Record<string, string>, private readonly overlay: Record<string, string> = {}) {}
 
-  /** Change one open task's line; returns an error, or null when it was edited or left as it was. */
-  edit(note: VaultNote, bodyLine: number, change: (line: string) => string): string | null {
+  /**
+   * Change one task's line; returns an error, or null when it was edited or left as it was.
+   * Only an open task is edited unless `anyState` is set.
+   */
+  edit(note: VaultNote, bodyLine: number, change: (line: string) => string, anyState = false): string | null {
     let file = this.files.get(note.path);
     if (!file) {
-      const text = readFileSync(join(this.root, note.path), "utf-8");
-      this.originals[note.path] = text;
-      file = text.split("\n");
+      const disk = readFileSync(join(this.root, note.path), "utf-8");
+      this.originals[note.path] ??= disk;
+      file = (this.overlay[note.path] ?? disk).split("\n");
       this.files.set(note.path, file);
     }
     // The body starts after the frontmatter, if the note has one.
     const i = file.length - note.body.split("\n").length + bodyLine;
     const raw = file[i] ?? "";
-    if (!OPEN_CHECKBOX.test(raw)) return `line ${i + 1} of ${note.path} is not an open task`;
+    if (!(anyState ? /^\s*[-*+]\s+\[.\]/ : OPEN_CHECKBOX).test(raw)) return `line ${i + 1} of ${note.path} is not ${anyState ? "a" : "an open"} task`;
     // A CRLF note keeps its line ending: the change sees the line without it.
     const cr = raw.endsWith("\r") ? "\r" : "";
     const before = cr ? raw.slice(0, -1) : raw;
@@ -260,7 +284,62 @@ const SCHEDULED_DATE = /⏳\uFE0F?\s*\d{4}-\d{2}-\d{2}/;
 export const scheduleLine = (line: string, day: string) =>
   SCHEDULED_DATE.test(line) ? line.replace(SCHEDULED_DATE, `⏳ ${day}`) : insertBeforeBlockId(line, ` ⏳ ${day}`);
 
-export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodInput): PlanPeriodPlan {
+/** A note's version as a preview shows it: the first 12 hex digits of its SHA-256. */
+export const versionOf = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 12);
+export const versionsOf = (originals: Record<string, string>) =>
+  Object.fromEntries(Object.entries(originals).map(([k, v]) => [k, versionOf(v)]));
+
+/**
+ * The stale-preview check across calls (ADR-KI-0064 Decision 2): each existing note a write
+ * changes must still be the version its preview returned. Returns one error per note that
+ * differs or that the preview did not show.
+ */
+export function staleNotes(w: Pick<NoteWrites, "originals" | "writes">, expected: Record<string, string>): string[] {
+  const out: string[] = [];
+  for (const note of Object.keys(w.writes)) {
+    const was = w.originals[note];
+    if (was === undefined) continue;
+    if (!(note in expected)) out.push(`${note} was not in the preview; preview again`);
+    else if (expected[note] !== versionOf(was)) out.push(`${note} changed since the preview; preview again`);
+  }
+  return out;
+}
+
+/** Every 🆔 already used by a planned task, and an error for each clash or unknown ⛔ in new tasks. */
+export function checkTaskIds(p: Planning, inputs: { what: string; id?: string; blockedBy?: string[] }[]): string[] {
+  const errors: string[] = [];
+  const known = new Set(p.tasks.map(t => t.id).filter((x): x is string => !!x));
+  const fresh = new Set<string>();
+  for (const t of inputs) {
+    if (t.id === undefined) continue;
+    if (!/^[A-Za-z0-9_-]+$/.test(t.id)) errors.push(`${t.what}: id "${t.id}" may hold only letters, digits, - and _`);
+    else if (known.has(t.id) || fresh.has(t.id)) errors.push(`${t.what}: id "${t.id}" is already used`);
+    fresh.add(t.id);
+  }
+  for (const t of inputs) for (const b of t.blockedBy ?? []) {
+    if (!known.has(b) && !fresh.has(b)) errors.push(`${t.what}: blocked by "${b}", which no task has as its 🆔`);
+  }
+  return errors;
+}
+
+/** Write a task's Tasks fields onto a line in the plugin's order; returns errors for bad values. */
+export function applyFields(line: TaskLine, f: TaskFields & { scheduled?: string | null }, what: string): string[] {
+  const errors: string[] = [];
+  if (f.priority !== undefined) {
+    if (!["highest", "high", "medium", "low", "lowest"].includes(f.priority)) errors.push(`${what}: priority "${f.priority}" is not highest, high, medium, low or lowest`);
+    else line.set("priority", f.priority);
+  }
+  if (f.recurrence !== undefined) {
+    if (!isRecurrence(f.recurrence)) errors.push(`${what}: recurrence "${f.recurrence}" is not a Tasks rule such as "every week on Monday"`);
+    else line.set("recurrence", f.recurrence.trim());
+  }
+  if (f.id !== undefined) line.set("id", f.id);
+  if (f.blockedBy?.length) line.set("blockedBy", f.blockedBy.join(","));
+  if (f.scheduled) line.set("scheduled", f.scheduled);
+  return errors;
+}
+
+export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodInput, overlay: Record<string, string> = {}): PlanPeriodPlan {
   const period = periodOf(input.period);
   const out: PlanPeriodPlan = { plan: "", period, creates: false, content: "", goalIds: [], edits: [], errors: [], warnings: [], originals: {}, writes: {} };
   if (!period) {
@@ -280,15 +359,25 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
     for (const w of pr.workstreams) for (const n of w.notes) owners.set(n, `${pr.name} → ${w.name}`);
   }
   for (const a of p.areas) for (const n of a.notes) owners.set(n, a.name);
-  const linkFor = (what: string, link: string): string | null => {
+  const linkFor = (what: string, link: string | undefined): string | null => {
+    if (!link) { out.errors.push(`${what}: give the project, workstream or area it counts for as link or the first of links`); return null; }
     const target = resolver.resolve(path, { kind: "wikilink", target: link.replace(/\.md$/, "") });
     if (!target || !owners.has(target)) {
       out.errors.push(`${what}: "${link}" is not a project note, workstream note or area note`);
       return null;
     }
-    const name = posix.basename(target, ".md");
-    // A bare name when it resolves to the same note from anywhere; the path otherwise.
-    return resolver.resolve(path, { kind: "wikilink", target: name }) === target ? `[[${name}]]` : `[[${target.slice(0, -3)}|${name}]]`;
+    return wikilinkTo(resolver, path, target);
+  };
+  // The owner, then any further links, each to a note that exists.
+  const linksFor = (what: string, x: { link?: string; links?: string[] }): string | null => {
+    const [owner, ...more] = x.link ? [x.link, ...(x.links ?? [])] : (x.links ?? []);
+    const first = linkFor(what, owner);
+    const rest = more.map(l => {
+      const target = resolver.resolve(path, { kind: "wikilink", target: l.replace(/\.md$/, "") });
+      if (!target) out.errors.push(`${what}: no note "${l}" to link`);
+      return target ? wikilinkTo(resolver, path, target) : null;
+    });
+    return first === null || rest.includes(null) ? null : [first, ...rest].join(" ");
   };
   const inPeriod = (what: string, date: string | undefined) => {
     const d = date ?? period.start;
@@ -304,9 +393,9 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   };
 
   const existing = byPath.get(path);
-  out.creates = !existing;
+  out.creates = !existing && overlay[path] === undefined;
   const original = existing ? readFileSync(join(root, path), "utf-8") : null;
-  let content = original ?? templateFor(root, period.level).replace(/\{\{title\}\}/g, period.period);
+  let content = overlay[path] ?? original ?? templateFor(root, period.level).replace(/\{\{title\}\}/g, period.period);
   if (original !== null) out.originals[path] = original;
 
   // Goals, each with a block id unique in the note and a parent one level up (Decision 7).
@@ -316,7 +405,7 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   const parentLevel = PARENT_LEVEL[period.level];
   const goalLines: string[] = [];
   for (const g of period.level === "day" ? [] : goals) {
-    const link = linkFor(`goal "${g.text}"`, g.link);
+    const link = linksFor(`goal "${g.text}"`, g);
     let parent = "";
     if (g.parent) {
       const m = g.parent.match(/^([^#]+)#\^([A-Za-z0-9-]+)$/);
@@ -343,14 +432,18 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   }
 
   const adHocLines: string[] = [];
+  out.errors.push(...checkTaskIds(p, (input.adHoc ?? []).map(t => ({ what: `task "${t.text}"`, id: t.id, blockedBy: t.blockedBy }))));
   for (const t of input.adHoc ?? []) {
-    const link = linkFor(`task "${t.text}"`, t.link);
-    const day = t.date === undefined ? null : inPeriod(`task "${t.text}"`, t.date);
-    if (link !== null) adHocLines.push(`- [ ] ${t.text} ${link}${meta(t.size)}${day ? ` ⏳ ${day}` : ""}`);
+    const what = `task "${t.text}"`;
+    const link = linksFor(what, t);
+    const day = t.date === undefined ? null : inPeriod(what, t.date);
+    const line = TaskLine.create("", `${t.text} ${link ?? ""}${meta(t.size)}`);
+    out.errors.push(...applyFields(line, { ...t, scheduled: day }, what));
+    if (link !== null) adHocLines.push(line.toString());
   }
 
   // Scheduling: add or replace ⏳ on an open task's line, where it stands.
-  const editor = new TaskLineEditor(root, out.originals);
+  const editor = new TaskLineEditor(root, out.originals, overlay);
   for (const s of input.schedule ?? []) {
     const n = byPath.get(s.note) ?? byPath.get(`${s.note}.md`);
     if (!n) { out.errors.push(`schedule: no note ${s.note}`); continue; }
@@ -377,6 +470,12 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   if (original === null || content !== original) out.writes[path] = content;
 
   return out;
+}
+
+/** A wikilink to a note: its bare name when that resolves to it from `from`, the path otherwise. */
+export function wikilinkTo(resolver: ReturnType<typeof noteResolver>, from: string, target: string): string {
+  const name = posix.basename(target, ".md");
+  return resolver.resolve(from, { kind: "wikilink", target: name }) === target ? `[[${name}]]` : `[[${target.slice(0, -3)}|${name}]]`;
 }
 
 /** Put text before a trailing `^block-id`, so the id stays last on the line. */
@@ -408,3 +507,38 @@ export async function executeWrites(root: string, w: NoteWrites): Promise<void> 
 
 export const executePlanPeriod = (root: string, plan: PlanPeriodPlan) =>
   executeWrites(root, { ...plan, created: plan.creates ? [plan.plan] : [] });
+
+export interface DayInput {
+  adHoc?: AdHocInput[];
+  schedule?: ScheduleInput[];
+}
+
+export interface PlanDaysPlan extends NoteWrites {
+  /** Each day's plan as `plan_period` would write it, in date order. */
+  days: Omit<PlanPeriodPlan, "originals" | "writes" | "errors">[];
+  warnings: string[];
+}
+
+/**
+ * Several day plans in one preview (ADR-KI-0064 Decision 7): each day is planned as
+ * `plan_period` plans it, on top of the notes as the days before it left them, so two days
+ * can schedule tasks in the same note.
+ */
+export function planDays(root: string, notes: VaultNote[], days: Record<string, DayInput>): PlanDaysPlan {
+  const out: PlanDaysPlan = { days: [], errors: [], warnings: [], originals: {}, writes: {}, created: [] };
+  const names = Object.keys(days).sort();
+  if (!names.length) out.errors.push("give at least one day");
+  for (const day of names) {
+    const period = periodOf(day);
+    if (!period || period.level !== "day") { out.errors.push(`"${day}" is not a day: use YYYY-MM-DD`); continue; }
+    const plan = planPeriod(root, notes, { period: day, adHoc: days[day].adHoc, schedule: days[day].schedule }, out.writes);
+    const { originals, writes, errors, ...shown } = plan;
+    out.errors.push(...errors.map(e => `${day}: ${e}`));
+    out.warnings.push(...plan.warnings.map(w => `${day}: ${w}`));
+    for (const [k, v] of Object.entries(originals)) out.originals[k] ??= v;
+    Object.assign(out.writes, writes);
+    if (plan.creates && writes[plan.plan] !== undefined) out.created.push(plan.plan);
+    out.days.push(shown);
+  }
+  return out;
+}

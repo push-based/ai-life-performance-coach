@@ -22,8 +22,9 @@ import { readFile, writeFile } from "node:fs/promises";
 import { searchPassages, type PassageHit, type PassageSearchOptions } from "./search.js";
 import { markedPassages, type MarkedPassage } from "./marks.js";
 import { planning, type Planning } from "./planning.js";
-import { planPeriod, executePlanPeriod, executeWrites, type PlanPeriodInput, type PlanPeriodPlan } from "./plans.js";
-import { rollOver, type RollOverPlan } from "./rollover.js";
+import { planPeriod, planDays, executeWrites, staleNotes, versionsOf, type DayInput, type NoteWrites, type PlanPeriodInput } from "./plans.js";
+import { addTasks, createWorkstream, editNote, setFrontmatter, updateTasks, type AddTasksInput, type CreateWorkstreamInput, type EditNoteInput, type FrontmatterValue, type TaskUpdate } from "./note-edits.js";
+import { rollOver } from "./rollover.js";
 import { reviewPeriod, type PeriodReview } from "./review.js";
 import { harvestWorkstream, executeHarvest, type HarvestPlan, type PacketInput } from "./harvest.js";
 import { plansView, type PlansView } from "./plansview.js";
@@ -100,10 +101,27 @@ export interface Vault {
   setSummary(path: string, page: number | null, text: string, base?: string): Promise<PublicEdit>;
   /** Projects, workstreams, areas, plans and their tasks (ADR-KI-0062). */
   planning(): Promise<Planning>;
-  /** Write a plan's goals and ad-hoc tasks and schedule tasks into it (ADR-KI-0062 Decision 9); previews by default. */
-  planPeriod(input: PlanPeriodInput, execute: boolean): Promise<PlanPeriodResult>;
-  /** Move a closed week's, month's or quarter's open work into the next period (ADR-KI-0062 Decision 10); previews by default. */
-  rollOver(period: string, execute: boolean): Promise<RollOverResult>;
+  /**
+   * Planning writes (ADR-KI-0062, ADR-KI-0064). Each previews by default and returns the
+   * `versions` of the notes it would change; passed back with `execute`, a note that
+   * changed since is refused.
+   */
+  /** Write a plan's goals and ad-hoc tasks and schedule tasks into it (ADR-KI-0062 Decision 9). */
+  planPeriod(input: PlanPeriodInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof planPeriod>>>;
+  /** Several day plans in one preview (ADR-KI-0064 Decision 7). */
+  planDays(days: Record<string, DayInput>, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof planDays>>>;
+  /** Move a closed week's, month's or quarter's open work into the next period (ADR-KI-0062 Decision 10). */
+  rollOver(period: string, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof rollOver>>>;
+  /** Change existing tasks and goals where they stand (ADR-KI-0064 Decision 3). */
+  updateTasks(updates: TaskUpdate[], execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof updateTasks>>>;
+  /** Add tasks to a project, workstream, area or plan note (ADR-KI-0064 Decision 4). */
+  addTasks(input: AddTasksInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof addTasks>>>;
+  /** Set or remove frontmatter keys (ADR-KI-0064 Decision 6). */
+  setFrontmatter(note: string, set: Record<string, FrontmatterValue>, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof setFrontmatter>>>;
+  /** Replace exact text, or one section, in a note's body (ADR-KI-0064 Decision 8). */
+  editNote(input: EditNoteInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof editNote>>>;
+  /** Write a workstream note and list it in its project note (ADR-KI-0064 Decision 9). */
+  createWorkstream(input: CreateWorkstreamInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof createWorkstream>>>;
   /** Where a period's effort went, and how its goals stand (ADR-KI-0062 Decision 11); `today` defaults to the clock. */
   reviewPeriod(period: string, today?: string): Promise<PeriodReview | { error: string }>;
   /**
@@ -117,9 +135,29 @@ export interface Vault {
 
 export type HarvestResult = Omit<HarvestPlan, "writes"> & { executed: boolean; contents: Record<string, string> };
 
-export type RollOverResult = Omit<RollOverPlan, "originals" | "writes" | "created"> & { executed: boolean };
+/** Note path → version, as a preview returned it. */
+export type Versions = Record<string, string>;
 
-export type PlanPeriodResult = Omit<PlanPeriodPlan, "originals" | "writes"> & { executed: boolean };
+/** A previewed or executed write: the plan without its file contents, the notes' versions, and whether it was written. */
+export type WriteOutcome<T> = Omit<T, "originals" | "writes" | "created"> & { versions: Versions; executed: boolean };
+
+/**
+ * Preview or apply a planning write. With `versions`, every existing note it changes must
+ * be the version the preview returned (ADR-KI-0064 Decision 2).
+ */
+async function applyNoteWrites<T extends NoteWrites & { warnings: string[] }>(root: string, plan: T, execute: boolean, versions?: Versions): Promise<WriteOutcome<T>> {
+  const { originals: _o, writes: _w, created: _c, ...rest } = plan;
+  const shown = { ...rest, versions: versionsOf(Object.fromEntries(Object.keys(plan.writes).filter(k => k in plan.originals).map(k => [k, plan.originals[k]]))) };
+  if (!execute || plan.errors.length) return { ...shown, executed: false };
+  if (versions) {
+    const stale = staleNotes(plan, versions);
+    if (stale.length) return { ...shown, errors: stale, executed: false };
+  } else {
+    shown.warnings = [...plan.warnings, "written without versions: a change made since the preview was not checked"];
+  }
+  await executeWrites(root, plan);
+  return { ...shown, executed: true };
+}
 
 export type PublicEdit = { ok: true; text: string } | { ok: false; status: 400 | 404 | 409; error: string; text?: string };
 
@@ -294,13 +332,22 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       return edit(path, content => (page === null ? setChapterSummary(content, text) : setPageSummary(content, page, text, base)));
     },
     planning: async () => planning(root, await scanVault(root)),
-    async planPeriod(input, execute) {
+    async planPeriod(input, execute, versions) {
       const plan = planPeriod(root, await scanVault(root), input);
-      const { originals: _o, writes: _w, ...shown } = plan;
-      if (!execute || plan.errors.length) return { ...shown, executed: false };
-      await executePlanPeriod(root, plan);
-      return { ...shown, executed: true };
+      return applyNoteWrites(root, { ...plan, created: plan.creates ? [plan.plan] : [] }, execute, versions);
     },
+    planDays: async (days, execute, versions) => applyNoteWrites(root, planDays(root, await scanVault(root), days), execute, versions),
+    async updateTasks(updates, execute, versions) {
+      const plan = updateTasks(root, await scanVault(root), updates, localDate(now()));
+      if (execute && !versions && updates.some(u => u.line !== undefined)) {
+        plan.errors.push("a task addressed by line is updated only with the versions its preview returned, so a line that moved is not changed");
+      }
+      return applyNoteWrites(root, plan, execute, versions);
+    },
+    addTasks: async (input, execute, versions) => applyNoteWrites(root, addTasks(root, await scanVault(root), input), execute, versions),
+    setFrontmatter: async (note, set, execute, versions) => applyNoteWrites(root, setFrontmatter(root, await scanVault(root), note, set), execute, versions),
+    editNote: async (input, execute, versions) => applyNoteWrites(root, editNote(root, await scanVault(root), input), execute, versions),
+    createWorkstream: async (input, execute, versions) => applyNoteWrites(root, createWorkstream(root, await scanVault(root), input), execute, versions),
     async plansView(span, by) {
       const today = localDate(now());
       return plansView(root, await scanVault(root), span || periodAt("quarter", today).period, by || "week", today);
@@ -313,13 +360,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       return { ...shown, contents: writes, executed: ok };
     },
     reviewPeriod: async (period, today) => reviewPeriod(root, await scanVault(root), period, today ?? localDate(now())),
-    async rollOver(period, execute) {
-      const plan = rollOver(root, await scanVault(root), period);
-      const { originals: _o, writes: _w, created: _c, ...shown } = plan;
-      if (!execute || plan.errors.length) return { ...shown, executed: false };
-      await executeWrites(root, plan);
-      return { ...shown, executed: true };
-    },
+    rollOver: async (period, execute, versions) => applyNoteWrites(root, rollOver(root, await scanVault(root), period), execute, versions),
     findPassages: async (query, opts) => searchPassages(await scanVault(root), query, opts),
     async createConcept(input, execute) {
       const plan = planConcept(root, await scanVault(root), input, localDate(now()));
