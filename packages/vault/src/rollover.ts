@@ -96,7 +96,8 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
       const pp = periodOf(g.parent.target);
       if (pp && (pp.end < to.start || pp.start > to.end)) out.warnings.push(`goal "${g.text}": its parent in ${pp.period} does not overlap ${to.period}; link a new parent if it moved on`);
     }
-    lines.push(`- [ ] ${g.text}${g.size ? ` #${g.size}` : ""}${slips} ⏫${parent} ^${id}`);
+    // ⏫ after the parent link: Tasks reads signifiers only after the last link and tag.
+    lines.push(`- [ ] ${g.text}${g.size ? ` #${g.size}` : ""}${slips}${parent} ⏫ ^${id}`);
     out.goals.push({ text: g.text, id });
   }
   out.creates = !target && lines.length > 0;

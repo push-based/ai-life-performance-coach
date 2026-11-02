@@ -64,7 +64,10 @@ const PRIORITY: Record<string, Priority> = { "🔺": "highest", "⏫": "high", "
 export const DATED_SIGNIFIER = /[⏳✅📅🛫➕❌]\uFE0F?\s*\d{4}-\d{2}-\d{2}/gu;
 export const PRIORITY_SIGNIFIER = /[🔺⏫🔼🔽⏬]\uFE0F?/gu;
 /** The first signifier or a trailing block id on a line: where a task's description ends. */
-export const FIRST_SIGNIFIER = /\s(?:[⏳✅📅🛫➕❌🔺⏫🔼🔽⏬🔁]|\^[A-Za-z0-9-]+\s*$)/u;
+export const FIRST_SIGNIFIER = /\s(?:[⏳✅📅🛫➕❌🔺⏫🔼🔽⏬🔁🏁🆔⛔]|\^[A-Za-z0-9-]+\s*$)/u;
+/** A task's 🆔 and the ids its ⛔ waits on; Tasks allows letters, digits, `-` and `_`. */
+export const TASK_ID = /🆔\uFE0F?\s*([A-Za-z0-9_-]+)/u;
+export const BLOCKED_BY = /⛔\uFE0F?\s*([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)*)/u;
 /** A checkbox the Tasks plugin treats as not done: any status but done (`x`) or cancelled (`-`). */
 export const OPEN_CHECKBOX = /^\s*[-*+]\s+\[[^xX-]\]/;
 /** Split a note into lines, accepting CRLF as well as LF. */
@@ -88,6 +91,10 @@ export interface Task {
   slipped: string[];
   /** The Tasks recurrence rule after `🔁`, e.g. `every day`; a repeating task is a habit, not a slip. */
   recurrence: string | null;
+  /** The Tasks id after `🆔`, which other tasks name in `⛔` to wait on it. */
+  id: string | null;
+  /** The ids after `⛔`: the tasks this one waits on. */
+  blockedBy: string[];
   /** `^id` at the end of the line, for a child goal's parent link. */
   blockId: string | null;
   /** The goal this one serves, from `↑ [[<plan>#^<id>]]` (Decision 7). */
@@ -104,7 +111,7 @@ const DONE = DATE("✅");
 const PARENT = /↑\s*\[\[([^\]|#]+)#\^([A-Za-z0-9-]+)(?:\|[^\]]*)?\]\]/;
 const SIZE = /(?:^|\s)#([SML])(?=\s|$)/;
 const SLIPPED = /(?:^|\s)#slipped\/([0-9A-Za-z-]+)/g;
-const RECURRENCE = /🔁\uFE0F?\s*([^⏳✅📅🛫➕❌🔺⏫🔼🔽⏬↑#^]*)/u;
+const RECURRENCE = /🔁\uFE0F?\s*([^⏳✅📅🛫➕❌🔺⏫🔼🔽⏬🏁🆔⛔↑#^]*)/u;
 const BLOCK_ID = /\s\^([A-Za-z0-9-]+)\s*$/;
 const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const FENCE_LINE = /^\s*(```|~~~)/;
@@ -129,12 +136,17 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
     const size = (rest.match(SIZE)?.[1] as Size | undefined) ?? null;
     const slipped = [...rest.matchAll(SLIPPED)].map(s => s[1]);
     const recurrence = rest.match(RECURRENCE)?.[1].trim() || null;
+    const id = rest.match(TASK_ID)?.[1] ?? null;
+    const blockedBy = rest.match(BLOCKED_BY)?.[1].split(",").map(x => x.trim()) ?? [];
     const p = rest.match(PARENT);
     const parent = p ? { target: p[1].trim(), block: p[2] } : null;
     // Dates and priority first: Tasks may write a done date after the block id.
     rest = rest
       .replace(PARENT, "")
       .replace(RECURRENCE, "")
+      .replace(TASK_ID, "")
+      .replace(BLOCKED_BY, "")
+      .replace(/🏁\uFE0F?\s*[a-z]+/u, "")
       .replace(DATED_SIGNIFIER, "")
       .replace(PRIORITY_SIGNIFIER, "");
     const blockId = rest.match(BLOCK_ID)?.[1] ?? null;
@@ -144,7 +156,7 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
       .replace(SLIPPED, " ");
     out.push({
       note, line, text: rest.replace(/\s+/g, " ").trim(), state, scheduled, doneOn, priority, size,
-      weight: size ? SIZE_WEIGHTS[size] : 1, slipped, recurrence, blockId, parent,
+      weight: size ? SIZE_WEIGHTS[size] : 1, slipped, recurrence, id, blockedBy, blockId, parent,
       goal: inGoals && plan !== null && plan.level !== "day",
       // The parent link points at a plan, not at the work, so it is not a link to an owner.
       links: extractLinks(m[2].replace(PARENT, "")),

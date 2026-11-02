@@ -37,8 +37,8 @@ afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 describe("vault tool registry", () => {
   it("lists every tool, with the writers marked as such", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "marked_passages", "create_concept", "reading_progress", "mark_read", "write_summary", "planning_overview", "plan_period", "roll_over", "review_period", "harvest_workstream"]);
-    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept", "mark_read", "write_summary", "plan_period", "roll_over", "harvest_workstream"]);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "marked_passages", "create_concept", "reading_progress", "mark_read", "write_summary", "planning_overview", "plan_period", "plan_days", "add_tasks", "update_task", "set_frontmatter", "edit_note", "create_workstream", "roll_over", "review_period", "harvest_workstream"]);
+    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept", "mark_read", "write_summary", "plan_period", "plan_days", "add_tasks", "update_task", "set_frontmatter", "edit_note", "create_workstream", "roll_over", "harvest_workstream"]);
   });
 });
 
@@ -103,7 +103,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["archive_project", "capture", "convert_raw", "create_concept", "due_for_review", "file_note", "find_passages", "harvest_workstream", "init_vault", "list_notes", "list_raw", "mark_read", "marked_passages", "plan_period", "planning_overview", "read_note", "reading_progress", "record_session", "review_period", "roll_over", "search", "tier2_payload", "vault_graph", "write_summary"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["add_tasks", "archive_project", "capture", "convert_raw", "create_concept", "create_workstream", "due_for_review", "edit_note", "file_note", "find_passages", "harvest_workstream", "init_vault", "list_notes", "list_raw", "mark_read", "marked_passages", "plan_days", "plan_period", "planning_overview", "read_note", "reading_progress", "record_session", "review_period", "roll_over", "search", "set_frontmatter", "tier2_payload", "update_task", "vault_graph", "write_summary"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
@@ -290,5 +290,20 @@ describe("serve-vault helpers", () => {
     writeFileSync(join(dir, "docs-mcp.config.json"), "{}");
     mkdirSync(join(dir, "a", "b"), { recursive: true });
     expect(workspaceRootsAbove(join(dir, "a", "b"))).toContain(dir);
+  });
+});
+
+describe("planning_overview", () => {
+  it("returns only the period with scope 'period', with each task's address, 🔁, 🆔 and ⛔", async () => {
+    put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\n---\n# Expo2026\n");
+    put("1.Projects/Expo2026/Workstreams/Talks.md", "- [ ] Gym 🔁 every week on Monday ⏳ 2026-11-02\n- [ ] Post 🆔 post ⛔ abstract ⏳ 2026-11-03 ^p\n- [ ] Late ⏳ 2026-10-20\n- [ ] Unscheduled\n");
+    const { data } = await call("planning_overview", { period: "2026-W45", scope: "period" });
+    expect(Object.keys(data).sort()).toEqual(["goals", "overdue", "parentGoals", "period", "scheduled", "warnings"]);
+    expect(data.scheduled).toEqual([
+      expect.objectContaining({ line: 0, text: "Gym", recurrence: "every week on Monday", id: null, blockedBy: [] }),
+      expect.objectContaining({ line: 1, text: "Post", id: "post", blockedBy: ["abstract"], blockId: "p" }),
+    ]);
+    expect(data.overdue.map((t: { text: string }) => t.text)).toEqual(["Late"]);
+    expect((await call("planning_overview", { scope: "period" })).res.isError).toBe(true);
   });
 });
