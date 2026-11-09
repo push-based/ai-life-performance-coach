@@ -11,8 +11,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 import { PLANS_ROOT } from "./para.js";
 import { noteResolver } from "./graph.js";
-import { OPEN_CHECKBOX, planning, planOf, parseTasks, PLAN_LEVELS, SIZE_WEIGHTS, type PlanLevel, type Planning, type Priority, type Size } from "./planning.js";
+import { isPeriodName, OPEN_CHECKBOX, planning, planPathIn, planPathOf, parseTasks, PLAN_LEVELS, SIZE_WEIGHTS, type PlanLevel, type Planning, type Priority, type Size } from "./planning.js";
 import { isRecurrence, TaskLine } from "./task-line.js";
+import { HABITS_HEADING, habitKey, isHabitDue } from "./habits.js";
 import type { VaultNote } from "./scan.js";
 
 /** Templates live beside the plans, one per level; Periodic Notes reads them (Decision 9). */
@@ -45,6 +46,7 @@ export const TEMPLATES: Record<PlanLevel, string> = {
   day: [
     "# {{title}}", "",
     "## Today", "", fence(["not done", "scheduled on or before {{title}}", "group by folder"]), "",
+    `## ${HABITS_HEADING}`, "",
     "## Ad-hoc", "",
     "## Done", "", fence(["done on {{title}}"]), "",
     "## Log", "",
@@ -79,7 +81,8 @@ export function isoWeekOf(day: string): string {
 
 /** A period by its name, or null when the name is not one. */
 export function periodOf(name: string): Period | null {
-  const ref = (Object.keys(PLAN_LEVELS) as PlanLevel[]).map(l => planOf(`${PLANS_ROOT}/${PLAN_LEVELS[l]}/${name}.md`)).find(Boolean);
+  const level = (Object.keys(PLAN_LEVELS) as PlanLevel[]).find(l => isPeriodName(l, name));
+  const ref = level ? { level, period: name } : null;
   if (!ref) return null;
   const y = Number(name.slice(0, 4));
   switch (ref.level) {
@@ -124,7 +127,7 @@ export const nextPeriod = (p: Period): Period => periodAt(p.level, shift(p.end, 
 /** The period of the same level before this one. */
 export const previousPeriod = (p: Period): Period => periodAt(p.level, shift(p.start, -1));
 
-export const planPathOf = (p: { level: PlanLevel; period: string }) => posix.join(PLANS_ROOT, PLAN_LEVELS[p.level], `${p.period}.md`);
+export { planPathOf } from "./planning.js";
 
 const PARENT_LEVEL: Record<PlanLevel, PlanLevel | null> = { year: null, quarter: "year", month: "quarter", week: "month", day: "week" };
 
@@ -178,10 +181,19 @@ export interface PlanPeriodInput {
 
 export interface NoteEdit {
   note: string;
-  /** 1-based line in the note file. */
-  line: number;
+  /**
+   * 0-based line in the note body, the numbering planning_overview reports and update_task
+   * and add_tasks accept; absent for a change in the frontmatter or a note being created.
+   */
+  line?: number;
+  /** 1-based line in the note file, as an editor shows it; never an address. */
+  fileLine: number;
   before: string;
   after: string;
+  /** The nearest heading above the change, when it has one. */
+  under?: string;
+  /** The unchanged line directly above the change, for context. */
+  above?: string;
 }
 
 export interface PlanPeriodPlan {
@@ -195,6 +207,8 @@ export interface PlanPeriodPlan {
   goalIds: { text: string; id: string }[];
   /** Task lines edited in other notes to schedule them. */
   edits: NoteEdit[];
+  /** Checks added to a day plan's Habits section for the habits due that day (ADR-KI-0065). */
+  habits: string[];
   errors: string[];
   warnings: string[];
   /** Notes as previewed, by path; a write is refused if one differs. */
@@ -262,7 +276,7 @@ export class TaskLineEditor {
     const cr = raw.endsWith("\r") ? "\r" : "";
     const before = cr ? raw.slice(0, -1) : raw;
     const after = change(before);
-    if (after !== before) { file[i] = after + cr; this.edits.push({ note: note.path, line: i + 1, before, after }); }
+    if (after !== before) { file[i] = after + cr; this.edits.push({ note: note.path, line: bodyLine, fileLine: i + 1, before, after }); }
     return null;
   }
 
@@ -341,16 +355,16 @@ export function applyFields(line: TaskLine, f: TaskFields & { scheduled?: string
 
 export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodInput, overlay: Record<string, string> = {}): PlanPeriodPlan {
   const period = periodOf(input.period);
-  const out: PlanPeriodPlan = { plan: "", period, creates: false, content: "", goalIds: [], edits: [], errors: [], warnings: [], originals: {}, writes: {} };
+  const out: PlanPeriodPlan = { plan: "", period, creates: false, content: "", goalIds: [], edits: [], habits: [], errors: [], warnings: [], originals: {}, writes: {} };
   if (!period) {
     out.errors.push(`"${input.period}" is not a period: use YYYY, YYYY-Qn, YYYY-MM, YYYY-Www or YYYY-MM-DD`);
     return out;
   }
-  const path = planPathOf(period);
+  const byPath = new Map(notes.map(n => [n.path, n]));
+  const path = planPathIn(period, x => byPath.has(x) || x in overlay);
   out.plan = path;
   const p: Planning = planning(root, notes);
   const resolver = noteResolver(notes);
-  const byPath = new Map(notes.map(n => [n.path, n]));
 
   // Which project, workstream or area a link names (Decision 8).
   const owners = new Map<string, string>();
@@ -466,10 +480,33 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
 
   // Goals and ad-hoc tasks go in last, on top of any scheduling edit made to the plan itself.
   content = addToSection(addToSection(editor.contentOf(path) ?? content, "Goals", goalLines), "Ad-hoc", adHocLines);
+  if (period.level === "day") {
+    const checked = parseTasks(path, content, period).filter(t => t.habit).map(t => {
+      const first = t.links[0];
+      return { key: habitKey(t.text), note: first ? resolver.resolve(path, first) : null };
+    });
+    for (const h of p.habits) {
+      if (!isHabitDue(h.rule, period.start)) continue;
+      if (checked.some(c => c.key === habitKey(h.text) && c.note === h.note)) continue;
+      out.habits.push(`- [ ] ${h.text} ${wikilinkTo(resolver, path, h.note)}`);
+    }
+    content = addHabitChecks(content, out.habits);
+  }
   out.content = content;
   if (original === null || content !== original) out.writes[path] = content;
 
   return out;
+}
+
+/** Add habit checks to a day plan's Habits section, putting a missing section before Ad-hoc. */
+function addHabitChecks(content: string, checks: string[]): string {
+  if (!checks.length) return content;
+  const all = content.split("\n");
+  const heading = (name: string) => all.findIndex(l => /^#{1,6}\s/.test(l) && l.replace(/^#+\s*/, "").trim().toLowerCase() === name.toLowerCase());
+  if (heading(HABITS_HEADING) >= 0) return addToSection(content, HABITS_HEADING, checks);
+  const adHoc = heading("Ad-hoc");
+  if (adHoc < 0) return addToSection(content, HABITS_HEADING, checks);
+  return [...all.slice(0, adHoc), `## ${HABITS_HEADING}`, "", ...checks, "", ...all.slice(adHoc)].join("\n");
 }
 
 /** A wikilink to a note: its bare name when that resolves to it from `from`, the path otherwise. */

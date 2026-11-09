@@ -126,6 +126,53 @@ describe("update_task", () => {
   });
 });
 
+describe("update_task on done and cancelled tasks", () => {
+  const PANELS = "1.Projects/DevFest2026/Workstreams/Discussion Panels & Keynotes.md";
+  beforeEach(() => put(PANELS, [
+    "---", "status: in-progress", "---", "# Panels", "",
+    "- [x] **Julia Raczynska** ",
+    "- [x] **Pawel Ostromecki** ✅ 2026-11-01",
+    "\t- [x] Picture of Pawel Ostromecki #S ⏳ 2026-10-30 ✅ 2026-10-31 ^pic",
+    "- [-] Pawel Ostromecki dinner ❌ 2026-11-02",
+    "- [ ] Thank Pawel Ostromecki",
+    "",
+  ].join("\n")));
+
+  it("renames a ticked task with include_closed, keeping [x], its ✅ date and every signifier", async () => {
+    const r = await vault.updateTasks([
+      { note: PANELS, task: "**Julia Raczynska**", includeClosed: true, set: { text: "**Julia Rapczyńska**" } },
+      { note: PANELS, task: "**Pawel Ostromecki**", includeClosed: true, set: { text: "**Paweł Ostromecki**" } },
+      { note: PANELS, task: "Picture of Pawel", includeClosed: true, set: { text: "Picture of Paweł Ostromecki" } },
+    ], false);
+    expect(r.errors).toEqual([]);
+    expect(r.edits.map(e => [e.before, e.after])).toEqual([
+      ["- [x] **Julia Raczynska** ", "- [x] **Julia Rapczyńska**"],
+      ["- [x] **Pawel Ostromecki** ✅ 2026-11-01", "- [x] **Paweł Ostromecki** ✅ 2026-11-01"],
+      ["\t- [x] Picture of Pawel Ostromecki #S ⏳ 2026-10-30 ✅ 2026-10-31 ^pic", "\t- [x] Picture of Paweł Ostromecki #S ⏳ 2026-10-30 ✅ 2026-10-31 ^pic"],
+    ]);
+    const done = await vault.updateTasks([{ note: PANELS, task: "dinner", includeClosed: true, set: { text: "Paweł Ostromecki dinner" } }], true, (await vault.updateTasks([{ note: PANELS, task: "dinner", includeClosed: true, set: { text: "x" } }], false)).versions);
+    expect(done.executed).toBe(true);
+    expect(read(PANELS)).toContain("\n- [-] Paweł Ostromecki dinner ❌ 2026-11-02\n");
+  });
+
+  it("matches open tasks only without include_closed, and says when a closed one would match", async () => {
+    const r = await vault.updateTasks([{ note: PANELS, task: "Julia Raczynska", set: { text: "x" } }], false);
+    expect(r.errors).toEqual([`update 1: no open task in ${PANELS} match "Julia Raczynska" (1 done or cancelled task matches; pass include_closed: true to reach it)`]);
+    const many = await vault.updateTasks([{ note: PANELS, task: "Pawel Ostromecki", includeClosed: true, set: { text: "x" } }], false);
+    expect(many.errors[0]).toMatch(/update 1: 4 tasks in .* match "Pawel Ostromecki"/);
+  });
+
+  it("previews the same body line that planning_overview reports and update_task takes back", async () => {
+    const open = (await vault.planning()).tasks.find(t => t.note === PANELS && t.text === "Thank Pawel Ostromecki")!;
+    const preview = await vault.updateTasks([{ note: PANELS, line: open.line, set: { size: "S" } }], false);
+    expect(preview.edits[0]).toMatchObject({ line: open.line, fileLine: open.line + 4 });
+    const again = await vault.updateTasks([{ note: PANELS, line: preview.edits[0].line, set: { size: "M" } }], false);
+    expect(again.errors).toEqual([]);
+    const closed = await vault.updateTasks([{ note: PANELS, line: 2, set: { text: "**Julia Rapczyńska**" } }], false);
+    expect(closed.edits[0].after).toBe("- [x] **Julia Rapczyńska**");
+  });
+});
+
 describe("add_tasks", () => {
   it("adds subtasks under a task with ids, dependencies and a habit in Tasks order", async () => {
     const r = await vault.addTasks({
@@ -141,7 +188,38 @@ describe("add_tasks", () => {
     const r = await vault.addTasks({ note: TALKS, heading: "Logistics", tasks: [{ text: "Book hotel" }] }, false);
     expect(r.edits[0].after).toBe("## Logistics\n\n- [ ] Book hotel\n");
     const into = await vault.addTasks({ note: TALKS, heading: "Speakers", tasks: [{ text: "Invite Lis" }] }, false);
-    expect(into.edits[0]).toMatchObject({ line: 15, before: "", after: "- [ ] Invite Lis" });
+    expect(into.edits[0]).toEqual({ note: TALKS, line: 11, fileLine: 15, before: "", after: "- [ ] Invite Lis", under: "## Speakers", above: "- [ ] **Anna Kowalska**" });
+  });
+
+  it("picks a section by heading path, inserts above its subsections, and creates a missing part one level down", async () => {
+    const note = "1.Projects/DevFest2026/Workstreams/Panels.md";
+    put(note, [
+      "# Panels", "",
+      "## Panels", "",
+      "### Robotics: Machinekind", "", "- [ ] Panel prep", "",
+      "#### Marketing", "", "- [ ] Group Graphic Machinekind", "",
+      "### Web", "",
+      "#### Marketing", "", "- [ ] Web graphic", "",
+      "## Keynotes", "",
+      "### Cloud keynote", "", "- [ ] Book stage", "",
+      "## Notes", "", "Venue is hall B.", "",
+    ].join("\n"));
+    const twice = await vault.addTasks({ note, heading: "Marketing", tasks: [{ text: "Poster" }] }, false);
+    expect(twice.errors).toEqual(['2 sections are headed "Marketing": "Panels/Panels/Robotics: Machinekind/Marketing", "Panels/Panels/Web/Marketing"; give the heading as a path to one of them, e.g. "Panels/Panels/Robotics: Machinekind/Marketing"']);
+
+    const path = await vault.addTasks({ note, heading: "Robotics: Machinekind/Marketing", tasks: [{ text: "Poster" }] }, false);
+    expect(path.edits).toEqual([{ note, line: 11, fileLine: 12, before: "", after: "- [ ] Poster", under: "#### Marketing", above: "- [ ] Group Graphic Machinekind" }]);
+
+    const above = await vault.addTasks({ note, heading: "Robotics: Machinekind", tasks: [{ text: "Moderator" }] }, false);
+    expect(above.edits[0]).toMatchObject({ after: "- [ ] Moderator", under: "### Robotics: Machinekind", above: "- [ ] Panel prep" });
+
+    const created = await vault.addTasks({ note, heading: "Keynotes/AI keynote: Łukasz Jaźwa", tasks: [{ text: "Bio received" }] }, true, (await vault.addTasks({ note, heading: "Keynotes/AI keynote: Łukasz Jaźwa", tasks: [{ text: "x" }] }, false)).versions);
+    expect(created.errors).toEqual([]);
+    expect(read(note)).toContain("### Cloud keynote\n\n- [ ] Book stage\n\n### AI keynote: Łukasz Jaźwa\n\n- [ ] Bio received\n\n## Notes\n");
+
+    expect((await vault.addTasks({ note, heading: "Logistics", level: 3, tasks: [{ text: "Hotel" }] }, false)).edits[0].after).toBe("### Logistics\n\n- [ ] Hotel\n");
+    expect((await vault.addTasks({ note, heading: "Nope/Marketing", tasks: [{ text: "x" }] }, false)).errors).toEqual(['no section "Nope"; only the last part of a heading path is created']);
+    expect((await vault.addTasks({ note, heading: "Keynotes/Other", level: 2, tasks: [{ text: "x" }] }, false)).errors[0]).toMatch(/a level 2 heading cannot go under "Panels\/Keynotes"/);
   });
 
   it("refuses an id in use, an Intermediate Packet, and an unlinked task in a plan", async () => {
@@ -156,7 +234,7 @@ describe("set_frontmatter", () => {
     const note = "1.Projects/DevFest2026/DevFest2026.md";
     const r = await vault.setFrontmatter(note, { status: "done", deadline: null, done_when: "10 talks: delivered" }, false);
     expect(r.errors).toEqual([]);
-    expect(r.edits).toEqual([{ note, line: 2, before: "status: in-progress\ndeadline: 2026-11-20\ndone_when: talks delivered", after: "status: done\ndone_when: \"10 talks: delivered\"" }]);
+    expect(r.edits).toEqual([{ note, fileLine: 2, before: "status: in-progress\ndeadline: 2026-11-20\ndone_when: talks delivered", after: "status: done\ndone_when: \"10 talks: delivered\"" }]);
     expect((await vault.setFrontmatter(note, { status: "finished" }, false)).errors[0]).toMatch(/not one of todo/);
     expect((await vault.setFrontmatter(note, { coach_id: "x" }, false)).errors[0]).toMatch(/written by the vault tools/);
   });
@@ -176,17 +254,25 @@ describe("edit_note", () => {
       { old: "| Speaker | Slot |\n| --- | --- |\n| Nowak | 10:00 |", new: "| Speaker | Slot | Talk |\n| --- | --- | --- |\n| Nowak | 10:00 | Signals |" },
     ] }, false);
     expect(r.errors).toEqual([]);
-    expect(r.edits[0]).toMatchObject({ line: 6, before: "| Speaker | Slot |\n| --- | --- |\n| Nowak | 10:00 |" });
+    expect(r.edits[0]).toMatchObject({ line: 2, fileLine: 6, under: "# Talks", above: "", before: "| Speaker | Slot |\n| --- | --- |\n| Nowak | 10:00 |" });
     expect((await vault.editNote({ note: TALKS, edits: [{ old: "Gym #M", new: "x" }] }, false)).errors[0]).toMatch(/occurs 2 times/);
     expect((await vault.editNote({ note: TALKS, edits: [{ old: "status: in-progress", new: "x" }] }, false)).errors[0]).toMatch(/frontmatter is set_frontmatter's/);
   });
 
   it("replaces or appends to a section by heading", async () => {
-    const day = "Plans/Daily/2026-11-02.md";
+    const day = "Plans/Daily/2026/11-November/2026-11-02.md";
     put(day, "# 2026-11-02\n\n## Log\n\nMorning run.\n\n## Done\n\nx\n");
-    expect((await vault.editNote({ note: day, heading: "Log", content: "Talk prep.", mode: "append" }, false)).edits[0]).toMatchObject({ line: 6, before: "", after: "Talk prep." });
+    expect((await vault.editNote({ note: day, heading: "Log", content: "Talk prep.", mode: "append" }, false)).edits[0]).toMatchObject({ line: 5, fileLine: 6, under: "## Log", above: "Morning run.", before: "", after: "Talk prep." });
     await vault.editNote({ note: day, heading: "Done", content: "All.", mode: "replace" }, true, (await vault.editNote({ note: day, heading: "Done", content: "All.", mode: "replace" }, false)).versions);
     expect(read(day)).toBe("# 2026-11-02\n\n## Log\n\nMorning run.\n\n## Done\n\nAll.\n");
+  });
+
+  it("refuses an edit that adds, removes or changes a task line", async () => {
+    const r = await vault.editNote({ note: TALKS, edits: [{ old: "**Anna Kowalska**", new: "**Anna Kowalski**" }] }, false);
+    expect(r.errors[0]).toMatch(/^edit 1: it changes a task line; tasks are changed with update_task \(include_closed: true/);
+    expect((await vault.editNote({ note: TALKS, edits: [{ old: "| Nowak | 10:00 |", new: "| Nowak | 10:00 |\n- [ ] Sneaky" }] }, false)).errors[0]).toMatch(/changes a task line/);
+    expect((await vault.editNote({ note: TALKS, heading: "Habits", content: "None.", mode: "replace" }, false)).errors[0]).toMatch(/^the section edit changes task lines/);
+    expect((await vault.editNote({ note: TALKS, heading: "Habits", content: "Notes on the gym.", mode: "append" }, false)).errors).toEqual([]);
   });
 
   it("refuses raw text and notes outside the vault's folders", async () => {
@@ -213,15 +299,15 @@ describe("plan_days and plan_period", () => {
       "2026-11-04": { schedule: [{ note: TALKS, task: "Post recap", date: "2026-11-04" }], adHoc: [{ text: "Call venue", links: ["DevFest2026", "Sport"], priority: "high" }] },
     }, false);
     expect(preview.errors).toEqual([]);
-    expect(preview.days.map(d => d.plan)).toEqual(["Plans/Daily/2026-11-03.md", "Plans/Daily/2026-11-04.md"]);
+    expect(preview.days.map(d => d.plan)).toEqual(["Plans/Daily/2026/11-November/2026-11-03.md", "Plans/Daily/2026/11-November/2026-11-04.md"]);
     await vault.planDays({
       "2026-11-03": { schedule: [{ note: TALKS, task: "Anna", date: "2026-11-03" }] },
       "2026-11-04": { schedule: [{ note: TALKS, task: "Post recap", date: "2026-11-04" }], adHoc: [{ text: "Call venue", links: ["DevFest2026", "Sport"], priority: "high" }] },
     }, true, preview.versions);
     expect(read(TALKS)).toContain("- [ ] **Anna Kowalska** ⏳ 2026-11-03\n");
     expect(read(TALKS)).toContain("- [ ] Post recap #S #slipped/2026-W44 ⏫ ⏳ 2026-11-04 ^recap\n");
-    expect(read("Plans/Daily/2026-11-04.md")).toContain("- [ ] Call venue [[DevFest2026]] [[Sport]] ⏫\n");
-    expect(existsSync(join(dir, "Plans/Daily/2026-11-03.md"))).toBe(true);
+    expect(read("Plans/Daily/2026/11-November/2026-11-04.md")).toContain("- [ ] Call venue [[DevFest2026]] [[Sport]] ⏫\n");
+    expect(existsSync(join(dir, "Plans/Daily/2026/11-November/2026-11-03.md"))).toBe(true);
   });
 
   it("writes ad-hoc habits with their signifiers after the links", async () => {

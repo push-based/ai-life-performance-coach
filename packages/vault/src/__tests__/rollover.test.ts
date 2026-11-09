@@ -62,7 +62,7 @@ describe("roll_over", () => {
     const plan = rollOver(dir, await scanVault(dir), "2026-W45");
     expect(plan.errors).toEqual([]);
     expect(plan.to?.period).toBe("2026-W46");
-    expect(plan.tasks.map(e => [e.line, e.after])).toEqual([
+    expect(plan.tasks.map(e => [e.fileLine, e.after])).toEqual([
       [4, "- [ ] Workshop posters #S #slipped/2026-W45 ⏳ 2026-11-09 ⏫"],
       [5, "- [ ] Panel posters #M #slipped/2026-W44 #slipped/2026-W45 ⏳ 2026-11-09 ⏫ ^pp"],
       [6, "- [ ] Urgent thing #slipped/2026-W45 🔺 ⏳ 2026-11-09"],

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { parseTasks, planOf, planning } from "../planning.js";
+import { parseTasks, planOf, planPathIn, planPathOf, planning } from "../planning.js";
 import { scanVault } from "../scan.js";
 import { planInit } from "../filing.js";
 import { createVault } from "../vault.js";
@@ -24,13 +24,31 @@ describe("planOf", () => {
     expect(planOf("Plans/Quarterly/2026-Q4.md")).toEqual({ level: "quarter", period: "2026-Q4" });
     expect(planOf("Plans/Monthly/2026-11.md")).toEqual({ level: "month", period: "2026-11" });
     expect(planOf("Plans/Weekly/2026-W45.md")).toEqual({ level: "week", period: "2026-W45" });
-    expect(planOf("Plans/Daily/2026-11-03.md")).toEqual({ level: "day", period: "2026-11-03" });
+    expect(planOf("Plans/Daily/2026/11-November/2026-11-03.md")).toEqual({ level: "day", period: "2026-11-03" });
   });
 
   it("is null for anything else", () => {
-    for (const p of ["Plans/2026.md", "Plans/Weekly/2026-11.md", "Plans/Daily/2026-13-01.md", "Plans/Quarterly/2026-Q5.md", "1.Projects/Plans/Yearly/2026.md", "Plans/Weekly/Notes/2026-W45.md"]) {
+    for (const p of ["Plans/2026.md", "Plans/Weekly/2026-11.md", "Plans/Daily/2026-13-01.md", "Plans/Daily/2026/10-October/2026-11-03.md", "Plans/Daily/2026/2026-11-03.md", "Plans/Daily/2026-11/2026-11-03.md", "Plans/Daily/2026/11-november/2026-11-03.md", "Plans/Quarterly/2026-Q5.md", "1.Projects/Plans/Yearly/2026.md", "Plans/Weekly/Notes/2026-W45.md"]) {
       expect(planOf(p)).toBeNull();
     }
+  });
+});
+
+describe("planPathOf", () => {
+  it("puts a day plan in its year's and month's folders and every other plan straight in its level", () => {
+    expect(planPathOf({ level: "day", period: "2026-11-03" })).toBe("Plans/Daily/2026/11-November/2026-11-03.md");
+    expect(planPathOf({ level: "week", period: "2026-W45" })).toBe("Plans/Weekly/2026-W45.md");
+    expect(planPathOf({ level: "day", period: "2027-01-04" })).toBe("Plans/Daily/2027/1-January/2027-01-04.md");
+  });
+});
+
+describe("day plans at the old flat path", () => {
+  it("are still read as day plans, and found only while their month's folder holds no plan of that day", () => {
+    expect(planOf("Plans/Daily/2026-11-03.md")).toEqual({ level: "day", period: "2026-11-03" });
+    const day = { level: "day" as const, period: "2026-11-03" };
+    expect(planPathIn(day, p => p === "Plans/Daily/2026-11-03.md")).toBe("Plans/Daily/2026-11-03.md");
+    expect(planPathIn(day, () => true)).toBe("Plans/Daily/2026/11-November/2026-11-03.md");
+    expect(planPathIn(day, () => false)).toBe("Plans/Daily/2026/11-November/2026-11-03.md");
   });
 });
 
@@ -84,7 +102,7 @@ describe("parseTasks", () => {
     expect(goal).toMatchObject({ goal: true, text: "[[Marketing]]: posters out", size: "M", blockId: "posters", parent: { target: "2026-Q4", block: "expo" } });
     expect(goal.links).toEqual([{ kind: "wikilink", target: "Marketing" }]);
     expect(task.goal).toBe(false);
-    expect(parseTasks("Plans/Daily/2026-11-03.md", plan, { level: "day", period: "2026-11-03" })[0].goal).toBe(false);
+    expect(parseTasks("Plans/Daily/2026/11-November/2026-11-03.md", plan, { level: "day", period: "2026-11-03" })[0].goal).toBe(false);
     expect(parseTasks("1.Projects/P/P.md", plan)[0].goal).toBe(false);
   });
 });
@@ -114,7 +132,7 @@ describe("planning", () => {
     ].join("\n"));
     put("3.Resources/Reading notes.md", "- [ ] Not planned work\n");
     put("0.Inbox/Idea.md", "- [ ] Not planned either\n");
-    put("Plans/Daily/2026-11-03.md", "## Today\n```tasks\nscheduled on 2026-11-03\n```\n## Log\nGood day.\n");
+    put("Plans/Daily/2026/11-November/2026-11-03.md", "## Today\n```tasks\nscheduled on 2026-11-03\n```\n## Log\nGood day.\n");
     put("Plans/Weekly/notes.md", "A stray note.\n");
   }
 
@@ -156,7 +174,7 @@ describe("planning", () => {
     seed();
     const p = planning(dir, await scanVault(dir));
     expect(p.plans.map(x => `${x.level}:${x.period}`).sort()).toEqual(["day:2026-11-03", "quarter:2026-Q4", "week:2026-W45"]);
-    expect(p.warnings).toContain("Plans/Weekly/notes.md: not a plan name; expected Plans/<Yearly|Quarterly|Monthly|Weekly|Daily>/<period>.md");
+    expect(p.warnings).toContain("Plans/Weekly/notes.md: not a plan name; expected Plans/<Yearly|Quarterly|Monthly|Weekly|Daily>/<period>.md, a day as Plans/Daily/<year>/<month number>-<month name>/YYYY-MM-DD.md");
   });
 
   it("gives each task its owner: by path in a project or area, by link in a plan", async () => {

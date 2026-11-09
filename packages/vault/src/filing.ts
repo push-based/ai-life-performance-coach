@@ -11,7 +11,7 @@ import { dirname, join, posix } from "node:path";
 import { classify, COACH_ROOT, PLANS_ROOT, PARA_BUCKETS, PARA_FOLDERS, type ParaBucket } from "./para.js";
 import { noteResolver } from "./graph.js";
 import { listNotePaths, type VaultNote } from "./scan.js";
-import { PACKETS_FOLDER, PLAN_LEVELS, WORKSTREAMS_FOLDER } from "./planning.js";
+import { flatDay, PACKETS_FOLDER, PLAN_LEVELS, WORKSTREAMS_FOLDER } from "./planning.js";
 import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from "./plans.js";
 
 export const OLD_NOTES = posix.join(PARA_FOLDERS.archive, "old notes");
@@ -150,7 +150,8 @@ export async function planInit(root: string, opts: InitOptions = {}): Promise<Fi
 
 /**
  * The ADR-KI-0062 Decision 14 part of `init_vault`: `Plans/`, its level folders and the
- * five templates in `Plans/Templates/` when missing, missing project notes, and the areas
+ * five templates in `Plans/Templates/` when missing, day plans moved into their month's
+ * folder (ADR-KI-0067), missing project notes, and the areas
  * asked for. Project notes are written only under a `1.Projects` folder that already
  * exists under its own name.
  */
@@ -160,6 +161,14 @@ function planPlanningLayout(root: string, plan: FilingPlan, renames: { from: str
 
   for (const folder of [PLANS_ROOT, ...Object.values(PLAN_LEVELS).map(l => posix.join(PLANS_ROOT, l)), TEMPLATES_FOLDER]) {
     if (!existsSync(join(root, folder))) plan.actions.push({ op: "create", to: folder });
+  }
+  const dayFolder = posix.join(PLANS_ROOT, PLAN_LEVELS.day);
+  for (const file of readdirOrEmpty(join(root, dayFolder))) {
+    const from = posix.join(dayFolder, file);
+    const to = flatDay(from);
+    if (!to) continue;
+    if (existsSync(join(root, to))) plan.collisions.push(to);
+    else plan.actions.push({ op: "move", from, to });
   }
   for (const level of Object.keys(TEMPLATES) as (keyof typeof TEMPLATES)[]) {
     const to = templatePath(level);

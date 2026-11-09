@@ -13,10 +13,14 @@ import { noteResolver } from "./graph.js";
 import { parseTasks, planning, planOf, STATUSES, SIZE_WEIGHTS, WORKSTREAMS_FOLDER, PACKETS_FOLDER, type Planning, type Priority, type Size, type Task } from "./planning.js";
 import { addToSection, applyFields, checkTaskIds, periodOf, planPathOf, TaskLineEditor, wikilinkTo, type NoteEdit, type NoteWrites, type TaskFields } from "./plans.js";
 import { TaskLine, isRecurrence } from "./task-line.js";
+import { HABITS_HEADING, HABIT_RULES, habitDays, habitKey, parseHabits } from "./habits.js";
 import type { VaultNote } from "./scan.js";
 
 export interface EditPlan extends NoteWrites {
-  /** Changed lines, 1-based in the note file; an added line has an empty `before`, a removed one an empty `after`. */
+  /**
+   * Changed lines: `line` 0-based in the note body (the address update_task takes), `fileLine`
+   * 1-based in the file; an added line has an empty `before`, a removed one an empty `after`.
+   */
   edits: NoteEdit[];
   warnings: string[];
 }
@@ -53,8 +57,15 @@ function editableError(path: string): string | null {
   return `${path} is outside the PARA folders and ${PLANS_ROOT}/`;
 }
 
-/** One hunk per note: the lines between the common head and tail of before and after. */
-function hunk(note: string, before: string, after: string): NoteEdit[] {
+/** Where a note's body starts in its file, counted as the task tools count body lines. */
+const bodyStartOf = (original: string, note: VaultNote) => original.split("\n").length - note.body.split("\n").length;
+
+/**
+ * One hunk per note: the lines between the common head and tail of before and after, with
+ * the heading it falls under and the line above it. `bodyStart` gives its body line; a hunk
+ * that starts in the frontmatter has none.
+ */
+function hunk(note: string, before: string, after: string, bodyStart: number): NoteEdit[] {
   const a = before.split("\n");
   const b = after.split("\n");
   let head = 0;
@@ -63,7 +74,14 @@ function hunk(note: string, before: string, after: string): NoteEdit[] {
   while (tail < a.length - head && tail < b.length - head && a[a.length - 1 - tail] === b[b.length - 1 - tail]) tail++;
   const was = a.slice(head, a.length - tail);
   const now = b.slice(head, b.length - tail);
-  return was.length || now.length ? [{ note, line: head + 1, before: was.join("\n"), after: now.join("\n") }] : [];
+  if (!was.length && !now.length) return [];
+  const edit: NoteEdit = { note, ...(head >= bodyStart ? { line: head - bodyStart } : {}), fileLine: head + 1, before: was.join("\n"), after: now.join("\n") };
+  if (head >= bodyStart) {
+    const under = a.slice(bodyStart, head).reverse().find(l => HEADING.test(l));
+    if (under !== undefined) edit.under = under;
+    if (head > bodyStart) edit.above = a[head - 1];
+  }
+  return [edit];
 }
 
 const read = (root: string, path: string) => readFileSync(join(root, path), "utf-8");
@@ -80,6 +98,8 @@ export interface TaskAddress {
   blockId?: string;
   /** Part of the description that matches exactly one open task. */
   task?: string;
+  /** With `task`: match done and cancelled tasks too, still exactly one. */
+  includeClosed?: boolean;
 }
 
 function findTask(byPath: Map<string, VaultNote>, a: TaskAddress, what: string, errors: string[]): { note: VaultNote; task: Task } | null {
@@ -93,11 +113,14 @@ function findTask(byPath: Map<string, VaultNote>, a: TaskAddress, what: string, 
   else if (a.blockId !== undefined) hits = tasks.filter(t => t.blockId === a.blockId || t.id === a.blockId);
   else {
     const want = a.task!.toLowerCase();
-    hits = tasks.filter(t => t.state === "open" && t.text.toLowerCase().includes(want));
+    hits = tasks.filter(t => (a.includeClosed || t.state === "open") && t.text.toLowerCase().includes(want));
   }
   if (hits.length !== 1) {
     const how = a.line !== undefined ? `line ${a.line}` : a.blockId !== undefined ? `^${a.blockId}` : `"${a.task}"`;
-    errors.push(`${what}: ${hits.length ? `${hits.length} tasks` : "no task"} in ${note.path} match ${how}${hits.length ? `: ${hits.map(h => `line ${h.line}: ${h.text}`).join("; ")}` : ""}`);
+    const closed = a.task !== undefined && !a.includeClosed && !hits.length
+      ? tasks.filter(t => t.state !== "open" && t.text.toLowerCase().includes(a.task!.toLowerCase())).length : 0;
+    const hint = closed ? ` (${closed} done or cancelled ${closed === 1 ? "task matches" : "tasks match"}; pass include_closed: true to reach ${closed === 1 ? "it" : "them"})` : "";
+    errors.push(`${what}: ${hits.length ? `${hits.length} tasks` : a.task !== undefined && !a.includeClosed ? "no open task" : "no task"} in ${note.path} match ${how}${hits.length ? `: ${hits.map(h => `line ${h.line}: ${h.text}`).join("; ")}` : hint}`);
     return null;
   }
   return { note, task: hits[0] };
@@ -236,14 +259,89 @@ export interface NewTask extends TaskFields {
 
 export interface AddTasksInput {
   note: string;
-  /** The section the tasks go at the end of; created when missing. */
+  /**
+   * The section the tasks go into, after its own lines and before its first subheading. A
+   * path such as `Robotics: Machinekind/Marketing` picks one of several sections of one name.
+   * A missing last part is created at the end of the section above it, or of the note.
+   */
   heading?: string;
+  /** The level (2–6) of a heading that is created; defaults to one below its parent, or 2. */
+  level?: number;
   /** An existing task the new ones go under as subtasks. */
   parent?: Omit<TaskAddress, "note">;
   tasks: NewTask[];
 }
 
 const indentOf = (line: string) => line.match(/^\s*/)![0];
+
+interface Heading { i: number; level: number; name: string }
+
+function headingsOf(lines: string[]): Heading[] {
+  const out: Heading[] = [];
+  let fenced = false;
+  lines.forEach((l, i) => {
+    if (/^\s*(```|~~~)/.test(l)) { fenced = !fenced; return; }
+    const m = !fenced && l.match(HEADING);
+    if (m) out.push({ i, level: m[1].length, name: m[2].trim() });
+  });
+  return out;
+}
+
+/** A heading's path from the top, `Parent/Child`, to tell sections of one name apart. */
+function headingPath(hs: Heading[], h: Heading): string {
+  const path = [h.name];
+  let level = h.level;
+  for (let k = hs.indexOf(h) - 1; k >= 0 && level > 1; k--) if (hs[k].level < level) { path.unshift(hs[k].name); level = hs[k].level; }
+  return path.join("/");
+}
+
+/**
+ * Put lines into the section a heading or heading path names: after the section's own lines,
+ * before its first subheading. A missing last part of the path is created, at `level` or one
+ * below its parent, at the end of the parent section (subsections included) or of the body.
+ */
+function addUnderHeading(body: string, heading: string, level: number | undefined, add: string[]): { body: string } | { error: string } {
+  const all = body.split("\n");
+  const hs = headingsOf(all);
+  const name = heading.replace(/^#+\s*/, "").trim();
+  const same = (h: Heading, n: string) => h.name.toLowerCase() === n.toLowerCase();
+  // A heading whose own text holds a "/" is matched whole before the text is read as a path.
+  const parts = hs.some(h => same(h, name)) || !name.includes("/") ? [name] : name.split("/").map(x => x.trim()).filter(Boolean);
+  let parent: Heading | null = null;
+  let from = 0;
+  let to = all.length;
+  for (const [k, part] of parts.entries()) {
+    const hits = hs.filter(h => h.i >= from && h.i < to && h.level > (parent?.level ?? 0) && same(h, part));
+    if (hits.length > 1) {
+      const paths = hits.map(h => `"${headingPath(hs, h)}"`);
+      return { error: `${hits.length} sections are headed "${parts.slice(0, k + 1).join("/")}": ${paths.join(", ")}; give the heading as a path to one of them, e.g. ${paths[0]}` };
+    }
+    if (!hits.length) {
+      if (k < parts.length - 1) return { error: `no section "${part}"${parent ? ` under "${headingPath(hs, parent)}"` : ""}; only the last part of a heading path is created` };
+      const lvl = level ?? (parent ? Math.min(parent.level + 1, 6) : 2);
+      if (parent && lvl <= parent.level) return { error: `a level ${lvl} heading cannot go under "${headingPath(hs, parent)}", which is level ${parent.level}` };
+      let last = to - 1;
+      while (last >= from && all[last].trim() === "") last--;
+      const before = all.slice(0, last + 1);
+      const rest = all.slice(last + 1);
+      const created = [...(before.length ? [""] : []), `${"#".repeat(lvl)} ${part}`, "", ...add];
+      return { body: [...before, ...created, ...(rest.length ? (rest[0].trim() === "" ? rest : ["", ...rest]) : [""])].join("\n") };
+    }
+    parent = hits[0];
+    from = parent.i + 1;
+    const next = hs.find(h => h.i > parent!.i && h.level <= parent!.level);
+    to = next ? next.i : all.length;
+  }
+  const h = parent!;
+  if (level !== undefined && level !== h.level) return { error: `"${headingPath(hs, h)}" exists at level ${h.level}, not ${level}` };
+  const sub = hs.find(x => x.i > h.i && x.i < to);
+  const end = sub ? sub.i : to;
+  let last = end - 1;
+  while (last > h.i && all[last].trim() === "") last--;
+  const after = all.slice(last + 1);
+  const lines = last === h.i ? ["", ...add] : add;
+  return { body: [...all.slice(0, last + 1), ...lines, ...(after.length && after[0].trim() !== "" ? [""] : after.length ? [] : [""]), ...after].join("\n") };
+}
 
 export function addTasks(root: string, notes: VaultNote[], input: AddTasksInput): EditPlan {
   const out = empty();
@@ -255,6 +353,7 @@ export function addTasks(root: string, notes: VaultNote[], input: AddTasksInput)
   if (where) { out.errors.push(where); return out; }
   if (!input.tasks?.length) { out.errors.push("give at least one task"); return out; }
   if (input.heading && input.parent) { out.errors.push("give heading or parent, not both: subtasks go under their parent wherever it is"); return out; }
+  if (input.level !== undefined && (!input.heading || !Number.isInteger(input.level) || input.level < 2 || input.level > 6)) { out.errors.push("level is a heading level from 2 to 6, given with heading"); return out; }
   const inPlan = planOf(note.path) !== null;
   const resolver = noteResolver(notes);
   const owners = new Set<string>();
@@ -304,16 +403,64 @@ export function addTasks(root: string, notes: VaultNote[], input: AddTasksInput)
   if (at >= 0) content = [...file.slice(0, at), ...lines, ...file.slice(at)].join("\n");
   else if (input.heading) {
     const fm = original.match(FRONTMATTER)?.[0] ?? "";
-    content = fm + addToSection(original.slice(fm.length), input.heading, lines);
+    const r = addUnderHeading(original.slice(fm.length), input.heading, input.level, lines);
+    if ("error" in r) { out.errors.push(r.error); return out; }
+    content = fm + r.body;
   } else content = `${original.replace(/\n*$/, "\n")}${lines.join("\n")}\n`;
   out.writes[note.path] = content;
-  out.edits = hunk(note.path, original, content);
+  out.edits = hunk(note.path, original, content, bodyStart);
   return out;
 }
 
 // ---------------------------------------------------------------------------------------
 // set_frontmatter
 // ---------------------------------------------------------------------------------------
+
+export interface NewHabit {
+  /** What is done, e.g. "Up at 6:00". */
+  text: string;
+  /** every day, every weekday, every weekend, or every week on <days>. */
+  rule: string;
+}
+
+export interface AddHabitsInput {
+  note: string;
+  habits: NewHabit[];
+}
+
+/**
+ * `add_habits` (ADR-KI-0065): define habits under the `## Habits` heading of a project,
+ * workstream or area note, as plain list items with a `🔁` rule. The day plans check them
+ * off; a definition is changed or ended with `edit_note`.
+ */
+export function addHabits(root: string, notes: VaultNote[], input: AddHabitsInput): EditPlan {
+  const out = empty();
+  const note = findNote(byPathOf(notes), input.note);
+  if (!note) { out.errors.push(`no note ${input.note}`); return out; }
+  if (planOf(note.path)) { out.errors.push(`${note.path} is a plan; a habit is defined in its workstream, area or project note, and plan_period checks it off in the day plans`); return out; }
+  const where = plannedNoteError(planning(root, notes), note.path);
+  if (where) { out.errors.push(where); return out; }
+  if (!input.habits?.length) { out.errors.push("give at least one habit"); return out; }
+  const taken = new Set(parseHabits(note.body).habits.map(h => habitKey(h.text)));
+  const lines: string[] = [];
+  for (const h of input.habits) {
+    const what = `habit "${h.text}"`;
+    if (!h.text?.trim() || SIGNIFIER_IN_TEXT.test(h.text) || /\[\[|#[SML]\b/.test(h.text)) { out.errors.push(`${what}: text is what is done, without links, size or signifiers`); continue; }
+    if (!habitDays(h.rule ?? "")) { out.errors.push(`${what}: rule "${h.rule}" is not one of ${HABIT_RULES}`); continue; }
+    const key = habitKey(h.text);
+    if (taken.has(key)) { out.errors.push(`${what}: ${note.path} already defines it`); continue; }
+    taken.add(key);
+    lines.push(`- ${h.text.trim()} 🔁 ${h.rule.trim().replace(/\s+/g, " ")}`);
+  }
+  if (out.errors.length) return out;
+  const original = read(root, note.path);
+  out.originals[note.path] = original;
+  const fm = original.match(FRONTMATTER)?.[0] ?? "";
+  const content = fm + addToSection(original.slice(fm.length), HABITS_HEADING, lines);
+  out.writes[note.path] = content;
+  out.edits = hunk(note.path, original, content, bodyStartOf(original, note));
+  return out;
+}
 
 export type FrontmatterValue = string | number | boolean | string[] | null;
 /** Keys other tools own: a session's tie to its note, and a converted book's provenance. */
@@ -364,7 +511,7 @@ export function setFrontmatter(root: string, notes: VaultNote[], path: string, s
   const block = fm.length ? `---${nl}${fm.join(nl)}${nl}---${nl}` : "";
   const content = m ? block + original.slice(m[0].length) : block + original;
   if (content !== original) out.writes[note.path] = content;
-  out.edits = hunk(note.path, original, content);
+  out.edits = hunk(note.path, original, content, bodyStartOf(original, note));
   return out;
 }
 
@@ -383,6 +530,13 @@ export interface EditNoteInput {
 }
 
 const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+
+/** A body's task lines, sorted, to tell whether an edit adds, removes or changes one. */
+function taskLinesOf(body: string): string {
+  const lines = body.split("\n");
+  return parseTasks("", body).map(t => lines[t.line].replace(/\r$/, "")).sort().join("\n");
+}
+const TASKS_ARE_TASK_TOOLS = "tasks are changed with update_task (include_closed: true reaches a done or cancelled one) and added with add_tasks, which keep their Tasks signifiers intact";
 
 export function editNote(root: string, notes: VaultNote[], input: EditNoteInput): EditPlan {
   const out = empty();
@@ -403,10 +557,13 @@ export function editNote(root: string, notes: VaultNote[], input: EditNoteInput)
       if (!e.old) { out.errors.push(`edit ${i + 1}: old is empty; give the exact text to replace`); return; }
       const count = body.split(e.old).length - 1;
       if (count !== 1) { out.errors.push(`edit ${i + 1}: the text occurs ${count} times in the body of ${note.path}; it must occur exactly once${fm.includes(e.old) ? " (frontmatter is set_frontmatter's)" : ""}`); return; }
-      body = body.replace(e.old, () => e.new);
+      const next = body.replace(e.old, () => e.new);
+      if (taskLinesOf(next) !== taskLinesOf(body)) { out.errors.push(`edit ${i + 1}: it changes a task line; ${TASKS_ARE_TASK_TOOLS}`); return; }
+      body = next;
     });
   } else {
     if (input.content === undefined || !input.mode || !["replace", "append"].includes(input.mode)) { out.errors.push("a section edit needs content and mode: replace or append"); return out; }
+    const was = body;
     const lines = body.split("\n");
     const want = input.heading!.replace(/^#+\s*/, "").trim().toLowerCase();
     const hits = lines.map((l, i) => ({ i, m: l.match(HEADING) })).filter(x => x.m && x.m[2].trim().toLowerCase() === want);
@@ -431,12 +588,13 @@ export function editNote(root: string, notes: VaultNote[], input: EditNoteInput)
         body = [...lines.slice(0, i + 1), "", text, ...(rest.length ? ["", ...rest] : [""])].join("\n");
       }
     }
+    if (taskLinesOf(body) !== taskLinesOf(was)) out.errors.push(`the section edit changes task lines; ${TASKS_ARE_TASK_TOOLS}`);
   }
   if (out.errors.length) return out;
   const content = fm + body;
   if (content !== original) out.writes[note.path] = content;
   else out.warnings.push("the note already reads as asked; nothing changes");
-  out.edits = hunk(note.path, original, content);
+  out.edits = hunk(note.path, original, content, bodyStartOf(original, note));
   return out;
 }
 
@@ -478,7 +636,7 @@ export function createWorkstream(root: string, notes: VaultNote[], input: Create
   const fm = [`status: ${status}`, ...(areaLink ? [`area: ${JSON.stringify(areaLink)}`] : [])];
   out.writes[path] = `---\n${fm.join("\n")}\n---\n# ${name}\n${input.description?.trim() ? `\n${input.description.trim()}\n` : ""}`;
   out.created.push(path);
-  out.edits.push({ note: path, line: 1, before: "", after: out.writes[path].replace(/\n$/, "") });
+  out.edits.push({ note: path, fileLine: 1, before: "", after: out.writes[path].replace(/\n$/, "") });
 
   const original = read(root, pr.note);
   out.originals[pr.note] = original;
@@ -489,6 +647,7 @@ export function createWorkstream(root: string, notes: VaultNote[], input: Create
   body = body.replace(/^## Workstreams\n\nNone yet\.\n/m, "## Workstreams\n\n");
   const content = fmText + addToSection(body, "Workstreams", [`- ${link}`]);
   out.writes[pr.note] = content;
-  out.edits.push(...hunk(pr.note, original, content));
+  const prNote = notes.find(n => n.path === pr.note);
+  out.edits.push(...hunk(pr.note, original, content, prNote ? bodyStartOf(original, prNote) : 0));
   return out;
 }

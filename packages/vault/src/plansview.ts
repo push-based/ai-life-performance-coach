@@ -121,7 +121,7 @@ export function plansView(root: string, notes: VaultNote[], spanName: string, by
   push(row({ id: "unlinked", kind: "unlinked", name: "Unlinked", project: null, archived: false, status: null, note: null, deadline: null, doneWhen: null, packets: [] }));
 
   for (const t of p.tasks) {
-    if (t.goal || t.state === "cancelled") continue;
+    if (t.goal || t.habit || t.state === "cancelled") continue;
     const col = t.state === "done" ? columnOf(t.doneOn) : columnOf(t.scheduled);
     if (col < 0) continue;
     const ref: TaskRef = { text: t.text, note: t.note, state: t.state, size: t.size, weight: t.weight, scheduled: t.scheduled, doneOn: t.doneOn, slipped: t.slipped, column: col };
