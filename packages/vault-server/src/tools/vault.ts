@@ -19,7 +19,7 @@ import { listRawTool, convertRawTool } from "./vault/raw-tools.js";
 import { findPassagesTool, markedPassagesTool, createConceptTool } from "./vault/concept-tools.js";
 import { readingProgressTool, markReadTool, writeSummaryTool } from "./vault/reading-tools.js";
 import { planningOverviewTool, planPeriodTool, planDaysTool, rollOverTool, reviewPeriodTool, harvestWorkstreamTool } from "./vault/planning-tools.js";
-import { climbTool, rebuildClimbTool, addReadingNotesTool, writeStructureTool, saveGuidelineTool } from "./vault/climb-tools.js";
+import { climbTool, rebuildClimbTool, addReadingNotesTool, writeStructureTool, listTopicsTool, saveGuidelineTool, extendConceptTool } from "./vault/climb-tools.js";
 import { updateTaskTool, addTasksTool, addHabitsTool, setFrontmatterTool, editNoteTool, createWorkstreamTool } from "./vault/note-edit-tools.js";
 
 export function createVaultTools(vault: Vault): ToolDef[] {
@@ -40,11 +40,13 @@ export function createVaultTools(vault: Vault): ToolDef[] {
     findPassagesTool(vault),
     markedPassagesTool(vault),
     createConceptTool(vault),
+    extendConceptTool(vault),
     readingProgressTool(vault),
     markReadTool(vault),
     writeSummaryTool(vault),
     addReadingNotesTool(vault),
     writeStructureTool(vault),
+    listTopicsTool(vault),
     climbTool(vault),
     rebuildClimbTool(vault),
     saveGuidelineTool(vault),

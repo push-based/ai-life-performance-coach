@@ -10,7 +10,7 @@ import { posix } from "node:path";
 import { yamlString } from "@docs-mcp/core/kernel/md/yaml.js";
 import { fold, conceptOf } from "./concept.js";
 import { chapterSummaryOf, withoutSummaries } from "./distill.js";
-import type { SessionRecord, SessionItem, SessionKind } from "./sessions.js";
+import { bySessionDate, type SessionRecord, type SessionItem, type SessionKind } from "./sessions.js";
 import type { VaultNote } from "./scan.js";
 
 export const CLIMB_STEPS = ["read", "group", "generate", "retrieve", "elaborate", "space", "teach"] as const;
@@ -48,6 +48,13 @@ export interface ConceptClimb {
   skipped: ClimbStep[];
   /** A passed review at least a day after the previous attempt, which Teach needs. */
   spacedPass: StepEvidence | null;
+  /** Every book the concept quotes, and its group in each book's structure note that places it. */
+  books: string[];
+  groups: Record<string, string>;
+  /** Books the concept quotes whose structure note does not place it yet. */
+  ungroupedIn: string[];
+  /** The topic whose structure note lists the concept, at most one (ADR-KI-0070). */
+  topic: string | null;
   teach: { ok: boolean; reason?: string };
 }
 
@@ -93,8 +100,17 @@ export function chaptersOf(concept: VaultNote, notes: VaultNote[]): VaultNote[] 
 
 /** The book a concept note belongs to: that of its first quoted raw note. */
 export function conceptBook(concept: VaultNote, notes: VaultNote[]): string | null {
-  const first = chaptersOf(concept, notes)[0];
-  return first ? bookOf(first, notes) : null;
+  return conceptBooks(concept, notes)[0] ?? null;
+}
+
+/** Every book a concept note quotes, in passage order: a concept drawn from several books belongs to each. */
+export function conceptBooks(concept: VaultNote, notes: VaultNote[]): string[] {
+  const out: string[] = [];
+  for (const ch of chaptersOf(concept, notes)) {
+    const b = bookOf(ch, notes);
+    if (b && !out.includes(b)) out.push(b);
+  }
+  return out;
 }
 
 export const isConceptNote = (n: VaultNote) => n.concept && n.bucket === "resources" && !n.raw;
@@ -169,7 +185,9 @@ export interface StructureGroup {
 
 export interface Structure {
   path: string;
-  book: string;
+  /** Exactly one of book and topic: a book's structure, or a topic's across books (ADR-KI-0070). */
+  book: string | null;
+  topic: string | null;
   date: string;
   groups: StructureGroup[];
   buildsOn: { from: string; to: string }[];
@@ -178,7 +196,10 @@ export interface Structure {
 /** A structure note's record, read from its frontmatter; null for any other note. */
 export function structureOf(n: VaultNote): Structure | null {
   const fm = n.frontmatter;
-  if (fm.type !== STRUCTURE_TYPE || typeof fm.book !== "string") return null;
+  if (fm.type !== STRUCTURE_TYPE) return null;
+  const book = typeof fm.book === "string" && fm.book.trim() ? fm.book.trim() : null;
+  const topic = typeof fm.topic === "string" && fm.topic.trim() ? fm.topic.trim() : null;
+  if (!book === !topic) return null;
   const groups: StructureGroup[] = [];
   for (const g of Array.isArray(fm.groups) ? fm.groups : []) {
     const r = g as Record<string, unknown>;
@@ -190,11 +211,15 @@ export function structureOf(n: VaultNote): Structure | null {
     const r = e as Record<string, unknown>;
     if (typeof r?.from === "string" && typeof r?.to === "string") buildsOn.push({ from: r.from, to: r.to });
   }
-  return { path: n.path, book: fm.book, date: typeof fm.date === "string" ? fm.date : "", groups, buildsOn };
+  return { path: n.path, book, topic, date: typeof fm.date === "string" ? fm.date : "", groups, buildsOn };
 }
 
-/** The structure rules (ADR-KI-0068 Decision 4): what is wrong with a set of groups and edges. */
-export function structureErrors(groups: StructureGroup[], buildsOn: { from: string; to: string }[], bookConcepts: string[]): string[] {
+/**
+ * The structure rules (ADR-KI-0068 Decision 4): what is wrong with a set of groups and
+ * edges. With `bookConcepts`, a book's structure, every concept of the book must be in a
+ * group; a topic's structure passes null and lists what the learner puts in it (ADR-KI-0070).
+ */
+export function structureErrors(groups: StructureGroup[], buildsOn: { from: string; to: string }[], bookConcepts: string[] | null): string[] {
   const errors: string[] = [];
   if (groups.length < 2 || groups.length > 7) errors.push(`a structure has 2 to 7 groups, got ${groups.length}`);
   const names = new Set<string>();
@@ -209,10 +234,10 @@ export function structureErrors(groups: StructureGroup[], buildsOn: { from: stri
       const was = placed.get(c);
       if (was) errors.push(`${c} is in both "${was}" and "${name}"; every concept is in exactly one group`);
       else placed.set(c, name);
-      if (!bookConcepts.includes(c)) errors.push(`${c} is not a concept note of this book`);
+      if (bookConcepts && !bookConcepts.includes(c)) errors.push(`${c} is not a concept note of this book`);
     }
   }
-  for (const c of bookConcepts) if (!placed.has(c)) errors.push(`${c} is in no group; every concept of the book is in exactly one group`);
+  for (const c of bookConcepts ?? []) if (!placed.has(c)) errors.push(`${c} is in no group; every concept of the book is in exactly one group`);
   const edges = new Map<string, string[]>();
   for (const e of buildsOn) {
     const [from, to] = [e.from?.trim().toLowerCase(), e.to?.trim().toLowerCase()];
@@ -247,15 +272,15 @@ function findCycle(edges: Map<string, string[]>): string[] | null {
 // Sessions (steps 3 to 7)
 // ---------------------------------------------------------------------------------------
 
-interface Attempt { kind: SessionKind; date: string; session: string; item: SessionItem }
+interface Attempt { kind: SessionKind; tier: 1 | 2; date: string; session: string; item: SessionItem }
 
-function attemptsOf(concept: VaultNote, chapters: string[], sessions: SessionRecord[]): Attempt[] {
+function attemptsOf(concept: VaultNote, around: string[], sessions: SessionRecord[]): Attempt[] {
   const out: Attempt[] = [];
-  for (const s of sessions) {
+  for (const s of [...sessions].sort(bySessionDate)) {
     for (const item of s.items) {
       const mine = concept.coachId !== null && item.coach_id === concept.coachId;
-      const onChapter = s.kind === "generate" && item.coach_id === null && chapters.includes(item.note_path);
-      if (mine || onChapter) out.push({ kind: s.kind, date: s.date, session: s.session_id, item });
+      const onWhole = s.kind === "generate" && item.coach_id === null && around.includes(item.note_path);
+      if (mine || onWhole) out.push({ kind: s.kind, tier: s.tier, date: s.date, session: s.session_id, item });
     }
   }
   return out;
@@ -269,12 +294,17 @@ export function generateCounts(item: SessionItem): boolean {
   return g.marks.every(m => m.mark !== "wrong" || !!m.correction?.trim());
 }
 
-/** Reviews of the note at least a day after the attempt before them; the first, and the first passed. */
+/**
+ * Reviews of the note at least a day after the attempt before them; the first, and the
+ * first passed. Only the learner's own attempts count, at Tier 1: a Tier 2 session is the
+ * judge grading an answer already given, on whatever day the learner was back online, and
+ * is no new recall.
+ */
 export function spacedReviews(attempts: Attempt[]): { any: StepEvidence | null; passed: StepEvidence | null } {
   let any: StepEvidence | null = null;
   let passed: StepEvidence | null = null;
   let previous: string | null = null;
-  for (const a of attempts) {
+  for (const a of attempts.filter(x => x.tier === 1)) {
     if (a.kind === "spar" && previous !== null && dayDiff(previous, a.date) >= SPACING_DAYS) {
       any ??= { date: a.date, evidence: a.session };
       if (a.item.verdict === "pass") passed ??= { date: a.date, evidence: a.session };
@@ -287,7 +317,12 @@ export function spacedReviews(attempts: Attempt[]): { any: StepEvidence | null; 
 /** Every step's evidence for one concept note, from the vault as it is and the sessions given. */
 export function climbOf(concept: VaultNote, notes: VaultNote[], sessions: SessionRecord[]): ConceptClimb {
   const chapters = chaptersOf(concept, notes);
-  const attempts = attemptsOf(concept, chapters.map(c => c.path), sessions);
+  const placing = notes.map(structureOf).filter((x): x is Structure => !!x && x.groups.some(g => g.concepts.includes(concept.path)));
+  const structures = placing.map(x => x.path);
+  const placedIn = new Set(placing.map(x => x.book).filter((b): b is string => !!b));
+  const topic = placing.find(x => x.topic)?.topic ?? null;
+  const books = conceptBooks(concept, notes);
+  const attempts = attemptsOf(concept, [...chapters.map(c => c.path), ...structures], sessions);
   const first = (pred: (a: Attempt) => boolean): StepEvidence | null => {
     const a = attempts.find(pred);
     return a ? { date: a.date, evidence: a.session } : null;
@@ -307,7 +342,7 @@ export function climbOf(concept: VaultNote, notes: VaultNote[], sessions: Sessio
     read,
     group,
     generate: first(a => a.kind === "generate" && generateCounts(a.item)),
-    retrieve: first(a => a.kind === "spar"),
+    retrieve: first(a => a.kind === "spar" && a.tier === 1),
     elaborate: first(a => a.kind === "elaborate"),
     space: space.any,
     teach: first(a => a.kind === "teach" && a.item.verdict === "pass"),
@@ -326,6 +361,10 @@ export function climbOf(concept: VaultNote, notes: VaultNote[], sessions: Sessio
     skipped: CLIMB_STEPS.filter((s, i) => i < highest && !steps[s]),
     spacedPass: space.passed,
     teach: teachGate(space.passed),
+    books,
+    topic,
+    groups: groupsOf(concept, books[0]),
+    ungroupedIn: books.filter(b => !placedIn.has(b)),
   };
 }
 
@@ -393,13 +432,120 @@ export function interleave<T>(items: T[], key: (t: T) => string): T[] {
   return out;
 }
 
-export const groupOf = (n: VaultNote): string | null => (typeof n.frontmatter.group === "string" && n.frontmatter.group.trim() ? n.frontmatter.group.trim() : null);
+/**
+ * A concept's group in each book that places it, from `groups:` (book → group), which
+ * write_structure keeps. A single `group:` from before ADR-KI-0068's amendment is read as
+ * the group in the concept's first book.
+ */
+export function groupsOf(n: VaultNote, firstBook?: string | null): Record<string, string> {
+  const g = n.frontmatter.groups;
+  const out: Record<string, string> = {};
+  if (g && typeof g === "object" && !Array.isArray(g)) for (const [book, name] of Object.entries(g)) if (typeof name === "string" && name.trim()) out[book] = name.trim();
+  if (!Object.keys(out).length && typeof n.frontmatter.group === "string" && n.frontmatter.group.trim() && firstBook) out[firstBook] = n.frontmatter.group.trim();
+  return out;
+}
 
-/** Where a concept is kept for interleaving: its group within its book, else its book, else its folder. */
+/** The topic a concept is in, from the `topic:` key write_structure keeps (ADR-KI-0070). */
+export const topicOf = (n: VaultNote): string | null => (typeof n.frontmatter.topic === "string" && n.frontmatter.topic.trim() ? n.frontmatter.topic.trim() : null);
+
+/** The group shown and interleaved by: its topic's, else the one in its first book that places it. */
+export function groupOf(n: VaultNote, notes: VaultNote[] = []): string | null {
+  const books = conceptBooks(n, notes);
+  const groups = groupsOf(n, books[0]);
+  const topic = topicOf(n);
+  if (topic && groups[topic]) return groups[topic];
+  const book = books.find(b => groups[b]) ?? Object.keys(groups)[0];
+  return book ? groups[book] : typeof n.frontmatter.group === "string" && n.frontmatter.group.trim() ? n.frontmatter.group.trim() : null;
+}
+
+/** Where a concept is kept for interleaving: its topic group, else its group within its book, else its book, else its folder. */
 export function queueKey(n: VaultNote, notes: VaultNote[]): string {
-  const book = conceptBook(n, notes);
-  const group = groupOf(n);
-  if (group) return `group:${book ?? ""}:${group}`;
+  const books = conceptBooks(n, notes);
+  const groups = groupsOf(n, books[0]);
+  const topic = topicOf(n);
+  if (topic && groups[topic]) return `topic:${topic}:${groups[topic]}`;
+  const inBook = books.find(b => groups[b]);
+  if (inBook) return `group:${inBook}:${groups[inBook]}`;
+  const book = books[0] ?? null;
   if (book) return `book:${book}`;
   return `folder:${posix.dirname(n.path)}`;
+}
+
+// ---------------------------------------------------------------------------------------
+// Drawing a structure from memory (ADR-KI-0069)
+// ---------------------------------------------------------------------------------------
+
+/** What a drawing from memory is marked on: each group of the structure and each of its edges. */
+export function structureLabels(s: Pick<Structure, "groups" | "buildsOn">): string[] {
+  return [...s.groups.map(g => `group: ${g.name}`), ...s.buildsOn.map(e => `${e.from} → ${e.to}`)];
+}
+
+export interface DrawnStructure {
+  groups: StructureGroup[];
+  buildsOn: { from: string; to: string }[];
+}
+
+export interface SuggestedMark {
+  assertion: string;
+  mark: "got it" | "wrong" | "missed";
+  /** Why the mark was suggested, for the learner to confirm or overrule. */
+  why: string;
+}
+
+/**
+ * Suggest a mark for each group and edge of the real structure, from a drawing made
+ * without seeing it. A real group is matched to the drawn group sharing most of its
+ * concepts: the same members is got it, some is wrong, none is missed. An edge is got it
+ * when the matched groups are joined the same way, wrong when reversed, else missed. The
+ * learner confirms or overrules every mark before it is recorded.
+ */
+export function compareStructure(drawn: DrawnStructure, actual: Pick<Structure, "groups" | "buildsOn">, titleOf: (path: string) => string = p => p): SuggestedMark[] {
+  const match = new Map<string, StructureGroup | null>();
+  for (const g of actual.groups) {
+    let best: StructureGroup | null = null;
+    let bestShared = 0;
+    for (const d of drawn.groups) {
+      const shared = d.concepts.filter(c => g.concepts.includes(c)).length;
+      if (shared > bestShared) { best = d; bestShared = shared; }
+    }
+    match.set(g.name, best);
+  }
+  const marks: SuggestedMark[] = actual.groups.map(g => {
+    const d = match.get(g.name);
+    const label = `group: ${g.name}`;
+    if (!d) return { assertion: label, mark: "missed", why: `none of ${g.concepts.map(titleOf).join(", ")} was drawn in a group` };
+    const same = d.concepts.length === g.concepts.length && d.concepts.every(c => g.concepts.includes(c));
+    if (same) return { assertion: label, mark: "got it", why: `drawn as "${d.name}" with the same concepts` };
+    const missing = g.concepts.filter(c => !d.concepts.includes(c)).map(titleOf);
+    const extra = d.concepts.filter(c => !g.concepts.includes(c)).map(titleOf);
+    return { assertion: label, mark: "wrong", why: `closest drawn group "${d.name}"${missing.length ? ` lacks ${missing.join(", ")}` : ""}${missing.length && extra.length ? " and" : ""}${extra.length ? ` also holds ${extra.join(", ")}` : ""}` };
+  });
+  const drawnEdge = (a: string, b: string) => drawn.buildsOn.some(e => e.from === a && e.to === b);
+  for (const e of actual.buildsOn) {
+    const label = `${e.from} → ${e.to}`;
+    const [f, t] = [match.get(e.from), match.get(e.to)];
+    if (!f || !t || f === t) { marks.push({ assertion: label, mark: "missed", why: "one of its groups was not drawn apart" }); continue; }
+    if (drawnEdge(f.name, t.name)) marks.push({ assertion: label, mark: "got it", why: `drawn as ${f.name} → ${t.name}` });
+    else if (drawnEdge(t.name, f.name)) marks.push({ assertion: label, mark: "wrong", why: `drawn the other way round, ${t.name} → ${f.name}` });
+    else marks.push({ assertion: label, mark: "missed", why: `no arrow between "${f.name}" and "${t.name}"` });
+  }
+  return marks;
+}
+
+/** A drawing as text lines, the attempt a session records: one line per group, then one per edge. */
+export function drawingText(drawn: DrawnStructure, titleOf: (path: string) => string = p => p): string {
+  return [...drawn.groups.map(g => `${g.name}: ${g.concepts.map(titleOf).join(", ") || "(empty)"}`), ...drawn.buildsOn.map(e => `${e.from} builds on ${e.to}`)].join("\n");
+}
+
+/** A drawing from memory is an attempt when it names two groups that each hold a concept. */
+export const MIN_DRAWN_GROUPS = 2;
+
+export function drawingErrors(drawn: DrawnStructure): string[] {
+  const named = drawn.groups.filter(g => g.name.trim() && g.concepts.length);
+  return named.length >= MIN_DRAWN_GROUPS ? [] : [`a drawing is an attempt with at least ${MIN_DRAWN_GROUPS} named groups that each hold a concept; draw more, or press I don't know`];
+}
+
+/** The same rule on a drawing recorded as text lines, "<group>: <concepts>". */
+export function drawnGroupsIn(text: string): number {
+  return text.split("\n").filter(l => /^[^:]+:\s*\S/.test(l) && !/:\s*\(empty\)\s*$/.test(l)).length;
 }

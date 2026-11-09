@@ -10,12 +10,12 @@ import { join, posix } from "node:path";
 import { yamlString } from "@docs-mcp/core/kernel/md/yaml.js";
 import { classify, PARA_FOLDERS } from "./para.js";
 import { safeName } from "./filing.js";
-import { CONCEPTS_FOLDER, fold } from "./concept.js";
+import { CONCEPTS_FOLDER, MAX_ASSERTIONS, MAX_PASSAGES, checkPassages, conceptListLines, conceptOf, fold, fromNoteLine, passageLines, passagesLines, type Passage, type PassageCheck } from "./concept.js";
 import { noteFromContent, type VaultNote } from "./scan.js";
 import type { SessionRecord } from "./sessions.js";
 import type { NoteWrites } from "./plans.js";
 import {
-  bookOf, chaptersOf, climbOf, conceptBook, isConceptNote, readingEntries, sectionText, setFrontmatterLines, sharesRun,
+  bookOf, chaptersOf, climbOf, conceptBook, conceptBooks, groupsOf, groupOf, topicOf, isConceptNote, readingEntries, sectionText, setFrontmatterLines, sharesRun,
   structureErrors, structureOf, withClimb, wordCount, CLIMB_STEPS, GUIDELINE_TYPE, READING_NOTES_TYPE, STRUCTURE_TYPE,
   type ConceptClimb, type StructureGroup,
 } from "./climb.js";
@@ -150,7 +150,10 @@ function insertUnder(content: string, heading: string, add: string[]): string {
 // ---------------------------------------------------------------------------------------
 
 export interface StructureInput {
-  book: string;
+  /** A book's structure: every concept quoting the book is in a group. Exactly one of book and topic. */
+  book?: string;
+  /** A topic's structure (ADR-KI-0070): a subject read across books, listing any concept notes the learner puts in it. */
+  topic?: string;
   /** Each group, named by the learner, with its concept notes by path or title. */
   groups: { name: string; concepts: string[] }[];
   /** "from builds on to", both group names. */
@@ -161,11 +164,20 @@ export interface StructurePlan extends ClimbWritePlan {
   path: string | null;
 }
 
+/** Every book title the vault's concept notes quote. */
+const allBooks = (notes: VaultNote[]) => new Set(notes.filter(isConceptNote).flatMap(c => conceptBooks(c, notes)));
+
 export function writeStructure(root: string, notes: VaultNote[], sessions: SessionRecord[], input: StructureInput, date: string): StructurePlan {
   const plan: StructurePlan = { ...emptyPlan(), path: null };
-  const book = typeof input.book === "string" ? input.book.trim() : "";
-  const concepts = notes.filter(isConceptNote).filter(c => conceptBook(c, notes) === book);
-  if (!concepts.length) { plan.errors.push(`no concept note quotes a book named "${book}"; run create_concept first`); return plan; }
+  const bookIn = typeof input.book === "string" ? input.book.trim() : "";
+  const topicIn = typeof input.topic === "string" ? input.topic.trim() : "";
+  if (!bookIn === !topicIn) { plan.errors.push("give either book or topic, not both or neither"); return plan; }
+  const name = bookIn || topicIn;
+  const isTopic = !!topicIn;
+  const all = notes.filter(isConceptNote);
+  const concepts = isTopic ? all : all.filter(c => conceptBooks(c, notes).includes(name));
+  if (!isTopic && !concepts.length) { plan.errors.push(`no concept note quotes a book named "${name}"; run create_concept first`); return plan; }
+  if (isTopic && allBooks(notes).has(name)) { plan.errors.push(`"${name}" is a book's title; give the topic another name`); return plan; }
   const resolve = (ref: string) => concepts.find(c => c.path === ref || c.path === `${ref}.md`) ?? concepts.find(c => c.title === ref || posix.basename(c.path, ".md") === ref);
 
   const groups: StructureGroup[] = [];
@@ -173,39 +185,49 @@ export function writeStructure(root: string, notes: VaultNote[], sessions: Sessi
     const members: string[] = [];
     for (const ref of Array.isArray(g?.concepts) ? g.concepts : []) {
       const c = typeof ref === "string" ? resolve(ref.trim()) : undefined;
-      if (!c) plan.errors.push(`group "${g?.name}": ${String(ref)} is not a concept note of ${book}`);
+      if (!c) plan.errors.push(`group "${g?.name}": ${String(ref)} is not a concept note${isTopic ? "" : ` of ${name}`}`);
       else members.push(c.path);
     }
     groups.push({ name: typeof g?.name === "string" ? g.name.trim() : "", concepts: members });
   }
   const buildsOn = (Array.isArray(input.builds_on) ? input.builds_on : []).map(e => ({ from: String(e?.from ?? "").trim(), to: String(e?.to ?? "").trim() }));
-  plan.errors.push(...structureErrors(groups, buildsOn, concepts.map(c => c.path)));
-  if (plan.errors.length) return plan;
+  plan.errors.push(...structureErrors(groups, buildsOn, isTopic ? null : concepts.map(c => c.path)));
 
-  const canonical = (name: string) => groups.find(g => g.name.toLowerCase() === name.toLowerCase())!.name;
-  const edges = buildsOn.map(e => ({ from: canonical(e.from), to: canonical(e.to) }));
-  const headings = new Set(notes.filter(n => n.raw && bookOf(n, notes) === book).flatMap(n => [...n.body.matchAll(/^#{1,6}\s+(.+?)\s*$/gm)].map(m => fold(m[1]))).filter(h => !/^page \d+$/.test(h)));
-  for (const g of groups) if (headings.has(fold(g.name))) plan.warnings.push(`group "${g.name}" is a heading of the book word for word; a name in your own words builds the frame better`);
-  for (const g of groups) if (!edges.some(e => e.to === g.name) && edges.length) plan.warnings.push(`nothing builds on "${g.name}"`);
-
-  const path = posix.join(STRUCTURES_FOLDER, `${safeName(book) ?? "Book"}.md`);
+  const path = posix.join(STRUCTURES_FOLDER, `${safeName(name) ?? (isTopic ? "Topic" : "Book")}.md`);
   plan.path = path;
   const existing = notes.find(n => n.path === path);
-  if (existing && structureOf(existing)?.book !== book) { plan.errors.push(`${path} exists and is not the structure note of ${book}`); return plan; }
-  if (!existing && existsSync(join(root, path))) { plan.errors.push(`${path} exists and is not a note`); return plan; }
+  const was = existing ? structureOf(existing) : null;
+  if (existing && !(isTopic ? was?.topic === name : was?.book === name)) plan.errors.push(`${path} exists and is not the structure note of ${isTopic ? "topic" : "book"} ${name}${was?.book ? `; it is book ${was.book}'s` : was?.topic ? `; it is topic ${was.topic}'s` : ""}`);
+  else if (!existing && existsSync(join(root, path))) plan.errors.push(`${path} exists and is not a note`);
+  if (isTopic) {
+    const members = new Set(groups.flatMap(g => g.concepts));
+    for (const other of notes.map(structureOf)) {
+      if (!other?.topic || other.topic === name) continue;
+      for (const c of other.groups.flatMap(g => g.concepts)) if (members.has(c)) plan.errors.push(`${c} is already in topic ${other.topic}; a concept is in at most one topic`);
+    }
+  }
+  if (plan.errors.length) return plan;
 
-  const title = (p: string) => concepts.find(c => c.path === p)!.title;
+  const canonical = (n: string) => groups.find(g => g.name.toLowerCase() === n.toLowerCase())!.name;
+  const edges = buildsOn.map(e => ({ from: canonical(e.from), to: canonical(e.to) }));
+  const placedConcepts = all.filter(c => groups.some(g => g.concepts.includes(c.path)));
+  const books = new Set(isTopic ? placedConcepts.flatMap(c => conceptBooks(c, notes)) : [name]);
+  const headings = new Set(notes.filter(n => n.raw && books.has(bookOf(n, notes) ?? "")).flatMap(n => [...n.body.matchAll(/^#{1,6}\s+(.+?)\s*$/gm)].map(m => fold(m[1]))).filter(h => !/^page \d+$/.test(h)));
+  for (const g of groups) if (headings.has(fold(g.name))) plan.warnings.push(`group "${g.name}" is a heading of ${isTopic ? "a book it quotes" : "the book"} word for word; a name in your own words builds the frame better`);
+  for (const g of groups) if (!edges.some(e => e.to === g.name) && edges.length) plan.warnings.push(`nothing builds on "${g.name}"`);
+
+  const title = (p: string) => all.find(c => c.path === p)!.title;
   const content = [
     "---",
     `type: ${yamlString(STRUCTURE_TYPE)}`,
-    `book: ${yamlString(book)}`,
+    isTopic ? `topic: ${yamlString(name)}` : `book: ${yamlString(name)}`,
     `date: ${yamlString(date)}`,
     "groups:",
     ...groups.flatMap(g => [`  - name: ${yamlString(g.name)}`, "    concepts:", ...g.concepts.map(c => `      - ${yamlString(c)}`)]),
     ...(edges.length ? ["builds_on:", ...edges.flatMap(e => [`  - from: ${yamlString(e.from)}`, `    to: ${yamlString(e.to)}`])] : ["builds_on: []"]),
     "---",
     "",
-    `# Structure: ${book}`,
+    `# Structure: ${name}`,
     "",
     "Written by the coach from the groups and layers you gave. Edits here are not read back; the record is the frontmatter.",
     ...groups.flatMap(g => ["", `## ${g.name}`, "", ...g.concepts.map(c => `- [[${c.replace(/\.md$/, "")}|${title(c)}]]`)]),
@@ -213,12 +235,47 @@ export function writeStructure(root: string, notes: VaultNote[], sessions: Sessi
     "",
   ].join("\n");
   put(root, plan, path, content, !existing);
-  for (const g of groups) for (const c of g.concepts) {
-    const next = setFrontmatterLines(current(root, plan, c), "group", [`group: ${yamlString(g.name)}`]);
+
+  const setGroup = (c: string, group: string | null) => {
+    const note = all.find(n => n.path === c)!;
+    const cbooks = conceptBooks(note, notes);
+    const byKey: Record<string, string> = { ...groupsOf(note, cbooks[0]) };
+    if (group === null) delete byKey[name]; else byKey[name] = group;
+    const ordered = [...(topicOf(note) && byKey[topicOf(note)!] ? [topicOf(note)!] : []), ...cbooks.filter(b => byKey[b]), ...Object.keys(byKey).filter(k => !cbooks.includes(k) && k !== topicOf(note))];
+    const keys = [...new Set(isTopic && group !== null ? [name, ...ordered.filter(k => k !== name)] : ordered)];
+    let next = setFrontmatterLines(current(root, plan, c), "groups", keys.length ? ["groups:", ...keys.map(k => `  ${yamlString(k)}: ${yamlString(byKey[k])}`)] : null);
+    next = setFrontmatterLines(next, "group", null);
+    if (isTopic) next = setFrontmatterLines(next, "topic", group === null ? null : [`topic: ${yamlString(name)}`]);
     if (next !== current(root, plan, c)) put(root, plan, c, next);
-  }
-  refreshClimbs(root, notes, sessions, plan, concepts.map(c => c.path));
+  };
+  for (const g of groups) for (const c of g.concepts) setGroup(c, g.name);
+  const dropped = (was?.groups.flatMap(g => g.concepts) ?? []).filter(c => !placedConcepts.some(p => p.path === c) && all.some(n => n.path === c));
+  for (const c of dropped) setGroup(c, null);
+  refreshClimbs(root, notes, sessions, plan, [...(isTopic ? placedConcepts : concepts).map(c => c.path), ...dropped]);
   return plan;
+}
+
+// ---------------------------------------------------------------------------------------
+// list_topics
+// ---------------------------------------------------------------------------------------
+
+export interface TopicListing {
+  topic: string;
+  path: string;
+  concepts: string[];
+  /** The books the topic's concepts quote. */
+  books: string[];
+}
+
+export function listTopics(notes: VaultNote[]): TopicListing[] {
+  const out: TopicListing[] = [];
+  for (const s of notes.map(structureOf)) {
+    if (!s?.topic) continue;
+    const concepts = s.groups.flatMap(g => g.concepts);
+    const books = [...new Set(concepts.flatMap(c => { const n = notes.find(x => x.path === c); return n ? conceptBooks(n, notes) : []; }))].sort((a, b) => a.localeCompare(b));
+    out.push({ topic: s.topic, path: s.path, concepts, books });
+  }
+  return out.sort((a, b) => a.topic.localeCompare(b.topic));
 }
 
 // ---------------------------------------------------------------------------------------
@@ -286,4 +343,163 @@ export function conceptWithClimb(path: string, content: string, notes: VaultNote
   const note = noteFromContent(path, content);
   const c = climbOf(note, [...notes, note], sessions);
   return CLIMB_STEPS.some(s => c.steps[s]) ? withClimb(content, c.steps) : content;
+}
+
+// ---------------------------------------------------------------------------------------
+// The climb page (ADR-KI-0069)
+// ---------------------------------------------------------------------------------------
+
+export const SKETCHES_FOLDER = posix.join(CONCEPTS_FOLDER, "Sketches");
+export const MAX_SKETCH_BYTES = 4 * 1024 * 1024;
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+export interface ClimbView {
+  /** Each concept's climb; book and group are its first book and the group shown, books and groups all of them. */
+  concepts: (ConceptClimb & { book: string | null; group: string | null })[];
+  /**
+   * The books and topics the page offers, each with its concepts and structure note. A
+   * topic's concepts are those it lists; `candidates` are every concept note it may list.
+   */
+  books: { book: string; kind: "book" | "topic"; concepts: { path: string; title: string }[]; candidates: { path: string; title: string }[]; structure: string | null }[];
+  sketches: { path: string; name: string }[];
+}
+
+export function climbView(notes: VaultNote[], sessions: SessionRecord[], sketchFiles: string[]): ClimbView {
+  const concepts = notes.filter(isConceptNote).map(c => ({ ...climbOf(c, notes, sessions), book: conceptBook(c, notes), group: groupOf(c, notes) }));
+  const ref = (c: { path: string; title: string }) => ({ path: c.path, title: c.title });
+  const byBook = new Map<string, { path: string; title: string }[]>();
+  for (const c of concepts) for (const b of c.books) byBook.set(b, [...(byBook.get(b) ?? []), ref(c)]);
+  const structures = notes.map(structureOf).filter((s): s is NonNullable<typeof s> => s !== null);
+  const books = [...byBook.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([book, cs]) => ({ book, kind: "book" as const, concepts: cs, candidates: cs, structure: structures.find(s => s.book === book)?.path ?? null }));
+  const topics = listTopics(notes).map(t => ({ book: t.topic, kind: "topic" as const, concepts: concepts.filter(c => t.concepts.includes(c.path)).map(ref), candidates: concepts.map(ref), structure: t.path }));
+  return { concepts, books: [...topics, ...books], sketches: sketchFiles.map(p => ({ path: p, name: posix.basename(p, ".png") })) };
+}
+
+/** The structure of a book or a topic with its concepts' titles, as revealed after a drawing from memory. */
+export function revealStructure(notes: VaultNote[], name: string) {
+  const s = notes.map(structureOf).find(x => x?.book === name || x?.topic === name) ?? null;
+  if (!s) return null;
+  const title = (p: string) => notes.find(n => n.path === p)?.title ?? posix.basename(p, ".md");
+  return { path: s.path, kind: s.topic ? "topic" : "book", groups: s.groups.map(g => ({ name: g.name, concepts: g.concepts.map(c => ({ path: c, title: title(c) })) })), buildsOn: s.buildsOn, title };
+}
+
+export interface SketchPlan {
+  errors: string[];
+  path: string | null;
+  bytes: number;
+}
+
+/** Where a freehand sketch of a concept or a book goes: a new PNG, never over another. */
+export function planSketch(root: string, notes: VaultNote[], target: string, png: Buffer, date: string): SketchPlan {
+  const plan: SketchPlan = { errors: [], path: null, bytes: png.length };
+  const concept = notes.filter(isConceptNote).find(c => c.path === target || c.title === target);
+  const book = concept ? null : notes.filter(isConceptNote).flatMap(c => conceptBooks(c, notes)).find(b => b === target) ?? null;
+  if (!concept && !book) plan.errors.push(`${target} is neither a concept note nor a book with concept notes`);
+  if (!png.subarray(0, 8).equals(PNG)) plan.errors.push("a sketch is a PNG image");
+  if (png.length > MAX_SKETCH_BYTES) plan.errors.push(`a sketch is at most ${MAX_SKETCH_BYTES / 1024 / 1024} MB`);
+  if (plan.errors.length) return plan;
+  const base = `${safeName(concept?.title ?? book!) ?? "Sketch"} ${date}`;
+  let path = posix.join(SKETCHES_FOLDER, `${base}.png`);
+  for (let n = 2; existsSync(join(root, path)); n++) path = posix.join(SKETCHES_FOLDER, `${base} (${n}).png`);
+  plan.path = path;
+  return plan;
+}
+
+// ---------------------------------------------------------------------------------------
+// extend_concept (ADR-KI-0071)
+// ---------------------------------------------------------------------------------------
+
+export interface ExtendConceptInput {
+  /** An existing concept note, by path or title. */
+  note: string;
+  passages?: Passage[];
+  /** Reading notes the concept now also came from. */
+  from_notes?: string[];
+  /** Assertions to add, in the learner's own words. */
+  core_assertions?: string[];
+}
+
+export interface ExtendConceptPlan extends ClimbWritePlan {
+  path: string | null;
+  /** Each new passage as checked, with the pages it was found on. */
+  passages: PassageCheck[];
+}
+
+/** Lines added at the end of a `## ` section of a body; when it is missing it is made before `before`, else at the end. */
+function addToSection(content: string, heading: string, add: string[], before: string[]): string {
+  const nl = content.includes("\r\n") ? "\r\n" : "\n";
+  const lines = content.split(/\r?\n/);
+  const isHeading = (l: string, h: string) => l.trimEnd() === `## ${h}`;
+  const at = lines.findIndex(l => isHeading(l, heading));
+  if (at < 0) {
+    const next = lines.findIndex(l => before.some(h => isHeading(l, h)));
+    const block = [`## ${heading}`, "", ...add, ""];
+    if (next >= 0) return [...lines.slice(0, next), ...block, ...lines.slice(next)].join(nl);
+    while (lines.length && lines[lines.length - 1] === "") lines.pop();
+    return [...lines, "", ...block].join(nl);
+  }
+  let end = lines.findIndex((l, i) => i > at && /^#{1,2} /.test(l));
+  if (end < 0) end = lines.length;
+  let last = end;
+  while (last > at + 1 && lines[last - 1] === "") last--;
+  return [...lines.slice(0, last), ...add, ...(end < lines.length ? [""] : []), ...lines.slice(end)].join(nl);
+}
+
+/**
+ * Add another book's passages, reading notes or assertions to an existing concept note,
+ * so one idea read in several books stays one note. Nothing on the note is removed or
+ * rewritten: each list gains entries and the body gains quotes.
+ */
+export function extendConcept(root: string, notes: VaultNote[], sessions: SessionRecord[], input: ExtendConceptInput): ExtendConceptPlan {
+  const plan: ExtendConceptPlan = { ...emptyPlan(), path: null, passages: [] };
+  const ref = String(input.note ?? "").trim();
+  const note = notes.find(n => n.path === ref || n.path === `${ref}.md`) ?? notes.filter(isConceptNote).find(n => n.title === ref || posix.basename(n.path, ".md") === ref);
+  if (!note) { plan.errors.push(`no note ${ref}`); return plan; }
+  const c = conceptOf(note);
+  if (!c || !isConceptNote(note)) { plan.errors.push(`${note.path} is not a concept note`); return plan; }
+  plan.path = note.path;
+  const fields = c.fields;
+  const passages = Array.isArray(input.passages) ? input.passages : [];
+  const fromNotes = (Array.isArray(input.from_notes) ? input.from_notes : []).map(String);
+  const assertions = (Array.isArray(input.core_assertions) ? input.core_assertions : []).map(a => String(a).trim());
+  if (!passages.length && !fromNotes.length && !assertions.length) { plan.errors.push("nothing to add: give passages, from_notes or core_assertions"); return plan; }
+
+  plan.passages = checkPassages(notes, passages);
+  const have = new Set(fields.passages.map(p => fold(p.quote)));
+  plan.passages.forEach((p, i) => {
+    if (!p.found) plan.errors.push(`passages[${i}]: ${p.problem}`);
+    if (have.has(fold(p.quote))) plan.errors.push(`passages[${i}]: ${note.path} already quotes this passage`);
+    have.add(fold(p.quote));
+  });
+  if (fields.passages.length + passages.length > MAX_PASSAGES) plan.errors.push(`a concept note quotes at most ${MAX_PASSAGES} passages; it has ${fields.passages.length} and ${passages.length} would be added`);
+
+  const byPath = new Map(notes.map(n => [n.path, n]));
+  for (const n of fromNotes) {
+    const r = byPath.get(n);
+    if (!r) plan.errors.push(`from_notes: no note ${n}`);
+    else if (r.raw) plan.errors.push(`from_notes: ${n} is a raw resource; name your own reading notes`);
+    else if (fields.fromNotes.includes(n)) plan.errors.push(`from_notes: ${note.path} already names ${n}`);
+  }
+  const known = new Set(fields.coreAssertions.map(fold));
+  for (const a of assertions) {
+    if (!a) plan.errors.push("core_assertions: an assertion is empty");
+    else if (known.has(fold(a))) plan.errors.push(`core_assertions: "${a}" is already an assertion of ${note.path}`);
+    known.add(fold(a));
+  }
+  if (fields.coreAssertions.length + assertions.length > MAX_ASSERTIONS) plan.errors.push(`a concept note has at most ${MAX_ASSERTIONS} core assertions; it has ${fields.coreAssertions.length} and ${assertions.length} would be added`);
+  if (plan.errors.length) return plan;
+
+  const judged = note.coachId ? sessions.filter(s => s.items.some(i => i.coach_id === note.coachId)).length : 0;
+  if (assertions.length && judged) plan.warnings.push(`${note.path} has ${judged} session${judged > 1 ? "s" : ""} judged against its ${fields.coreAssertions.length} assertion${fields.coreAssertions.length > 1 ? "s" : ""}; the next review checks all ${fields.coreAssertions.length + assertions.length}`);
+
+  const added = plan.passages.map(({ found: _f, problem: _p, ...p }) => p);
+  let content = current(root, plan, note.path);
+  if (added.length) content = setFrontmatterLines(content, "source_passages", passagesLines([...fields.passages, ...added]));
+  if (fromNotes.length) content = setFrontmatterLines(content, "from_notes", conceptListLines("from_notes", [...fields.fromNotes, ...fromNotes]));
+  if (assertions.length) content = setFrontmatterLines(content, "core_assertions", conceptListLines("core_assertions", [...fields.coreAssertions, ...assertions]));
+  if (added.length) content = addToSection(content, "Source passages", added.flatMap(p => ["", ...passageLines(p, byPath)]), ["From my reading notes", "My elaborations"]);
+  if (fromNotes.length) content = addToSection(content, "From my reading notes", fromNotes.map(n => fromNoteLine(n, byPath)), ["My elaborations"]);
+  put(root, plan, note.path, content);
+  refreshClimbs(root, notes, sessions, plan, [note.path]);
+  return plan;
 }
