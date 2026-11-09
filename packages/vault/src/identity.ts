@@ -1,6 +1,6 @@
 /**
  * Note identity (ADR-KI-0058 Decision 5): a `coach_id` frontmatter key, which with a book
- * index's `read_on` (ADR-KI-0061) are the only keys the engine ever adds to a note. Inserted by a line-anchored edit (ADR-KI-0006): every other
+ * index's `read_on` (ADR-KI-0061) and a concept note's `climb` and `group` (ADR-KI-0068) are the only keys the engine ever adds to a note. Inserted by a line-anchored edit (ADR-KI-0006): every other
  * byte of the note, its existing frontmatter included, is left exactly as it was.
  */
 

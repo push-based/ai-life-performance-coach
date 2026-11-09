@@ -102,7 +102,7 @@ export function addTasksTool(vault: Vault): ToolDef {
 export function setFrontmatterTool(vault: Vault): ToolDef {
   return defineTool({
   name: "set_frontmatter",
-  description: "Set or remove frontmatter keys of a note under the PARA folders or Plans/ (ADR-KI-0064), changing only those keys' lines: a project's status, deadline or done_when, a workstream's or area's status. status must be todo, in-progress, blocked or done, and deadline YYYY-MM-DD; null removes a key. Refuses keys the vault tools own (coach_id, converted_from, raw_role, pages) and raw text. Preview, then execute: true with the preview's versions.",
+  description: "Set or remove frontmatter keys of a note under the PARA folders or Plans/ (ADR-KI-0064), changing only those keys' lines: a project's status, deadline or done_when, a workstream's or area's status. status must be todo, in-progress, blocked or done, and deadline YYYY-MM-DD; null removes a key. Refuses keys the vault tools own (coach_id, converted_from, raw_role, pages, climb, group) and raw text. Preview, then execute: true with the preview's versions.",
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
   schema: {
     note: z.string().describe("e.g. 1.Projects/AI-Coach/AI-Coach.md"),

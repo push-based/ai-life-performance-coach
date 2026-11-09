@@ -464,7 +464,7 @@ export function addHabits(root: string, notes: VaultNote[], input: AddHabitsInpu
 
 export type FrontmatterValue = string | number | boolean | string[] | null;
 /** Keys other tools own: a session's tie to its note, and a converted book's provenance. */
-const MACHINE_KEYS = ["coach_id", "converted_from", "raw_role", "pages"];
+const MACHINE_KEYS = ["coach_id", "converted_from", "raw_role", "pages", "climb", "group"];
 
 function yamlValue(v: Exclude<FrontmatterValue, null>): string {
   if (Array.isArray(v)) return `[${v.map(x => JSON.stringify(x)).join(", ")}]`;
