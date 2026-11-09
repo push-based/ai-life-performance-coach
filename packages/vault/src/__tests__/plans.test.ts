@@ -119,8 +119,8 @@ describe("plan_period", () => {
     });
     expect(plan.errors).toEqual([]);
     expect(plan.edits).toEqual([
-      { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", line: 6, before: "- [ ] Workshop posters #S", after: "- [ ] Workshop posters #S ⏳ 2026-11-03" },
-      { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", line: 7, before: "- [ ] Panel posters #M ⏳ 2026-10-20 ^pp", after: "- [ ] Panel posters #M ⏳ 2026-11-02 ^pp" },
+      { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", line: 2, fileLine: 6, before: "- [ ] Workshop posters #S", after: "- [ ] Workshop posters #S ⏳ 2026-11-03" },
+      { note: "1.Projects/Expo2026/Workstreams/Marketing/Items.md", line: 3, fileLine: 7, before: "- [ ] Panel posters #M ⏳ 2026-10-20 ^pp", after: "- [ ] Panel posters #M ⏳ 2026-11-02 ^pp" },
     ]);
     await executePlanPeriod(dir, plan);
     expect(read("1.Projects/Expo2026/Workstreams/Marketing/Items.md")).toBe("---\nstatus: in-progress\n---\n## Posters\n\n- [ ] Workshop posters #S ⏳ 2026-11-03\n- [ ] Panel posters #M ⏳ 2026-11-02 ^pp\n- [x] Badge design ✅ 2026-10-01\n");
@@ -179,6 +179,17 @@ describe("plan_period", () => {
 });
 
 describe("plan_period edge cases", () => {
+  it("writes a new day plan into its month's folder, and an unmigrated one where it is", async () => {
+    put("2.Areas/Health.md", "# Health\n");
+    put("Plans/Daily/2026-11-03.md", "# 2026-11-03\n\n## Ad-hoc\n");
+    const flat = planPeriod(dir, await scanVault(dir), { period: "2026-11-03", adHoc: [{ text: "Stretch", link: "Health" }] });
+    expect(flat.plan).toBe("Plans/Daily/2026-11-03.md");
+    expect(flat.creates).toBe(false);
+    const fresh = planPeriod(dir, await scanVault(dir), { period: "2026-11-04", adHoc: [{ text: "Stretch", link: "Health" }] });
+    expect(fresh.plan).toBe("Plans/Daily/2026/11-November/2026-11-04.md");
+    expect(fresh.creates).toBe(true);
+  });
+
   it("keeps new goals when it also schedules a task in the same plan", async () => {
     put("2.Areas/Health.md", "# Health\n");
     put("Plans/Weekly/2026-W45.md", "## Goals\n\n## Ad-hoc\n\n- [ ] Call the physio [[Health]]\n");

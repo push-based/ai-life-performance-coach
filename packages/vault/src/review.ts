@@ -5,8 +5,10 @@
  * the goals that serve it down the chain. Reading only.
  */
 
-import { planning, type OwnedTask, type Owner } from "./planning.js";
+import { planning, type OwnedTask, type Owner, type Planning } from "./planning.js";
 import { periodOf, planPathOf, type Period } from "./plans.js";
+import { dayBefore, daysBetween, habitKey, isHabitDue } from "./habits.js";
+import { noteResolver } from "./graph.js";
 import type { VaultNote } from "./scan.js";
 
 export interface Effort {
@@ -38,6 +40,22 @@ export interface GoalReview {
   children: GoalReview[];
 }
 
+export interface HabitReview {
+  text: string;
+  /** The note the habit is defined in. */
+  note: string;
+  owner: Owner;
+  rule: string;
+  /** Days in the period, up to today, the rule falls on. */
+  due: number;
+  /** Of those, the days whose check is ticked in the day plan. */
+  done: number;
+  /** Due days before today that were not ticked; today is not missed yet. */
+  missed: number;
+  /** Due days in a row, back from today, that were ticked; an unticked today does not break it. */
+  streak: number;
+}
+
 export interface PeriodReview {
   period: Period;
   today: string;
@@ -47,6 +65,8 @@ export interface PeriodReview {
   effort: { total: Effort; projects: ProjectEffort[]; areas: (Effort & { name: string })[]; unlinked: Effort };
   /** Done tasks without a size tag, counted as S. */
   untaggedDone: number;
+  /** Each habit: how many of its due days were ticked, and its current streak (ADR-KI-0065). */
+  habits: HabitReview[];
   goals: GoalReview[];
   goalCounts: Record<GoalStatus, number>;
   /** Items that slipped out of this period (tagged #slipped/<period>). */
@@ -66,7 +86,7 @@ export function reviewPeriod(root: string, notes: VaultNote[], periodName: strin
   if (!period) return { error: `"${periodName}" is not a period: use YYYY, YYYY-Qn, YYYY-MM, YYYY-Www or YYYY-MM-DD` };
   const p = planning(root, notes);
   const inPeriod = (d: string | null) => !!d && d >= period.start && d <= period.end;
-  const done = p.tasks.filter(t => !t.goal && t.state === "done" && inPeriod(t.doneOn));
+  const done = p.tasks.filter(t => !t.goal && !t.habit && t.state === "done" && inPeriod(t.doneOn));
 
   const total = zero();
   const unlinked = zero();
@@ -128,6 +148,7 @@ export function reviewPeriod(root: string, notes: VaultNote[], periodName: strin
     period, today, closed, plan: plan?.path ?? null,
     effort: { total, projects: [...projects.values()].sort(byWeight), areas: [...areas.values()].sort(byWeight), unlinked },
     untaggedDone: done.filter(t => !t.size).length,
+    habits: reviewHabits(p, notes, period, today),
     goals, goalCounts,
     slipped: p.tasks.filter(t => t.slipped.includes(period.period))
       .map(t => ({ text: t.text, note: t.note, owner: t.owner, goal: t.goal, slips: t.slipped.length })),
@@ -135,4 +156,32 @@ export function reviewPeriod(root: string, notes: VaultNote[], periodName: strin
       .map(t => ({ text: t.text, note: t.note, owner: t.owner, slipped: t.slipped })),
     warnings: p.warnings.filter(w => w.startsWith(`${planPathOf(period)}:`)),
   };
+}
+
+/** Each habit's due and ticked days in the period up to today, and its streak back from today. */
+function reviewHabits(p: Planning, notes: VaultNote[], period: Period, today: string): HabitReview[] {
+  const resolver = noteResolver(notes);
+  const ticked = new Set<string>();
+  for (const t of p.tasks) {
+    if (!t.habit || t.state !== "done" || !t.plan) continue;
+    const first = t.links[0];
+    const note = first ? resolver.resolve(t.note, first) : null;
+    if (note) ticked.add(`${t.plan.period}|${note}|${habitKey(t.text)}`);
+  }
+  const last = period.end < today ? period.end : today;
+  const days = period.start <= last ? daysBetween(period.start, last) : [];
+  return p.habits.map(h => {
+    const isDone = (day: string) => ticked.has(`${day}|${h.note}|${habitKey(h.text)}`);
+    const due = days.filter(d => isHabitDue(h.rule, d));
+    const done = due.filter(isDone).length;
+    const missed = due.filter(d => d < today && !isDone(d)).length;
+    let streak = 0;
+    let day = today;
+    for (let i = 0; i < 3660; i++, day = dayBefore(day)) {
+      if (!isHabitDue(h.rule, day)) continue;
+      if (isDone(day)) streak++;
+      else if (day !== today) break;
+    }
+    return { text: h.text, note: h.note, owner: h.owner, rule: h.rule, due: due.length, done, missed, streak };
+  });
 }

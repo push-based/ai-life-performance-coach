@@ -23,7 +23,7 @@ import { searchPassages, type PassageHit, type PassageSearchOptions } from "./se
 import { markedPassages, type MarkedPassage } from "./marks.js";
 import { planning, type Planning } from "./planning.js";
 import { planPeriod, planDays, executeWrites, staleNotes, versionsOf, type DayInput, type NoteWrites, type PlanPeriodInput } from "./plans.js";
-import { addTasks, createWorkstream, editNote, setFrontmatter, updateTasks, type AddTasksInput, type CreateWorkstreamInput, type EditNoteInput, type FrontmatterValue, type TaskUpdate } from "./note-edits.js";
+import { addHabits, addTasks, createWorkstream, editNote, setFrontmatter, updateTasks, type AddHabitsInput, type AddTasksInput, type CreateWorkstreamInput, type EditNoteInput, type FrontmatterValue, type TaskUpdate } from "./note-edits.js";
 import { rollOver } from "./rollover.js";
 import { reviewPeriod, type PeriodReview } from "./review.js";
 import { harvestWorkstream, executeHarvest, type HarvestPlan, type PacketInput } from "./harvest.js";
@@ -116,6 +116,8 @@ export interface Vault {
   updateTasks(updates: TaskUpdate[], execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof updateTasks>>>;
   /** Add tasks to a project, workstream, area or plan note (ADR-KI-0064 Decision 4). */
   addTasks(input: AddTasksInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof addTasks>>>;
+  /** Define habits in a project, workstream or area note (ADR-KI-0065). */
+  addHabits(input: AddHabitsInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof addHabits>>>;
   /** Set or remove frontmatter keys (ADR-KI-0064 Decision 6). */
   setFrontmatter(note: string, set: Record<string, FrontmatterValue>, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReturnType<typeof setFrontmatter>>>;
   /** Replace exact text, or one section, in a note's body (ADR-KI-0064 Decision 8). */
@@ -345,6 +347,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       return applyNoteWrites(root, plan, execute, versions);
     },
     addTasks: async (input, execute, versions) => applyNoteWrites(root, addTasks(root, await scanVault(root), input), execute, versions),
+    addHabits: async (input, execute, versions) => applyNoteWrites(root, addHabits(root, await scanVault(root), input), execute, versions),
     setFrontmatter: async (note, set, execute, versions) => applyNoteWrites(root, setFrontmatter(root, await scanVault(root), note, set), execute, versions),
     editNote: async (input, execute, versions) => applyNoteWrites(root, editNote(root, await scanVault(root), input), execute, versions),
     createWorkstream: async (input, execute, versions) => applyNoteWrites(root, createWorkstream(root, await scanVault(root), input), execute, versions),

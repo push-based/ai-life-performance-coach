@@ -13,6 +13,7 @@ import { PARA_FOLDERS, PLANS_ROOT } from "./para.js";
 import { extractLinks, type RawLink } from "./links.js";
 import { noteResolver } from "./graph.js";
 import type { VaultNote } from "./scan.js";
+import { HABITS_HEADING, HABIT_RULES, parseHabits, type HabitDefinition } from "./habits.js";
 
 export const WORKSTREAMS_FOLDER = "Workstreams";
 export const PACKETS_FOLDER = "Intermediate Packets";
@@ -44,13 +45,43 @@ export interface PlanRef {
   period: string;
 }
 
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** A month's folder name, its number then its name, such as `11-November`. */
+export const monthFolder = (month: number): string => `${month}-${MONTH_NAMES[month - 1]}`;
+
+/** Where a plan lives: `Plans/<Level>/<period>.md`, and a day in its year's and month's folders, `Plans/Daily/2026/11-November/2026-11-09.md` (ADR-KI-0067). */
+export const planPathOf = (p: PlanRef): string =>
+  p.level === "day"
+    ? posix.join(PLANS_ROOT, PLAN_LEVELS.day, p.period.slice(0, 4), monthFolder(Number(p.period.slice(5, 7))), `${p.period}.md`)
+    : posix.join(PLANS_ROOT, PLAN_LEVELS[p.level], `${p.period}.md`);
+
+/** True for a period name of that level, such as `2026-W45` for a week. */
+export const isPeriodName = (level: PlanLevel, name: string): boolean => PERIOD[level].test(name);
+
+/** A day plan still at `Plans/Daily/YYYY-MM-DD.md`, outside its month's folder: the path it belongs at, else null. */
+export function flatDay(path: string): string | null {
+  const parts = path.split("/");
+  if (parts.length !== 3 || parts[0] !== PLANS_ROOT || parts[1] !== PLAN_LEVELS.day || !path.endsWith(".md")) return null;
+  const period = parts[2].slice(0, -3);
+  return isPeriodName("day", period) ? planPathOf({ level: "day", period }) : null;
+}
+
 /** The plan a path names, or null when it is not a plan note. */
 export function planOf(path: string): PlanRef | null {
   const parts = path.split("/");
-  if (parts.length !== 3 || parts[0] !== PLANS_ROOT || !parts[2].endsWith(".md")) return null;
+  if (parts[0] !== PLANS_ROOT || !path.endsWith(".md")) return null;
   const level = (Object.keys(PLAN_LEVELS) as PlanLevel[]).find(l => PLAN_LEVELS[l] === parts[1]);
-  const period = parts[2].slice(0, -3);
-  return level && PERIOD[level].test(period) ? { level, period } : null;
+  if (!level) return null;
+  const ref = { level, period: posix.basename(path, ".md") };
+  return isPeriodName(level, ref.period) && (planPathOf(ref) === path || flatDay(path)) ? ref : null;
+}
+
+/** Where a plan is in this vault: its path, or a day plan's old flat path while only that one exists (ADR-KI-0067). */
+export function planPathIn(p: PlanRef, has: (path: string) => boolean): string {
+  const path = planPathOf(p);
+  const flat = posix.join(PLANS_ROOT, PLAN_LEVELS.day, `${p.period}.md`);
+  return p.level === "day" && !has(path) && has(flat) ? flat : path;
 }
 
 export type Priority = "highest" | "high" | "medium" | "low" | "lowest";
@@ -89,7 +120,7 @@ export interface Task {
   weight: number;
   /** Periods named by `#slipped/<period>` tags, in the order written. */
   slipped: string[];
-  /** The Tasks recurrence rule after `🔁`, e.g. `every day`; a repeating task is a habit, not a slip. */
+  /** The Tasks recurrence rule after `🔁`, e.g. `every day`; a repeating task does not slip. Habits are defined apart (ADR-KI-0065). */
   recurrence: string | null;
   /** The Tasks id after `🆔`, which other tasks name in `⛔` to wait on it. */
   id: string | null;
@@ -101,6 +132,8 @@ export interface Task {
   parent: { target: string; block: string } | null;
   /** True for a checkbox under a `Goals` heading of a year, quarter, month or week plan. */
   goal: boolean;
+  /** True for a checkbox under a `Habits` heading of a day plan: that day's check of a habit (ADR-KI-0065). */
+  habit: boolean;
   links: RawLink[];
 }
 
@@ -121,11 +154,17 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
   const out: Task[] = [];
   let fenced = false;
   let inGoals = false;
+  let inHabits = false;
   lines(body).forEach((raw, line) => {
     if (FENCE_LINE.test(raw)) { fenced = !fenced; return; }
     if (fenced) return;
     const h = raw.match(HEADING);
-    if (h) { inGoals = h[2].trim().toLowerCase() === "goals"; return; }
+    if (h) {
+      const name = h[2].trim().toLowerCase();
+      inGoals = name === "goals";
+      inHabits = name === HABITS_HEADING.toLowerCase();
+      return;
+    }
     const m = raw.match(CHECKBOX);
     if (!m) return;
     let rest = m[2];
@@ -158,6 +197,7 @@ export function parseTasks(note: string, body: string, plan: PlanRef | null = nu
       note, line, text: rest.replace(/\s+/g, " ").trim(), state, scheduled, doneOn, priority, size,
       weight: size ? SIZE_WEIGHTS[size] : 1, slipped, recurrence, id, blockedBy, blockId, parent,
       goal: inGoals && plan !== null && plan.level !== "day",
+      habit: inHabits && plan?.level === "day",
       // The parent link points at a plan, not at the work, so it is not a link to an owner.
       links: extractLinks(m[2].replace(PARENT, "")),
     });
@@ -218,10 +258,19 @@ export interface OwnedTask extends Task {
   plan: PlanRef | null;
 }
 
+/** A habit defined in a project, workstream or area note (ADR-KI-0065). */
+export interface Habit extends HabitDefinition {
+  /** The note the habit is defined in, which its day checks link. */
+  note: string;
+  owner: Owner;
+}
+
 export interface Planning {
   projects: Project[];
   areas: Area[];
   plans: Plan[];
+  /** Habits of active projects, workstreams and areas whose status is not done. */
+  habits: Habit[];
   /** Checkboxes in projects, areas and plans; those elsewhere in the vault are not planned work. */
   tasks: OwnedTask[];
   warnings: string[];
@@ -300,7 +349,9 @@ export function planning(root: string, notes: VaultNote[]): Planning {
     if (!under(n.path, PLANS_ROOT) || under(n.path, TEMPLATES)) continue;
     const ref = planOf(n.path);
     if (ref) plans.push({ ...ref, path: n.path, title: n.title });
-    else warnings.push(`${n.path}: not a plan name; expected ${PLANS_ROOT}/<${Object.values(PLAN_LEVELS).join("|")}>/<period>.md`);
+    else warnings.push(`${n.path}: not a plan name; expected ${PLANS_ROOT}/<${Object.values(PLAN_LEVELS).join("|")}>/<period>.md, a day as ${PLANS_ROOT}/${PLAN_LEVELS.day}/<year>/<month number>-<month name>/YYYY-MM-DD.md`);
+    const grouped = flatDay(n.path);
+    if (grouped) warnings.push(`${n.path}: a day plan outside its month's folder; init_vault moves it to ${grouped}`);
   }
 
   // Owner of a note by where it sits. An Intermediate Packet is reusable material, not the
@@ -338,5 +389,19 @@ export function planning(root: string, notes: VaultNote[]): Planning {
       tasks.push({ ...t, owner, plan });
     }
   }
-  return { projects, areas, plans, tasks, warnings };
+  const finished = new Set<string>();
+  for (const pr of projects) {
+    for (const w of pr.workstreams) if (pr.archived || w.status === "done") w.notes.forEach(n => finished.add(n));
+    if (pr.archived) for (const n of notes) if (under(n.path, pr.folder)) finished.add(n.path);
+  }
+  for (const a of areas) if (a.status === "done") a.notes.forEach(n => finished.add(n));
+  const habits: Habit[] = [];
+  for (const n of notes) {
+    const owner = ownerByNote.get(n.path);
+    if (!owner || planOf(n.path) || finished.has(n.path)) continue;
+    const found = parseHabits(n.body);
+    for (const h of found.habits) habits.push({ ...h, note: n.path, owner });
+    for (const h of found.invalid) warnings.push(`${n.path}:${h.line + 1}: habit "${h.text}" has the rule "${h.rule}"; use ${HABIT_RULES}`);
+  }
+  return { projects, areas, plans, habits, tasks, warnings };
 }

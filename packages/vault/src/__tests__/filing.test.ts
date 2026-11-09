@@ -134,6 +134,31 @@ describe("init_vault", () => {
     expect(read("4.Archive/old notes/Attachments/Caption.md")).toBe("caption");
   });
 
+  it("moves day plans into their month's folder and leaves other files in Plans/Daily alone", async () => {
+    put("Plans/Daily/2026-10-31.md", "# 2026-10-31\n");
+    put("Plans/Daily/2026-11-01.md", "# 2026-11-01\n");
+    put("Plans/Daily/2026/11-November/2026-11-02.md", "# 2026-11-02\n");
+    put("Plans/Daily/scratch.md", "not a day");
+    const preview = await vault.initVault(false);
+    expect(preview.actions.filter(a => a.op === "move")).toEqual([
+      { op: "move", from: "Plans/Daily/2026-10-31.md", to: "Plans/Daily/2026/10-October/2026-10-31.md" },
+      { op: "move", from: "Plans/Daily/2026-11-01.md", to: "Plans/Daily/2026/11-November/2026-11-01.md" },
+    ]);
+    expect(has("Plans/Daily/2026-10-31.md")).toBe(true);
+    await vault.initVault(true);
+    expect(read("Plans/Daily/2026/10-October/2026-10-31.md")).toBe("# 2026-10-31\n");
+    expect(read("Plans/Daily/2026/11-November/2026-11-01.md")).toBe("# 2026-11-01\n");
+    expect(has("Plans/Daily/2026-11-01.md")).toBe(false);
+    expect(read("Plans/Daily/scratch.md")).toBe("not a day");
+  });
+
+  it("moves no day plan when its month's folder already holds that day", async () => {
+    put("Plans/Daily/2026-11-01.md", "flat");
+    put("Plans/Daily/2026/11-November/2026-11-01.md", "grouped");
+    const preview = await vault.initVault(false);
+    expect(preview.collisions).toContain("Plans/Daily/2026/11-November/2026-11-01.md");
+  });
+
   it("never touches Coach/", async () => {
     put("Coach/sessions/s.md", "session");
     await vault.initVault(true);

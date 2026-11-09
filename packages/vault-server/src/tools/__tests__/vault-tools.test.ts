@@ -37,8 +37,8 @@ afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 describe("vault tool registry", () => {
   it("lists every tool, with the writers marked as such", () => {
     const tools = createVaultTools(vault);
-    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "marked_passages", "create_concept", "reading_progress", "mark_read", "write_summary", "planning_overview", "plan_period", "plan_days", "add_tasks", "update_task", "set_frontmatter", "edit_note", "create_workstream", "roll_over", "review_period", "harvest_workstream"]);
-    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept", "mark_read", "write_summary", "plan_period", "plan_days", "add_tasks", "update_task", "set_frontmatter", "edit_note", "create_workstream", "roll_over", "harvest_workstream"]);
+    expect(tools.map(t => t.name)).toEqual(["list_notes", "read_note", "search", "vault_graph", "due_for_review", "tier2_payload", "record_session", "init_vault", "capture", "file_note", "archive_project", "list_raw", "convert_raw", "find_passages", "marked_passages", "create_concept", "reading_progress", "mark_read", "write_summary", "planning_overview", "plan_period", "plan_days", "add_tasks", "add_habits", "update_task", "set_frontmatter", "edit_note", "create_workstream", "roll_over", "review_period", "harvest_workstream"]);
+    expect(tools.filter(t => !t.annotations?.readOnlyHint).map(t => t.name)).toEqual(["record_session", "init_vault", "capture", "file_note", "archive_project", "convert_raw", "create_concept", "mark_read", "write_summary", "plan_period", "plan_days", "add_tasks", "add_habits", "update_task", "set_frontmatter", "edit_note", "create_workstream", "roll_over", "harvest_workstream"]);
   });
 });
 
@@ -103,7 +103,7 @@ describe("vault server over MCP", () => {
     await client.connect(clientSide);
     try {
       const { tools } = await client.listTools();
-      expect(tools.map(t => t.name).sort()).toEqual(["add_tasks", "archive_project", "capture", "convert_raw", "create_concept", "create_workstream", "due_for_review", "edit_note", "file_note", "find_passages", "harvest_workstream", "init_vault", "list_notes", "list_raw", "mark_read", "marked_passages", "plan_days", "plan_period", "planning_overview", "read_note", "reading_progress", "record_session", "review_period", "roll_over", "search", "set_frontmatter", "tier2_payload", "update_task", "vault_graph", "write_summary"]);
+      expect(tools.map(t => t.name).sort()).toEqual(["add_habits", "add_tasks", "archive_project", "capture", "convert_raw", "create_concept", "create_workstream", "due_for_review", "edit_note", "file_note", "find_passages", "harvest_workstream", "init_vault", "list_notes", "list_raw", "mark_read", "marked_passages", "plan_days", "plan_period", "planning_overview", "read_note", "reading_progress", "record_session", "review_period", "roll_over", "search", "set_frontmatter", "tier2_payload", "update_task", "vault_graph", "write_summary"]);
       const res = await client.callTool({ name: "list_notes", arguments: { bucket: "resources" } });
       const data = JSON.parse((res.content as { text: string }[])[0].text);
       expect(data.notes.map((n: { path: string }) => n.path)).toEqual([
@@ -305,5 +305,35 @@ describe("planning_overview", () => {
     ]);
     expect(data.overdue.map((t: { text: string }) => t.text)).toEqual(["Late"]);
     expect((await call("planning_overview", { scope: "period" })).res.isError).toBe(true);
+  });
+});
+
+describe("habits", () => {
+  it("add_habits defines a habit; planning_overview gives a day's due habits and checks, never as overdue", async () => {
+    put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\n---\n# Expo2026\n");
+    put("1.Projects/Expo2026/Workstreams/Morning.md", "---\nstatus: in-progress\n---\n# Morning\n");
+    const preview = await call("add_habits", { note: "1.Projects/Expo2026/Workstreams/Morning.md", habits: [{ text: "Up at 6:00", rule: "every day" }] });
+    await call("add_habits", { note: "1.Projects/Expo2026/Workstreams/Morning.md", habits: [{ text: "Up at 6:00", rule: "every day" }], execute: true, versions: preview.data.versions });
+    put("Plans/Daily/2026/11-November/2026-11-02.md", "## Habits\n\n- [ ] Up at 6:00 [[Morning]]\n");
+    const { data } = await call("planning_overview", { period: "2026-11-03", scope: "period" });
+    expect(data.habitsDue).toEqual([expect.objectContaining({ text: "Up at 6:00", rule: "every day", note: "1.Projects/Expo2026/Workstreams/Morning.md" })]);
+    expect(data.habitChecks).toEqual([]);
+    expect(data.overdue).toEqual([]);
+    const all = await call("planning_overview");
+    expect(all.data.habits.map((h: { text: string }) => h.text)).toEqual(["Up at 6:00"]);
+    expect(all.data.openTasks).toEqual([]);
+    expect((await call("add_habits", { note: "1.Projects/Expo2026/Workstreams/Morning.md", habits: [{ text: "Run", rule: "every 2 days" }] })).res.isError).toBe(true);
+  });
+});
+
+describe("update_task", () => {
+  it("reaches a ticked task with include_closed, and its preview line is the one it takes back", async () => {
+    put("1.Projects/Expo2026/Expo2026.md", "---\nstatus: in-progress\n---\n# Expo2026\n");
+    put("1.Projects/Expo2026/Workstreams/Talks.md", "---\nstatus: in-progress\n---\n# Talks\n\n- [x] **Pawel Ostromecki** ✅ 2026-11-01\n");
+    expect((await call("update_task", { updates: [{ note: "1.Projects/Expo2026/Workstreams/Talks.md", task: "Pawel", set: { text: "**Paweł Ostromecki**" } }] })).res.isError).toBe(true);
+    const { data } = await call("update_task", { updates: [{ note: "1.Projects/Expo2026/Workstreams/Talks.md", task: "Pawel", include_closed: true, set: { text: "**Paweł Ostromecki**" } }] });
+    expect(data.edits).toEqual([{ note: "1.Projects/Expo2026/Workstreams/Talks.md", line: 2, fileLine: 6, before: "- [x] **Pawel Ostromecki** ✅ 2026-11-01", after: "- [x] **Paweł Ostromecki** ✅ 2026-11-01" }]);
+    const byLine = await call("update_task", { updates: [{ note: "1.Projects/Expo2026/Workstreams/Talks.md", line: data.edits[0].line, set: { text: "**Paweł Ostromecki**" } }] });
+    expect(byLine.data.edits[0].after).toBe("- [x] **Paweł Ostromecki** ✅ 2026-11-01");
   });
 });

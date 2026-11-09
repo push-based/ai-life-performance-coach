@@ -3,7 +3,8 @@
  * moves into the next period at high priority with a `#slipped/<period>` tag. A task is
  * rescheduled where it stands; a goal is copied into the next plan and the original stays
  * open in its own. A year is reviewed instead, and a day carries no slip. A repeating task
- * (`🔁`) stays where it is: Tasks makes its next occurrence when it is ticked.
+ * (`🔁`) stays where it is: Tasks makes its next occurrence when it is ticked. A day's
+ * habit check never slips: left open, it is a missed day (ADR-KI-0065).
  */
 
 import { readFileSync } from "node:fs";
@@ -59,7 +60,7 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
   // Tasks scheduled in the closed period, rescheduled where they stand.
   const editor = new TaskLineEditor(root, out.originals);
   for (const t of p.tasks) {
-    if (t.goal || t.recurrence || t.state !== "open" || !t.scheduled || t.scheduled < from.start || t.scheduled > from.end) continue;
+    if (t.goal || t.habit || t.recurrence || t.state !== "open" || !t.scheduled || t.scheduled < from.start || t.scheduled > from.end) continue;
     // An archived project's leftovers stay where they were left; only live work slips.
     if (t.note.startsWith(`${PARA_FOLDERS.archive}/`)) continue;
     const err = editor.edit(byPath.get(t.note)!, t.line, line => {
@@ -108,7 +109,7 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
   }
 
   for (const t of p.tasks) {
-    if (!t.goal && !t.recurrence && t.state === "open" && !t.scheduled && t.plan?.period === from.period) {
+    if (!t.goal && !t.habit && !t.recurrence && t.state === "open" && !t.scheduled && t.plan?.period === from.period) {
       out.warnings.push(`"${t.text}" in ${t.note} is not scheduled, so it stays where it is`);
     }
   }
