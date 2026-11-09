@@ -1,0 +1,20 @@
+@import "ng-diagram/styles.css";
+
+climb-board { display: flex; width: 100%; height: 100%; }
+climb-board ng-diagram { flex: 1; }
+
+.concept {
+  padding: 6px 12px; border-radius: 999px; font: 13px/1.2 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  background: var(--ngd-node-bg-primary-default); color: var(--ngd-txt-primary-default);
+  border: 1px solid var(--ngd-node-stroke-primary-default); white-space: nowrap; cursor: grab;
+}
+.layer {
+  width: 100%; height: 100%; border-radius: 12px; padding: 8px;
+  border: 1.5px dashed var(--ngd-node-stroke-primary-default);
+  background: color-mix(in srgb, var(--ngd-node-bg-primary-default) 55%, transparent);
+}
+.layer.highlighted { border-style: solid; border-color: var(--ngd-colors-acc-500, #8fa8ff); }
+.layer .name {
+  width: 100%; font: 600 14px/1.2 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  background: transparent; color: var(--ngd-txt-primary-default); border: none; border-bottom: 1px solid var(--ngd-ui-border-color); padding: 4px 2px; outline: none;
+}

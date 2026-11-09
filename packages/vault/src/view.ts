@@ -22,6 +22,9 @@ import type { Vault } from "./vault.js";
 import type { VaultNote } from "./scan.js";
 import { RAW_TEXT } from "./convert.js";
 import { bookProgress, citations, type MarkOp, type ChapterState, type PageMark, type ReadingStage } from "./distill.js";
+import { compareStructure, drawingErrors, drawingText, type DrawnStructure } from "./climb.js";
+import { MAX_SKETCH_BYTES } from "./climb-writes.js";
+import type { AssertionMark } from "./sessions.js";
 
 export const GRAPH_FILE = posix.join(COACH_ROOT, "graph.json");
 
@@ -162,14 +165,16 @@ export async function noteBody(vault: Vault, path: string): Promise<NoteBody | n
 }
 
 const MAX_BODY = 64 * 1024;
+/** A sketch arrives as base64 PNG, a third larger than its bytes. */
+const MAX_SKETCH_BODY = Math.ceil(MAX_SKETCH_BYTES * 1.4) + 4096;
 
-function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null> {
+function readJson(req: IncomingMessage, max = MAX_BODY): Promise<Record<string, unknown> | null> {
   return new Promise(resolveBody => {
     let size = 0;
     const chunks: Buffer[] = [];
-    req.on("data", (c: Buffer) => { size += c.length; if (size <= MAX_BODY) chunks.push(c); });
+    req.on("data", (c: Buffer) => { size += c.length; if (size <= max) chunks.push(c); });
     req.on("end", () => {
-      if (size > MAX_BODY) return resolveBody(null);
+      if (size > max) return resolveBody(null);
       try {
         const v = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
         resolveBody(v && typeof v === "object" && !Array.isArray(v) ? v : null);
@@ -182,14 +187,38 @@ function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null>
 export interface ViewServerOptions {
   /** The write token; random per server unless a test fixes it. */
   token?: string;
+  /** The clock; injectable so tests can fix the attempt and reveal times. */
+  now?: () => Date;
 }
+
+const WRITES = new Set(["/api/mark", "/api/summary", "/api/structure", "/api/reveal", "/api/generate", "/api/sketch"]);
+
+/** The drawing a page sends: groups of concept paths and builds-on edges between group names. */
+function drawingOf(body: Record<string, unknown>): DrawnStructure {
+  const groups = (Array.isArray(body.groups) ? body.groups : []).map(g => {
+    const r = (g ?? {}) as Record<string, unknown>;
+    return { name: String(r.name ?? "").trim(), concepts: Array.isArray(r.concepts) ? r.concepts.map(String) : [] };
+  });
+  const buildsOn = (Array.isArray(body.builds_on) ? body.builds_on : []).map(e => {
+    const r = (e ?? {}) as Record<string, unknown>;
+    return { from: String(r.from ?? "").trim(), to: String(r.to ?? "").trim() };
+  });
+  return { groups, buildsOn };
+}
+
+interface PendingAttempt { book: string; structure: string; drawing: string; idk: boolean; attemptedAt: string; revealedAt: string }
 
 /**
  * The vault view server. Answers `/`, `/vault-view.js`, `/graph.json`,
  * `/page.json?note=<chapter>&page=<N>`, `/note.json?note=<note>`, the read-only plans page
  * `/plans` with `/plans-view.js` and `/plans.json?span=<period>&by=<level>` (ADR-KI-0063),
- * and two writes from the page itself (ADR-KI-0061
- * Decision 10): `POST /api/mark` and `POST /api/summary`; everything else is 404.
+ * the climb page `/climb` with `/climb-view.js`, its ng-diagram board `/climb-board/main.js` and
+ * `/climb-board/styles.css`, `/climb.json`, `/structure.json?book=<book>`
+ * and `/sketch.png?path=<sketch>`
+ * (ADR-KI-0069), and the writes from the pages themselves: `POST /api/mark` and
+ * `POST /api/summary` (ADR-KI-0061 Decision 10), and `POST /api/structure`, `/api/reveal`,
+ * `/api/generate` and `/api/sketch` (ADR-KI-0069), each previewing unless `execute: true`;
+ * everything else is 404.
  *
  * Every request must name this server's own loopback address in its Host header, which
  * stops another site reaching it by rebinding a domain name to 127.0.0.1. A write must
@@ -199,6 +228,9 @@ export interface ViewServerOptions {
  */
 export function createVaultViewServer(vault: Vault, opts: ViewServerOptions = {}): Server {
   const token = opts.token ?? randomBytes(24).toString("hex");
+  const clock = opts.now ?? (() => new Date());
+  /** Drawings from memory saved at the reveal, waiting for their marks (ADR-KI-0069). */
+  const pending = new Map<string, PendingAttempt>();
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     const path = url.pathname;
@@ -212,13 +244,52 @@ export function createVaultViewServer(vault: Vault, opts: ViewServerOptions = {}
     const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
     if (!hosts.has(String(req.headers.host ?? ""))) return send(403, "text/plain; charset=utf-8", "Forbidden");
     try {
-      if (req.method === "POST" && (path === "/api/mark" || path === "/api/summary")) {
+      if (req.method === "POST" && WRITES.has(path)) {
         const origin = req.headers.origin;
         if (origin !== undefined && !hosts.has(origin.replace(/^http:\/\//, ""))) return send(403, "text/plain; charset=utf-8", "Forbidden");
         if (req.headers["x-vault-token"] !== token) return send(403, "text/plain; charset=utf-8", "Forbidden");
         if (!String(req.headers["content-type"] ?? "").startsWith("application/json")) return send(415, "text/plain; charset=utf-8", "JSON only");
-        const body = await readJson(req);
+        const body = await readJson(req, path === "/api/sketch" ? MAX_SKETCH_BODY : MAX_BODY);
         if (!body) return json(400, { error: "a JSON object is required" });
+        const execute = body.execute === true;
+        if (path === "/api/structure") {
+          const d = drawingOf(body);
+          const target = typeof body.topic === "string" && body.topic.trim() ? { topic: body.topic } : { book: String(body.book ?? "") };
+          const r = await vault.writeStructure({ ...target, groups: d.groups, builds_on: d.buildsOn }, execute, (body.versions ?? undefined) as Record<string, string> | undefined);
+          return json(r.errors.length ? 400 : 200, r);
+        }
+        if (path === "/api/reveal") {
+          const book = String(body.topic ?? body.book ?? "");
+          const d = drawingOf(body);
+          const thin = body.idk === true ? [] : drawingErrors(d);
+          if (thin.length) return json(400, { error: thin[0] });
+          const attemptedAt = clock().toISOString();
+          const structure = await vault.revealStructure(book);
+          if (!structure) return json(404, { error: `${book} has no structure note yet; draw the structure first` });
+          let revealedAt = clock().toISOString();
+          if (!(Date.parse(attemptedAt) < Date.parse(revealedAt))) revealedAt = new Date(Date.parse(attemptedAt) + 1).toISOString();
+          const id = randomUUID();
+          pending.set(id, { book, structure: structure.path, drawing: drawingText(d, structure.title), idk: body.idk === true, attemptedAt, revealedAt });
+          const { title, kind: _k, ...shown } = structure;
+          return json(200, { id, attempted_at: attemptedAt, revealed_at: revealedAt, structure: shown, marks: compareStructure(d, { groups: structure.groups.map(g => ({ name: g.name, concepts: g.concepts.map(c => c.path) })), buildsOn: structure.buildsOn }, title) });
+        }
+        if (path === "/api/generate") {
+          const p = pending.get(String(body.id ?? ""));
+          if (!p) return json(404, { error: "no drawing waiting for its marks; draw it and reveal again" });
+          const marks = (Array.isArray(body.marks) ? body.marks : []).map(m => {
+            const r = (m ?? {}) as Record<string, unknown>;
+            return { assertion: String(r.assertion ?? ""), mark: r.mark as AssertionMark, ...(typeof r.correction === "string" && r.correction.trim() ? { correction: r.correction } : {}) };
+          });
+          const r = await vault.recordSession({ kind: "generate", tier: 1, items: [{ note: p.structure, challenge: `Draw the structure of ${p.book} from memory: its groups and what builds on what.`, answer: p.drawing, generate: { attempted_at: p.attemptedAt, revealed_at: p.revealedAt, idk: p.idk, marks } }] }, execute);
+          if (r.executed) pending.delete(String(body.id));
+          const { changes: _c, record, ...shown } = r;
+          return json(r.errors.length ? 400 : 200, { ...shown, session_id: record?.session_id ?? null });
+        }
+        if (path === "/api/sketch") {
+          const png = Buffer.from(String(body.png ?? "").replace(/^data:image\/png;base64,/, ""), "base64");
+          const r = await vault.saveSketch(String(body.target ?? ""), png, execute);
+          return json(r.errors.length ? 400 : 200, r);
+        }
         const note = String(body.note ?? "");
         const result = path === "/api/mark"
           ? await vault.markPage(note, Number(body.page), Number(body.start), Number(body.end), body.mark as MarkOp, String(body.base ?? ""))
@@ -232,6 +303,24 @@ export function createVaultViewServer(vault: Vault, opts: ViewServerOptions = {}
       }
       if (path === "/vault-view.js") return send(200, "text/javascript; charset=utf-8", asset("vault-view.js"));
       if (path === "/plans") return send(200, "text/html; charset=utf-8", asset("plans-view.html"));
+      if (path === "/climb") {
+        const page = asset("climb-view.html").toString("utf-8").replace("</head>", `  <meta name="vault-token" content="${token}">\n</head>`);
+        return send(200, "text/html; charset=utf-8", page);
+      }
+      if (path === "/climb-view.js") return send(200, "text/javascript; charset=utf-8", asset("climb-view.js"));
+      if (path === "/climb-board/main.js") return send(200, "text/javascript; charset=utf-8", asset("climb-board/main.js"));
+      if (path === "/climb-board/styles.css") return send(200, "text/css; charset=utf-8", asset("climb-board/styles.css"));
+      if (path === "/climb.json") return json(200, { ...(await vault.climbView()), vaultName: posix.basename(vault.root.split("\\").join("/")) });
+      if (path === "/structure.json") {
+        const s = await vault.revealStructure(url.searchParams.get("topic") ?? url.searchParams.get("book") ?? "");
+        if (!s) return send(404, "text/plain; charset=utf-8", "Not found");
+        const { title: _t, ...shown } = s;
+        return json(200, shown);
+      }
+      if (path === "/sketch.png") {
+        const png = await vault.sketch(url.searchParams.get("path") ?? "");
+        return png ? send(200, "image/png", png) : send(404, "text/plain; charset=utf-8", "Not found");
+      }
       if (path === "/plans-view.js") return send(200, "text/javascript; charset=utf-8", asset("plans-view.js"));
       if (path === "/plans.json") {
         const view = await vault.plansView(url.searchParams.get("span") ?? undefined, url.searchParams.get("by") ?? undefined);

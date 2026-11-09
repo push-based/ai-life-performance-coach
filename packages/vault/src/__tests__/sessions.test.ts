@@ -176,7 +176,7 @@ describe("Phase 2 exit: history follows the note, not its path", () => {
     renameSync(join(dir, "3.Resources/TypeScript/Event loop.md"), join(dir, "3.Resources/JavaScript/The event loop.md"));
 
     const due = await vault.dueForReview("2026-10-24");
-    expect(due.due).toEqual([{ path: "3.Resources/JavaScript/The event loop.md", title: "Event loop", concept: false, coachId: "c-test-2", nextReview: "2026-10-22", mastery: "tier2_passed", firstReview: false, book: null, group: null }]);
+    expect(due.due).toEqual([{ path: "3.Resources/JavaScript/The event loop.md", title: "Event loop", concept: false, coachId: "c-test-2", nextReview: "2026-10-22", mastery: "tier2_passed", firstReview: false, book: null, group: null, topic: null }]);
     expect(due.orphaned).toEqual([]);
     const { notes } = await vault.notesWithHistory();
     expect(notes.find(n => n.path === "3.Resources/JavaScript/The event loop.md")!.history.sessions).toBe(2);

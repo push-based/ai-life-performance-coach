@@ -189,7 +189,17 @@ export function parseSession(content: string): SessionRecord {
   return checkRecord(parsed);
 }
 
-/** Every session in the vault, oldest first, plus the files that could not be read as one. */
+/**
+ * Sessions in the order they happened for the learner: by their date, which the caller
+ * sets and may be another day than the clock's, then by when they were recorded, then by id.
+ */
+export function bySessionDate(a: SessionRecord, b: SessionRecord): number {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  if (a.recorded_at !== b.recorded_at) return a.recorded_at < b.recorded_at ? -1 : 1;
+  return a.session_id < b.session_id ? -1 : a.session_id > b.session_id ? 1 : 0;
+}
+
+/** Every session in the vault, oldest first by date, plus the files that could not be read as one. */
 export async function loadSessions(root: string): Promise<{ sessions: SessionRecord[]; invalid: InvalidSession[] }> {
   let names: string[];
   try {
@@ -210,6 +220,6 @@ export async function loadSessions(root: string): Promise<{ sessions: SessionRec
       invalid.push({ file, error: err instanceof Error ? err.message : String(err) });
     }
   }
-  sessions.sort((a, b) => (a.recorded_at < b.recorded_at ? -1 : a.recorded_at > b.recorded_at ? 1 : 0));
+  sessions.sort(bySessionDate);
   return { sessions, invalid };
 }

@@ -192,18 +192,36 @@ export interface ConceptPlan {
 
 const wikilink = (path: string, anchor: string, text: string) => `[[${path.replace(/\.md$/, "")}${anchor}|${text}]]`;
 
+/** A passage as the note's body quotes it, with its citation. */
+export function passageLines(p: Passage, byPath: Map<string, VaultNote>): string[] {
+  const raw = byPath.get(p.note);
+  const book = typeof raw?.frontmatter.book === "string" ? raw.frontmatter.book : raw?.title ?? p.note;
+  const first = p.pages?.split("-")[0];
+  const cite = first ? wikilink(p.note, `#Page ${first}`, `${book}, p. ${p.pages!.replace("-", "–")}`) : wikilink(p.note, "", book);
+  return [...p.quote.trim().split("\n").map(l => `> ${l}`), `> — ${cite}`];
+}
+
+export const fromNoteLine = (n: string, byPath: Map<string, VaultNote>) => `- ${wikilink(n, "", byPath.get(n)?.title ?? posix.basename(n, ".md"))}`;
+
+/** The frontmatter lines of a concept's lists, as create_concept writes them. */
+export function conceptListLines(key: "core_assertions" | "forbidden_buzzwords" | "from_notes", values: string[]): string[] {
+  return values.length ? [`${key}:`, ...values.map(v => `  - ${yamlString(v)}`)] : [`${key}: []`];
+}
+
+export function passagesLines(passages: Passage[]): string[] {
+  return ["source_passages:", ...passages.flatMap(p => [`  - quote: ${yamlString(p.quote)}`, `    note: ${yamlString(p.note)}`, ...(p.pages ? [`    pages: ${yamlString(p.pages)}`] : [])])];
+}
+
 export function renderConcept(input: ConceptInput, passages: Passage[], notes: VaultNote[], date: string): string {
   const byPath = new Map(notes.map(n => [n.path, n]));
-  const list = (key: string, values: string[]) => (values.length ? [`${key}:`, ...values.map(v => `  - ${yamlString(v)}`)] : [`${key}: []`]);
   const lines = [
     "---",
     `title: ${yamlString(input.title)}`,
     `type: ${yamlString(CONCEPT_TYPE)}`,
-    ...list("core_assertions", input.core_assertions),
-    ...list("forbidden_buzzwords", input.forbidden_buzzwords ?? []),
-    "source_passages:",
-    ...passages.flatMap(p => [`  - quote: ${yamlString(p.quote)}`, `    note: ${yamlString(p.note)}`, ...(p.pages ? [`    pages: ${yamlString(p.pages)}`] : [])]),
-    ...list("from_notes", input.from_notes ?? []),
+    ...conceptListLines("core_assertions", input.core_assertions),
+    ...conceptListLines("forbidden_buzzwords", input.forbidden_buzzwords ?? []),
+    ...passagesLines(passages),
+    ...conceptListLines("from_notes", input.from_notes ?? []),
     `created: ${yamlString(date)}`,
     "---",
     "",
@@ -213,16 +231,10 @@ export function renderConcept(input: ConceptInput, passages: Passage[], notes: V
     "",
     "## Source passages",
   ];
-  for (const p of passages) {
-    const raw = byPath.get(p.note);
-    const book = typeof raw?.frontmatter.book === "string" ? raw.frontmatter.book : raw?.title ?? p.note;
-    const first = p.pages?.split("-")[0];
-    const cite = first ? wikilink(p.note, `#Page ${first}`, `${book}, p. ${p.pages!.replace("-", "–")}`) : wikilink(p.note, "", book);
-    lines.push("", ...p.quote.trim().split("\n").map(l => `> ${l}`), `> — ${cite}`);
-  }
+  for (const p of passages) lines.push("", ...passageLines(p, byPath));
   if (input.from_notes?.length) {
     lines.push("", "## From my reading notes", "");
-    for (const n of input.from_notes) lines.push(`- ${wikilink(n, "", byPath.get(n)?.title ?? posix.basename(n, ".md"))}`);
+    for (const n of input.from_notes) lines.push(fromNoteLine(n, byPath));
   }
   return `${lines.join("\n")}\n`;
 }

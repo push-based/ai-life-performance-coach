@@ -130,7 +130,7 @@ describe("Group: the structure note", () => {
     const r = await vault.writeStructure(LAYERS, true);
     expect(r.errors).toEqual([]);
     expect(r.path).toBe(`3.Resources/Concepts/Structures/${BOOK}.md`);
-    expect((await vault.note(PRIMITIVES))!.frontmatter.group).toBe("Parts");
+    expect((await vault.note(PRIMITIVES))!.frontmatter.groups).toEqual({ [BOOK]: "Parts" });
     expect((await stored(PATTERNS))!.group).toBe("2026-11-09");
     expect((await climbOfNote(PATTERNS)).steps.group!.evidence).toBe(r.path);
   });
@@ -158,8 +158,52 @@ describe("Group: the structure note", () => {
   });
 
   it("keeps group and climb closed to set_frontmatter", async () => {
-    const r = await vault.setFrontmatter(TOKENS, { group: "Mine", climb: "x" }, false);
-    expect(r.errors).toEqual(["group is written by the vault tools, not by hand", "climb is written by the vault tools, not by hand"]);
+    const r = await vault.setFrontmatter(TOKENS, { group: "Mine", groups: "x", climb: "x" }, false);
+    expect(r.errors).toEqual(["group is written by the vault tools, not by hand", "groups is written by the vault tools, not by hand", "climb is written by the vault tools, not by hand"]);
+  });
+});
+
+describe("a concept drawn from several books", () => {
+  const CSS = "CSS in Depth";
+  const CSS_CH = `3.Resources/0.Raw/Books/Design Team/${CSS}/chapters/03 Theming.md`;
+  const THEME = "3.Resources/Concepts/Theme switch.md";
+  beforeEach(async () => {
+    put(`3.Resources/0.Raw/Books/Design Team/${CSS}/text.md`, `---\ntitle: "${CSS}"\nraw_role: "index"\n---\n# ${CSS}\n`);
+    put(CSS_CH, ["---", 'title: "Chapter 3: Theming"', 'raw_role: "chapter"', `book: "${CSS}"`, 'pages: "40-40"', "---", "", "# Chapter 3: Theming", "", "## Page 40", "", "A theme swaps the values of custom properties at the root, and every rule that reads them follows.", ""].join("\n"));
+    const r = await vault.createConcept({ title: "Theme switch", summary: "One switch, every value follows.", core_assertions: ["A theme swaps values at the root."], passages: [{ note: CSS_CH, quote: "A theme swaps the values of custom properties at the root", pages: "40" }, { note: CH, quote: "Every other layer reads its values from the tokens", pages: "1" }] }, true);
+    expect(r.errors).toEqual([]);
+  });
+
+  it("belongs to every book it quotes, and each book's structure must place it", async () => {
+    expect((await climbOfNote(THEME)).books).toEqual([CSS, BOOK]);
+    const without = await vault.writeStructure(LAYERS, false);
+    expect(without.errors).toContain(`${THEME} is in no group; every concept of the book is in exactly one group`);
+    await vault.writeStructure({ ...LAYERS, groups: LAYERS.groups.map(g => (g.name === "Values" ? { ...g, concepts: [...g.concepts, "Theme switch"] } : g)) }, true);
+    let c = await climbOfNote(THEME);
+    expect(c.steps.group!.date).toBe("2026-11-09");
+    expect(c.groups).toEqual({ [BOOK]: "Values" });
+    expect(c.ungroupedIn).toEqual([CSS]);
+
+    const one = await vault.writeStructure({ book: CSS, groups: [{ name: "Theming", concepts: ["Theme switch"] }] }, false);
+    expect(one.errors).toContain("a structure has 2 to 7 groups, got 1");
+    c = await climbOfNote(THEME);
+    expect(c.ungroupedIn).toEqual([CSS]);
+  });
+
+  it("keeps its group in each book, and is shown and interleaved by the group in its first book", async () => {
+    const r = await vault.createConcept({ title: "Cascade layers", summary: "Order of rules.", core_assertions: ["Later layers win."], passages: [{ note: CSS_CH, quote: "every rule that reads them follows", pages: "40" }] }, true);
+    expect(r.errors).toEqual([]);
+    await vault.writeStructure({ ...LAYERS, groups: LAYERS.groups.map(g => (g.name === "Values" ? { ...g, concepts: [...g.concepts, "Theme switch"] } : g)) }, true);
+    await vault.writeStructure({ book: CSS, groups: [{ name: "Theming", concepts: ["Theme switch"] }, { name: "Cascade", concepts: ["Cascade layers"] }], builds_on: [{ from: "Theming", to: "Cascade" }] }, true);
+    const note = await vault.note(THEME);
+    expect(note!.frontmatter.groups).toEqual({ [CSS]: "Theming", [BOOK]: "Values" });
+    expect(note!.frontmatter.group).toBeUndefined();
+    const c = await climbOfNote(THEME);
+    expect(c.ungroupedIn).toEqual([]);
+    const due = (await vault.dueForReview("2026-11-10")).due.find(d => d.path === THEME)!;
+    expect(due).toMatchObject({ book: CSS, group: "Theming" });
+    const view = await vault.climbView();
+    expect(view.books.filter(b => b.concepts.some(x => x.path === THEME)).map(b => b.book)).toEqual([CSS, BOOK]);
   });
 });
 
@@ -219,6 +263,36 @@ describe("Retrieve and Space", () => {
     expect(c.steps.space!.date).toBe("2026-11-10");
     expect(c.spacedPass).toBeNull();
     expect(c.teach.ok).toBe(false);
+  });
+
+  it("orders attempts by their date, not by when they were recorded (a --today in the future)", async () => {
+    await record(spar(TOKENS, "2026-11-09"));
+    await record(spar(TOKENS, "2026-11-11"));
+    await record({ kind: "teach", tier: 1, date: "2026-11-17", items: [{ note: TOKENS, verdict: "pass", next_review: "2026-11-24", teach: {
+      turns: [{ role: "learner", text: "Tokens are the values; primitives read them." }, { role: "student", text: "Oh, so primitives don't use tokens?" }, { role: "learner", text: "They do, always." }],
+      misconception: { assertion: 1, text: "Primitives don't use tokens." }, misconception_corrected: true,
+    } }] });
+    await record(spar(TOKENS, "2026-11-10", "fail"));
+    const c = await climbOfNote(TOKENS);
+    expect(c.steps.space).toEqual({ date: "2026-11-10", evidence: expect.any(String) });
+    expect(c.spacedPass!.date).toBe("2026-11-11");
+    expect(c.steps.teach!.date).toBe("2026-11-17");
+    expect(c.current).toBe(true);
+    const n = (await vault.notesWithHistory()).notes.find(x => x.path === TOKENS)!;
+    expect(n.history.nextReview).toBe("2026-11-24");
+    expect(n.history.entries.map(e => e.date)).toEqual(["2026-11-09", "2026-11-10", "2026-11-11"]);
+  });
+
+  it("a judge's verdict recorded a day later is no spaced review and opens no Teach", async () => {
+    await record(spar(TOKENS, "2026-11-09"));
+    await record({ tier: 2, date: "2026-11-10", items: [{ note: TOKENS, challenge: "Explain it.", answer: "In my words.", verdict: "pass", next_review: "2026-11-17" }] }, "2026-11-10T09:00:00.000Z");
+    let c = await climbOfNote(TOKENS);
+    expect(c.steps.space).toBeNull();
+    expect(c.teach.ok).toBe(false);
+    await record(spar(TOKENS, "2026-11-11"), "2026-11-11T09:00:00.000Z");
+    c = await climbOfNote(TOKENS);
+    expect(c.steps.space!.date).toBe("2026-11-11");
+    expect(c.teach.ok).toBe(true);
   });
 
   it("a new concept is due the day after it was made, and not before", async () => {

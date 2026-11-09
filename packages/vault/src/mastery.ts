@@ -4,7 +4,7 @@
  * its history wherever it is moved.
  */
 
-import type { SessionRecord, SessionItem, Tier, Verdict } from "./sessions.js";
+import { bySessionDate, type SessionRecord, type SessionItem, type Tier, type Verdict } from "./sessions.js";
 
 
 export type Mastery = "unsparred" | "attempted" | "tier1_passed" | "tier2_passed";
@@ -37,13 +37,14 @@ export const UNSPARRED: Readonly<NoteHistory> = Object.freeze({ mastery: "unspar
 interface Latest { item: SessionItem; session: SessionRecord }
 
 /**
- * History per coach_id, from sessions ordered oldest first. Mastery and the entries come
+ * History per coach_id, from sessions taken oldest first by date (bySessionDate), so a
+ * session dated later is the latest whenever it was recorded. Mastery and the entries come
  * from sparring sessions only; the next review date is the latest any session set, so a
  * Generate or Teach attempt can schedule a review (ADR-KI-0068 Decision 8).
  */
 export function histories(sessions: SessionRecord[]): Map<string, NoteHistory> {
   const latest = new Map<string, { any: Latest | null; byTier: Partial<Record<Tier, Latest>>; entries: HistoryEntry[]; nextReview: string | null }>();
-  for (const session of sessions) {
+  for (const session of [...sessions].sort(bySessionDate)) {
     for (const item of session.items) {
       if (!item.coach_id) continue;
       const entry = latest.get(item.coach_id) ?? { any: null, byTier: {}, entries: [], nextReview: null };

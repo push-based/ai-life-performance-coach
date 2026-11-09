@@ -16,7 +16,7 @@ import { dirname, join, posix } from "node:path";
 import { insertCoachId, declaresCoachId } from "./identity.js";
 import { renderSession, sessionPath, isDate, SESSION_KINDS, ELABORATION_KINDS, type SessionRecord, type SessionItem, type SessionKind, type Tier, type Verdict, type GenerateDetail, type Elaboration, type TeachDetail, type TeachTurn, type AssertionMark } from "./sessions.js";
 import { conceptOf } from "./concept.js";
-import { climbOf, chaptersOf, isConceptNote, sharesRun, wordCount, withClimb, MIN_ATTEMPT_WORDS, CLIMB_STEPS, type ClimbSteps } from "./climb.js";
+import { climbOf, chaptersOf, isConceptNote, sharesRun, wordCount, withClimb, structureOf, structureLabels, drawnGroupsIn, MIN_DRAWN_GROUPS, MIN_ATTEMPT_WORDS, CLIMB_STEPS, type ClimbSteps } from "./climb.js";
 import { PARA_FOLDERS } from "./para.js";
 import type { VaultNote } from "./scan.js";
 
@@ -138,19 +138,21 @@ function checkGenerate(at: string, it: SessionItemInput, note: VaultNote, errors
   if (!iso(g.attempted_at) || !iso(g.revealed_at)) { errors.push(`${at}: attempted_at and revealed_at must be ISO timestamps`); return null; }
   if (!(Date.parse(g.attempted_at) < Date.parse(g.revealed_at))) warnings.push(`${at}: the answer was revealed before the attempt was saved, so this attempt is recorded but does not count for Generate`);
   const idk = g.idk === true;
-  if (!idk && wordCount(it.answer ?? "") < MIN_ATTEMPT_WORDS) errors.push(`${at}: an attempt is at least ${MIN_ATTEMPT_WORDS} words, or /idk (idk: true)`);
+  const structure = structureOf(note);
+  if (!idk && structure && drawnGroupsIn(it.answer ?? "") < MIN_DRAWN_GROUPS) errors.push(`${at}: a drawing is an attempt with at least ${MIN_DRAWN_GROUPS} named groups that each hold a concept, or /idk (idk: true)`);
+  if (!idk && !structure && wordCount(it.answer ?? "") < MIN_ATTEMPT_WORDS) errors.push(`${at}: an attempt is at least ${MIN_ATTEMPT_WORDS} words, or /idk (idk: true)`);
   if (!Array.isArray(g.marks)) { errors.push(`${at}: marks must be a list`); return null; }
-  const assertions = conceptOf(note)?.fields.coreAssertions ?? null;
+  const assertions = structure ? structureLabels(structure) : conceptOf(note)?.fields.coreAssertions ?? null;
   const seen = new Set<string>();
   for (const [n, m] of g.marks.entries()) {
     if (!["got it", "wrong", "missed"].includes(m?.mark)) errors.push(`${at}: marks[${n}].mark must be got it, wrong or missed`);
     if (typeof m?.assertion !== "string" || !m.assertion.trim()) { errors.push(`${at}: marks[${n}] names no assertion`); continue; }
-    if (assertions && !assertions.includes(m.assertion)) errors.push(`${at}: marks[${n}] "${m.assertion}" is not a core assertion of ${note.path}`);
+    if (assertions && !assertions.includes(m.assertion)) errors.push(`${at}: marks[${n}] "${m.assertion}" is not ${structure ? "a group or edge" : "a core assertion"} of ${note.path}`);
     if (seen.has(m.assertion)) errors.push(`${at}: "${m.assertion}" is marked twice`);
     seen.add(m.assertion);
     if (m.mark === "wrong" && !m.correction?.trim()) errors.push(`${at}: "${m.assertion}" is marked wrong and needs a correction in the learner's own words`);
   }
-  if (assertions) for (const a of assertions) if (!seen.has(a)) errors.push(`${at}: core assertion "${a}" is not marked; mark each one got it, wrong or missed`);
+  if (assertions) for (const a of assertions) if (!seen.has(a)) errors.push(`${at}: ${structure ? "" : "core assertion "}"${a}" is not marked; mark each one got it, wrong or missed`);
   if (!assertions && !g.marks.length) errors.push(`${at}: mark at least one point of the chapter got it, wrong or missed`);
   return { attempted_at: g.attempted_at, revealed_at: g.revealed_at, idk, marks: g.marks.map(m => ({ assertion: m.assertion, mark: m.mark, ...(m.correction?.trim() ? { correction: m.correction.trim() } : {}) })) };
 }
@@ -236,10 +238,10 @@ export function planSession(input: RecordSessionInput, ctx: RecordContext): Reco
     if (!!it.note === !!it.coach_id) { errors.push(`${at}: name the note by path or by coach_id, not both or neither`); return; }
     const note = it.note ? byPath.get(it.note) : byCoachId.get(it.coach_id!);
     if (!note) { errors.push(`${at}: no note ${it.note ?? `with coach_id ${it.coach_id}`}`); return; }
-    const onChapter = kind === "generate" && note.rawRole === "chapter";
+    const onWhole = kind === "generate" && (note.rawRole === "chapter" || structureOf(note) !== null);
     if (note.bucket !== "resources") { errors.push(`${at}: ${note.path} is not under 3.Resources; only Resources notes are sparred`); return; }
-    if (note.raw && !onChapter) { errors.push(`${at}: ${note.path} is a raw resource; raw resources are the reference concept notes are checked against and are not sparred, so spar a concept note that quotes it${kind === "generate" ? " (a Generate attempt may name a raw chapter, before reading it)" : ""}`); return; }
-    if (kind !== "spar" && !onChapter && !isConceptNote(note)) { errors.push(`${at}: ${note.path} is not a concept note; ${kind} works on a concept note's core assertions`); return; }
+    if (note.raw && !onWhole) { errors.push(`${at}: ${note.path} is a raw resource; raw resources are the reference concept notes are checked against and are not sparred, so spar a concept note that quotes it${kind === "generate" ? " (a Generate attempt may name a raw chapter, before reading it)" : ""}`); return; }
+    if (kind !== "spar" && !onWhole && !isConceptNote(note)) { errors.push(`${at}: ${note.path} is not a concept note; ${kind} works on a concept note's core assertions`); return; }
     if (seen.has(note.path)) { errors.push(`${at}: ${note.path} appears twice in one session`); return; }
     seen.add(note.path);
 
@@ -283,13 +285,13 @@ export function planSession(input: RecordSessionInput, ctx: RecordContext): Reco
     if (!strings(gaps)) errors.push(`${at}: gaps must be a string array`);
 
     let coachId: string | null = note.coachId;
-    if (!coachId && !onChapter) {
+    if (!coachId && !onWhole) {
       do coachId = ctx.newCoachId(); while (taken.has(coachId));
       taken.add(coachId);
       newIds.push({ path: note.path, coach_id: coachId });
     }
     items.push({
-      coach_id: onChapter ? null : coachId, note_path: note.path, title: note.title,
+      coach_id: onWhole ? null : coachId, note_path: note.path, title: note.title,
       challenge: challenge ?? "", answer: answer ?? "",
       verdict: graded ? it.verdict! : "ungraded", gaps, next_review: it.next_review ?? null, ...detail,
     });
@@ -309,6 +311,7 @@ export function planSession(input: RecordSessionInput, ctx: RecordContext): Reco
     const note = byPath.get(i.note_path)!;
     if (isConceptNote(note)) reached.add(note.path);
     else if (note.rawRole === "chapter") for (const c of after.filter(isConceptNote)) if (chaptersOf(c, after).some(ch => ch.path === note.path)) reached.add(c.path);
+    else for (const g of structureOf(note)?.groups ?? []) for (const c of g.concepts) if (byPath.has(c)) reached.add(c);
   }
   const climbs: RecordPlan["climbs"] = [];
   const changes: NoteChange[] = [];

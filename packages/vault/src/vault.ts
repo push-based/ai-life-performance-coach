@@ -29,7 +29,10 @@ import { reviewPeriod, type PeriodReview } from "./review.js";
 import { harvestWorkstream, executeHarvest, type HarvestPlan, type PacketInput } from "./harvest.js";
 import { plansView, type PlansView } from "./plansview.js";
 import { periodAt } from "./plans.js";
-import { addDays, interleave, isConceptNote, conceptBook, groupOf, queueKey, READING_NOTES_TYPE, STRUCTURE_TYPE, type ConceptClimb } from "./climb.js";
+import { addDays, interleave, isConceptNote, conceptBook, groupOf, topicOf, queueKey, READING_NOTES_TYPE, STRUCTURE_TYPE, type ConceptClimb } from "./climb.js";
+import { climbView, revealStructure, planSketch, listTopics, extendConcept, type ExtendConceptInput, type ExtendConceptPlan, SKETCHES_FOLDER, type ClimbView, type SketchPlan, type TopicListing } from "./climb-writes.js";
+import { readdir, mkdir as mkdirp } from "node:fs/promises";
+import { dirname } from "node:path";
 import { addReadingNotes, writeStructure, saveGuideline, climbs, rebuildClimbs, conceptWithClimb, type ReadingNotesInput, type StructureInput, type GuidelineInput, type ClimbWritePlan, type ReadingNotesPlan, type StructurePlan, type GuidelinePlan } from "./climb-writes.js";
 
 export interface VaultOptions {
@@ -52,7 +55,7 @@ export interface DueReport {
    * created, has come (ADR-KI-0068 Decision 8). Ordered by date, then interleaved so no
    * two neighbours share a group or, without groups, a book whenever another due note allows.
    */
-  due: { path: string; title: string; concept: boolean; coachId: string | null; nextReview: string; mastery: NoteHistory["mastery"]; firstReview: boolean; book: string | null; group: string | null }[];
+  due: { path: string; title: string; concept: boolean; coachId: string | null; nextReview: string; mastery: NoteHistory["mastery"]; firstReview: boolean; book: string | null; group: string | null; topic: string | null }[];
   /** Sparrable notes no session covers. */
   unsparred: { path: string; title: string; concept: boolean }[];
   /** Sessions naming a coach_id no note carries any more. */
@@ -144,6 +147,18 @@ export interface Vault {
   addReadingNotes(input: ReadingNotesInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReadingNotesPlan>>;
   writeStructure(input: StructureInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<StructurePlan>>;
   saveGuideline(input: GuidelineInput, execute: boolean): Promise<WriteOutcome<GuidelinePlan>>;
+  /** Add another book's passages, reading notes or assertions to a concept note (ADR-KI-0071). */
+  extendConcept(input: ExtendConceptInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ExtendConceptPlan>>;
+  /** Every topic's structure note with its concepts and the books they quote (ADR-KI-0070). */
+  listTopics(): Promise<TopicListing[]>;
+  /** Everything the climb page shows (ADR-KI-0069). */
+  climbView(): Promise<ClimbView>;
+  /** A book's structure note with its concepts' titles; null when the book has none. */
+  revealStructure(book: string): Promise<ReturnType<typeof revealStructure>>;
+  /** Save a freehand PNG sketch of a concept or a book under 3.Resources/Concepts/Sketches. */
+  saveSketch(target: string, png: Buffer, execute: boolean): Promise<SketchPlan & { executed: boolean }>;
+  /** A saved sketch's bytes, or null for anything that is not one. */
+  sketch(path: string): Promise<Buffer | null>;
   harvestWorkstream(project: string, workstream: string, packets: PacketInput[] | undefined, execute: boolean): Promise<HarvestResult>;
   /** The plans page's data (ADR-KI-0063); defaults to the current quarter by week. */
   plansView(span?: string, by?: string): Promise<PlansView | { error: string }>;
@@ -298,7 +313,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
         today: day,
         due: interleave(due, x => queueKey(x.n, notes)).map(({ n, at }) => ({
           path: n.path, title: n.title, concept: n.concept, coachId: n.coachId, nextReview: at.date, mastery: n.history.mastery,
-          firstReview: at.first, book: n.concept ? conceptBook(n, notes) : null, group: groupOf(n),
+          firstReview: at.first, book: n.concept ? conceptBook(n, notes) : null, group: n.concept ? groupOf(n, notes) : null, topic: n.concept ? topicOf(n) : null,
         })),
         unsparred: resources.filter(n => n.history.mastery === "unsparred").map(n => ({ path: n.path, title: n.title, concept: n.concept })),
         orphaned: [...map.entries()].filter(([id]) => !carried.has(id)).map(([coachId, h]) => ({ coachId, lastSession: h.lastSession })),
@@ -397,6 +412,26 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     addReadingNotes: async (input, execute, versions) => applyNoteWrites(root, addReadingNotes(root, await scanVault(root), (await loadSessions(root)).sessions, input, localDate(now())), execute, versions),
     writeStructure: async (input, execute, versions) => applyNoteWrites(root, writeStructure(root, await scanVault(root), (await loadSessions(root)).sessions, input, localDate(now())), execute, versions),
     saveGuideline: async (input, execute) => applyNoteWrites(root, saveGuideline(root, await scanVault(root), (await loadSessions(root)).sessions, input), execute),
+    async climbView() {
+      let files: string[] = [];
+      try { files = (await readdir(join(root, SKETCHES_FOLDER))).filter(f => f.endsWith(".png")).sort().map(f => posix.join(SKETCHES_FOLDER, f)); } catch { files = []; }
+      return climbView(await scanVault(root), (await loadSessions(root)).sessions, files);
+    },
+    revealStructure: async book => revealStructure(await scanVault(root), book),
+    listTopics: async () => listTopics(await scanVault(root)),
+    extendConcept: async (input, execute, versions) => applyNoteWrites(root, extendConcept(root, await scanVault(root), (await loadSessions(root)).sessions, input), execute, versions),
+    async saveSketch(target, png, execute) {
+      const plan = planSketch(root, await scanVault(root), target, png, localDate(now()));
+      if (!execute || plan.errors.length || !plan.path) return { ...plan, executed: false };
+      await mkdirp(dirname(join(root, plan.path)), { recursive: true });
+      await writeFile(join(root, plan.path), png, { flag: "wx" });
+      return { ...plan, executed: true };
+    },
+    async sketch(path) {
+      const rel = posix.normalize(String(path).replace(/^\/+/, ""));
+      if (!rel.startsWith(`${SKETCHES_FOLDER}/`) || !rel.endsWith(".png") || rel.includes("..") || posix.dirname(rel) !== SKETCHES_FOLDER) return null;
+      try { return await readFile(join(root, rel)); } catch { return null; }
+    },
     async createConcept(input, execute) {
       const notes = await scanVault(root);
       const plan = planConcept(root, notes, input, localDate(now()));
