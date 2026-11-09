@@ -16,7 +16,7 @@ export { applyMark, pageSection, editPageContent, setPageSummary, setChapterSumm
 export { bookProgress, chapterProgress, citations, sourceOf, type Citations, planMarkRead, planSummary, summaryOf, withoutSummaries, READ_KEY, READING_STAGES, type BookProgress, type ChapterProgress, type PageProgress, type PageMark, type ChapterState, type ReadingStage, type WritePlan } from "./distill.js";
 export { planConcept, conceptOf, checkPassages, locateQuote, fold, renderConcept, CONCEPT_TYPE, CONCEPTS_FOLDER, MAX_ASSERTIONS, MAX_BUZZWORDS, MAX_PASSAGES, MIN_QUOTE_CHARS, type ConceptInput, type ConceptPlan, type ConceptFields, type Passage, type PassageCheck } from "./concept.js";
 export { type HarvestResult, type WriteOutcome, type Versions, type VaultOptions, type NoteWithHistory, type DueReport, type FilingResult, type WriteResult, type RawListing, type PublicEdit } from "./vault.js";
-export { SESSIONS_DIR, renderSession, parseSession, loadSessions, sessionPath, type SessionRecord, type SessionItem, type Tier, type Verdict, type InvalidSession } from "./sessions.js";
+export { SESSIONS_DIR, renderSession, parseSession, loadSessions, sessionPath, SESSION_KINDS, ELABORATION_KINDS, type SessionRecord, type SessionItem, type SessionKind, type ItemVerdict, type GenerateDetail, type Elaboration, type TeachDetail, type TeachTurn, type Tier, type Verdict, type InvalidSession } from "./sessions.js";
 export { insertCoachId, declaresCoachId, insertKey, declaresKey } from "./identity.js";
 export { histories, type Mastery, type NoteHistory, type HistoryEntry } from "./mastery.js";
 export { planSession, type RecordSessionInput, type SessionItemInput, type RecordPlan } from "./record.js";
@@ -32,3 +32,5 @@ export { reviewPeriod, type PeriodReview, type HabitReview, type GoalReview, typ
 export { harvestWorkstream, resetChecklist, isPacket, PACKET_TYPE, type HarvestPlan, type PacketInput, type Candidate } from "./harvest.js";
 export { habitDays, isHabitDue, habitKey, parseHabits, HABITS_HEADING, HABIT_RULES, type HabitDefinition } from "./habits.js";
 export { plansView, rowOf, type PlansView, type Row, type Cell, type TaskRef, type GoalNode } from "./plansview.js";
+export { CLIMB_STEPS, climbOf, teachGate, sharesRun, interleave, queueKey, structureOf, structureErrors, readingEntries, storedClimb, setFrontmatterLines, VERBATIM_RUN_WORDS, MIN_ATTEMPT_WORDS, SPACING_DAYS, READING_NOTES_TYPE, STRUCTURE_TYPE, GUIDELINE_TYPE, type ClimbStep, type ClimbSteps, type ConceptClimb, type StepEvidence, type Structure, type StructureGroup, type ReadingEntry } from "./climb.js";
+export { addReadingNotes, writeStructure, saveGuideline, climbs, rebuildClimbs, READING_NOTES_FOLDER, STRUCTURES_FOLDER, type ReadingNotesInput, type ReadingNotesPlan, type StructureInput, type StructurePlan, type GuidelineInput, type GuidelinePlan, type ClimbWritePlan } from "./climb-writes.js";

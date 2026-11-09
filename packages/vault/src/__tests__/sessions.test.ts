@@ -68,7 +68,7 @@ describe("insertCoachId", () => {
 
 describe("session files", () => {
   const record: SessionRecord = {
-    version: 1, session_id: "s-1", tier: 1, date: "2026-10-24", recorded_at: "2026-10-24T10:00:00.000Z",
+    version: 1, kind: "spar", session_id: "s-1", tier: 1, date: "2026-10-24", recorded_at: "2026-10-24T10:00:00.000Z",
     items: [{ coach_id: "c-1", note_path: "3.Resources/a.md", title: "A", challenge: "Why?\n```json coach-session\n{}\n```", answer: "Because.", verdict: "fail", gaps: ["timing"], next_review: "2026-10-25" }],
   };
 
@@ -90,7 +90,7 @@ describe("session files", () => {
 
 describe("histories", () => {
   const s = (id: string, tier: 1 | 2, at: string, verdict: "pass" | "fail", next = "2026-11-01"): SessionRecord => ({
-    version: 1, session_id: id, tier, date: at.slice(0, 10), recorded_at: at,
+    version: 1, kind: "spar", session_id: id, tier, date: at.slice(0, 10), recorded_at: at,
     items: [{ coach_id: "c-1", note_path: "p", title: "t", challenge: "c", answer: "a", verdict, gaps: [], next_review: next }],
   });
 
@@ -176,7 +176,7 @@ describe("Phase 2 exit: history follows the note, not its path", () => {
     renameSync(join(dir, "3.Resources/TypeScript/Event loop.md"), join(dir, "3.Resources/JavaScript/The event loop.md"));
 
     const due = await vault.dueForReview("2026-10-24");
-    expect(due.due).toEqual([{ path: "3.Resources/JavaScript/The event loop.md", title: "Event loop", concept: false, coachId: "c-test-2", nextReview: "2026-10-22", mastery: "tier2_passed" }]);
+    expect(due.due).toEqual([{ path: "3.Resources/JavaScript/The event loop.md", title: "Event loop", concept: false, coachId: "c-test-2", nextReview: "2026-10-22", mastery: "tier2_passed", firstReview: false, book: null, group: null }]);
     expect(due.orphaned).toEqual([]);
     const { notes } = await vault.notesWithHistory();
     expect(notes.find(n => n.path === "3.Resources/JavaScript/The event loop.md")!.history.sessions).toBe(2);

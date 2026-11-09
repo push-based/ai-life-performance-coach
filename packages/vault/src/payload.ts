@@ -23,7 +23,7 @@ export function tier2Payload(session: SessionRecord, assertions?: ReadonlyMap<st
     items: session.items.map(i => ({
       challenge: i.challenge,
       answer: i.answer,
-      ...(assertions ? { core_assertions: [...(assertions.get(i.coach_id) ?? [])] } : {}),
+      ...(assertions ? { core_assertions: [...((i.coach_id ? assertions.get(i.coach_id) : undefined) ?? [])] } : {}),
     })),
   };
 }

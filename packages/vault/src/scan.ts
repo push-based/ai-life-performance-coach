@@ -60,7 +60,11 @@ function titleOf(path: string, fm: Record<string, unknown>, body: string): strin
 }
 
 export async function readNote(root: string, path: string): Promise<VaultNote> {
-  const content = await readFile(join(root, path), "utf-8");
+  return noteFromContent(path, await readFile(join(root, path), "utf-8"));
+}
+
+/** A note as the scan reads it, from its path and content; also for a note a plan is about to write. */
+export function noteFromContent(path: string, content: string): VaultNote {
   const frontmatter = (parseFrontmatter(content) ?? {}) as Record<string, unknown>;
   const body = Object.keys(frontmatter).length ? extractBody(content) : content;
   const coachId = typeof frontmatter.coach_id === "string" ? frontmatter.coach_id : null;

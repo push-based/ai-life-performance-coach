@@ -177,7 +177,7 @@ describe("sparring concept notes, not raw text", () => {
     const ok = await vault.recordSession({ tier: 1, items: [{ note: path!, challenge: "c", answer: "a", verdict: "pass", next_review: "2026-10-24" }] }, true);
     expect(ok.errors).toEqual([]);
     expect((await vault.dueForReview("2026-10-24")).due).toEqual([
-      { path, title: "Layered Marking", concept: true, coachId: "c-concept", nextReview: "2026-10-24", mastery: "tier1_passed" },
+      { path, title: "Layered Marking", concept: true, coachId: "c-concept", nextReview: "2026-10-24", mastery: "tier1_passed", firstReview: false, book: "Notes That Work", group: null },
     ]);
     // The coach_id insert keeps the concept fields readable.
     expect(conceptOf((await vault.note(path!))!)!.problems).toEqual([]);

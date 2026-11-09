@@ -29,6 +29,8 @@ import { reviewPeriod, type PeriodReview } from "./review.js";
 import { harvestWorkstream, executeHarvest, type HarvestPlan, type PacketInput } from "./harvest.js";
 import { plansView, type PlansView } from "./plansview.js";
 import { periodAt } from "./plans.js";
+import { addDays, interleave, isConceptNote, conceptBook, groupOf, queueKey, READING_NOTES_TYPE, STRUCTURE_TYPE, type ConceptClimb } from "./climb.js";
+import { addReadingNotes, writeStructure, saveGuideline, climbs, rebuildClimbs, conceptWithClimb, type ReadingNotesInput, type StructureInput, type GuidelineInput, type ClimbWritePlan, type ReadingNotesPlan, type StructurePlan, type GuidelinePlan } from "./climb-writes.js";
 
 export interface VaultOptions {
   /** The clock; injectable so tests can fix "today". */
@@ -44,8 +46,13 @@ export interface NoteWithHistory extends VaultNote {
 
 export interface DueReport {
   today: string;
-  /** Sparrable notes (Resources outside 0.Raw) whose latest session's next review date is on or before today. */
-  due: { path: string; title: string; concept: boolean; coachId: string; nextReview: string; mastery: NoteHistory["mastery"] }[];
+  /**
+   * Sparrable notes (Resources outside 0.Raw) whose latest next review date is on or before
+   * today, and concept notes never reviewed whose first review, the day after they were
+   * created, has come (ADR-KI-0068 Decision 8). Ordered by date, then interleaved so no
+   * two neighbours share a group or, without groups, a book whenever another due note allows.
+   */
+  due: { path: string; title: string; concept: boolean; coachId: string | null; nextReview: string; mastery: NoteHistory["mastery"]; firstReview: boolean; book: string | null; group: string | null }[];
   /** Sparrable notes no session covers. */
   unsparred: { path: string; title: string; concept: boolean }[];
   /** Sessions naming a coach_id no note carries any more. */
@@ -130,6 +137,13 @@ export interface Vault {
    * Turn a finished workstream into Intermediate Packets (ADR-KI-0062 Decision 12): without
    * packets, lists the candidates; with packets, previews them, and writes with `execute`.
    */
+  /** Each concept note's climb (ADR-KI-0068), or one note's, by path or title. */
+  climb(note?: string): Promise<ConceptClimb[] | { error: string }>;
+  /** Set every concept note's `climb:` summary to what the evidence gives. */
+  rebuildClimb(execute: boolean, versions?: Versions): Promise<WriteOutcome<ClimbWritePlan>>;
+  addReadingNotes(input: ReadingNotesInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<ReadingNotesPlan>>;
+  writeStructure(input: StructureInput, execute: boolean, versions?: Versions): Promise<WriteOutcome<StructurePlan>>;
+  saveGuideline(input: GuidelineInput, execute: boolean): Promise<WriteOutcome<GuidelinePlan>>;
   harvestWorkstream(project: string, workstream: string, packets: PacketInput[] | undefined, execute: boolean): Promise<HarvestResult>;
   /** The plans page's data (ADR-KI-0063); defaults to the current quarter by week. */
   plansView(span?: string, by?: string): Promise<PlansView | { error: string }>;
@@ -255,6 +269,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       const plan = planSession(input, {
         root,
         notes: await scanVault(root),
+        sessions: (await loadSessions(root)).sessions,
         now: at,
         newSessionId: () => newSessionId(at),
         newCoachId,
@@ -267,14 +282,24 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     async dueForReview(today) {
       const day = today ?? localDate(now());
       const { notes, invalidSessions, map } = await notesWithHistory();
-      const resources = notes.filter(n => n.bucket === "resources" && !n.raw);
+      const resources = notes.filter(n => n.bucket === "resources" && !n.raw && n.frontmatter.type !== READING_NOTES_TYPE && n.frontmatter.type !== STRUCTURE_TYPE);
       const carried = new Set(notes.map(n => n.coachId).filter(Boolean));
+      const created = (n: NoteWithHistory) => (typeof n.frontmatter.created === "string" && /^\d{4}-\d{2}-\d{2}$/.test(n.frontmatter.created) ? n.frontmatter.created : null);
+      const dueOn = (n: NoteWithHistory): { date: string; first: boolean } | null => {
+        if (n.history.nextReview !== null) return { date: n.history.nextReview, first: false };
+        const c = isConceptNote(n) && n.history.mastery === "unsparred" ? created(n) : null;
+        return c ? { date: addDays(c, 1), first: true } : null;
+      };
+      const due = resources
+        .map(n => ({ n, at: dueOn(n) }))
+        .filter((x): x is { n: NoteWithHistory; at: { date: string; first: boolean } } => x.at !== null && x.at.date <= day)
+        .sort((a, b) => (a.at.date < b.at.date ? -1 : a.at.date > b.at.date ? 1 : a.n.path < b.n.path ? -1 : a.n.path > b.n.path ? 1 : 0));
       return {
         today: day,
-        due: resources
-          .filter(n => n.history.nextReview !== null && n.history.nextReview <= day)
-          .sort((a, b) => (a.history.nextReview! < b.history.nextReview! ? -1 : a.history.nextReview! > b.history.nextReview! ? 1 : 0))
-          .map(n => ({ path: n.path, title: n.title, concept: n.concept, coachId: n.coachId!, nextReview: n.history.nextReview!, mastery: n.history.mastery })),
+        due: interleave(due, x => queueKey(x.n, notes)).map(({ n, at }) => ({
+          path: n.path, title: n.title, concept: n.concept, coachId: n.coachId, nextReview: at.date, mastery: n.history.mastery,
+          firstReview: at.first, book: n.concept ? conceptBook(n, notes) : null, group: groupOf(n),
+        })),
         unsparred: resources.filter(n => n.history.mastery === "unsparred").map(n => ({ path: n.path, title: n.title, concept: n.concept })),
         orphaned: [...map.entries()].filter(([id]) => !carried.has(id)).map(([coachId, h]) => ({ coachId, lastSession: h.lastSession })),
         invalidSessions,
@@ -365,8 +390,17 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     reviewPeriod: async (period, today) => reviewPeriod(root, await scanVault(root), period, today ?? localDate(now())),
     rollOver: async (period, execute, versions) => applyNoteWrites(root, rollOver(root, await scanVault(root), period), execute, versions),
     findPassages: async (query, opts) => searchPassages(await scanVault(root), query, opts),
+    async climb(note) {
+      return climbs(await scanVault(root), (await loadSessions(root)).sessions, note);
+    },
+    rebuildClimb: async (execute, versions) => applyNoteWrites(root, rebuildClimbs(root, await scanVault(root), (await loadSessions(root)).sessions), execute, versions),
+    addReadingNotes: async (input, execute, versions) => applyNoteWrites(root, addReadingNotes(root, await scanVault(root), (await loadSessions(root)).sessions, input, localDate(now())), execute, versions),
+    writeStructure: async (input, execute, versions) => applyNoteWrites(root, writeStructure(root, await scanVault(root), (await loadSessions(root)).sessions, input, localDate(now())), execute, versions),
+    saveGuideline: async (input, execute) => applyNoteWrites(root, saveGuideline(root, await scanVault(root), (await loadSessions(root)).sessions, input), execute),
     async createConcept(input, execute) {
-      const plan = planConcept(root, await scanVault(root), input, localDate(now()));
+      const notes = await scanVault(root);
+      const plan = planConcept(root, notes, input, localDate(now()));
+      if (plan.content && plan.path) plan.content = conceptWithClimb(plan.path, plan.content, notes, (await loadSessions(root)).sessions);
       const { content: _content, ...shown } = plan;
       if (!execute || plan.errors.length || plan.collisions.length) return { ...shown, executed: false };
       await executeConcept(root, plan);
