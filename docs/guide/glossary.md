@@ -22,6 +22,10 @@ A note holding one idea, in your own words, with its core assertions, buzzwords 
 
 One of the key points of a concept note: what your explanation must cover to pass. They are drafted from your own summary and answers, never from the book, and you approve each one.
 
+## Decision record
+
+A short document that records one decision about how ai-coach is built, and why: an ADR. The coach's records are numbered `ADR-AIC-0001` onwards; the vault server's earlier ones are `ADR-KI-0058` to `ADR-KI-0071`. They live in the [knowledge base](#knowledge-base) and on the documentation site under **Decisions**.
+
 ## Distill
 
 Marking a chapter in Obsidian: bolding what matters, highlighting the best of it, and summarising the chapter in your own words.
@@ -61,6 +65,10 @@ The online model (Gemini) that gives a second, stricter verdict on your sparring
 ## kb-template
 
 A separate, private documentation project by [Kirill](https://github.com/Karnaukhov-kh). The [vault server](#vault-server) was written for ai-coach in a branch of it, then moved into ai-coach in November 2026 (ADR-AIC-0048). Only three small files come from kb-template itself: see [Code from kb-template](../../README.md#code-from-kb-template). Decision records numbered ADR-KI, such as ADR-KI-0058, were written there and moved here too (ADR-AIC-0049).
+
+## Knowledge base
+
+The `kb/` folder, where the [decision records](#decision-record) live. It's a workspace for kb-kit, a set of agent skills on the docs-mcp engine. Both are made by [Kirill](https://github.com/Karnaukhov-kh), who also wrote [kb-template](#kb-template). The engine checks the records and serves them to agents over MCP as the `ai-coach-kb` server. See [`kb/README.md`](../../kb/README.md).
 
 ## PARA
 

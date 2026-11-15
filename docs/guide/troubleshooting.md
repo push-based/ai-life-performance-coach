@@ -4,14 +4,15 @@ Find the message you see, then try the fix next to it. Messages are shortened; `
 
 ## Setup and connections
 
-| You see                                                         | Try                                                                                                                                                              |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `No Gemma model configured`                                     | Set `ollama.model` to a name from `ollama list`.                                                                                                                 |
-| `Ollama is not reachable`                                       | Start Ollama (`ollama serve` or the app).                                                                                                                        |
-| `Tier 1 runs offline: the Ollama host must be http on loopback` | ai-coach only talks to Ollama on your own machine. Point `ollama.host` at `127.0.0.1` or `localhost`.                                                            |
-| `Could not start the vault server`                              | Build the workspace (`npx nx run-many -t build`). If you set `docsMcpBin`, check it points at a built `main.js`. The error includes the end of the server's log. |
-| `unexpected response from the vault server`                     | The vault server and the coach were built from different versions. Rebuild the workspace (`npx nx run-many -t build`).                                           |
-| `config.json: …` with a setting name                            | The file has a typo or an unknown key. The message names it.                                                                                                     |
+| You see                                                         | Try                                                                                                                                                                  |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `No Gemma model configured`                                     | Set `ollama.model` to a name from `ollama list`.                                                                                                                     |
+| `Ollama is not reachable`                                       | Start Ollama (`ollama serve` or the app).                                                                                                                            |
+| `Tier 1 runs offline: the Ollama host must be http on loopback` | ai-coach only talks to Ollama on your own machine. Point `ollama.host` at `127.0.0.1` or `localhost`.                                                                |
+| `Could not start the vault server`                              | Build the workspace (`npx nx run-many -t build`). If you set `docsMcpBin`, check it points at a built `main.js`. The error includes the end of the server's log.     |
+| `unexpected response from the vault server`                     | The vault server and the coach were built from different versions. Rebuild the workspace (`npx nx run-many -t build`).                                               |
+| Claude Code says `ai-coach-kb` failed to start                  | That server needs the docs-mcp engine, for contributors only. Delete the `ai-coach-kb` entry from `.mcp.json`. See [Setup](setup.md#5-connect-claude-code-optional). |
+| `config.json: …` with a setting name                            | The file has a typo or an unknown key. The message names it.                                                                                                         |
 
 ## Sparring and synthesizing
 

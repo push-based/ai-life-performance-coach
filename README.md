@@ -171,7 +171,7 @@ The vault server (`packages/vault`, `packages/vault-server` and `apps/climb-boar
 
 Everything else in this repository was written for ai-coach.
 
-Kudos to [Kirill](https://github.com/Karnaukhov-kh), who wrote kb-template. The vault server grew out of kb-template, and all of this was possible thanks to Kirill.
+Kudos to [Kirill](https://github.com/Karnaukhov-kh), who wrote kb-template. The vault server grew out of kb-template, and all of this was possible thanks to Kirill. Kirill also made kb-kit and the docs-mcp engine, which keep this project's [decision records](kb/README.md).
 
 ## Status
 

@@ -71,6 +71,7 @@ cp .mcp.example.json .mcp.json
 - Use **absolute paths**. `~` is not expanded here.
 - Use the same vault as `vault` in your `coach.config.json`.
 - Keep `--vault` explicit. Without it the server falls back to `DOCS_MCP_VAULT` or `~/.config/docs-mcp/config.json`, which may name another vault.
+- The example also has `ai-coach-kb`, the server for the project's decision records. The planning skills don't use it, and it needs the docs-mcp engine (see [Contributing](../../CONTRIBUTING.md#decision-records)). Delete it unless you work on ai-coach itself.
 
 Prefer the command line? This registers the same server in your own Claude Code settings instead of a file:
 
