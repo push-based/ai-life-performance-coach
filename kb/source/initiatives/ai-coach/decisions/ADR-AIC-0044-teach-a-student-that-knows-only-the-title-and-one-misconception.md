@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0044
 title: 'Teach a student that knows only the title and one misconception'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0044']

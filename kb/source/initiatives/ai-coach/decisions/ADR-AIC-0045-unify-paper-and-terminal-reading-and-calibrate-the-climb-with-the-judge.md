@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0045
 title: 'Unify paper and terminal reading in synthesis, and guard the climb with the judge'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0045']

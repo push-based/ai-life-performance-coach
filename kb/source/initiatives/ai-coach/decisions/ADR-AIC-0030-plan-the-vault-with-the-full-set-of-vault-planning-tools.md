@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0030
 title: 'Plan the vault with the full set of vault planning tools, and pass every preview back on execute'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-02
 aliases: ['ADR-0030']

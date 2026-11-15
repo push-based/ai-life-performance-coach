@@ -3,7 +3,7 @@ doc_type: adr
 id: ADR-AIC-0049
 title: "Keep the decision records in a kb-kit knowledge base"
 summary: "The decision records move from docs/adr/ into kb/, a kb-kit workspace that the docs-mcp engine checks and serves to agents over MCP, together with the vault decisions that were left in kb-template."
-status: draft
+status: accepted
 initiative: "ai-coach"
 owners: []
 reviewers: []

@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0036
 title: 'Fix ticked tasks with update_task, and place tasks by heading path'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0036']

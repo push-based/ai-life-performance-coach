@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0040
 title: 'Guess before you look with coach generate, and correct every wrong guess'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0040']

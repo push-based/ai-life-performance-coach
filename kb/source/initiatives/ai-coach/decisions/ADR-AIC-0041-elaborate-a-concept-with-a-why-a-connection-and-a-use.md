@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0041
 title: 'Elaborate a concept with a why, a connection and a use, checked in code'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0041']

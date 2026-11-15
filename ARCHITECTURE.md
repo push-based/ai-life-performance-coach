@@ -94,7 +94,7 @@ Adapters never import each other, and nothing imports the `cli`. Nothing in the 
 ## Rules
 
 - Dependencies point inward. Ports are shaped by what the use cases need, not by a tool's API.
-- Business rules live in the domain, in objects that guard their own invariants: a `SparringRound` will not accept a challenge that quotes the note, and `tier2Payload()` rejects any field other than `challenge` and `answer` (plus core assertions when allowed, ADR-AIC-0021).
+- Business rules live in the domain, in objects that guard their own invariants: a `SparringRound` will not accept a challenge that quotes the note, and `tier2Payload()` rejects any field other than `challenge`, `answer` and the coaching `style` (plus core assertions when allowed, ADR-AIC-0025).
 - Use cases orchestrate: they load through ports, let the domain decide, and save through ports.
 - Every write to the vault is a preview first and an execute only after the user confirms (ADR-AIC-0009).
 - Adapters translate technology failures into application errors (`UnavailableError`, `UnusableReplyError`, `VaultRefusedError`); the CLI turns those into messages and exit codes.

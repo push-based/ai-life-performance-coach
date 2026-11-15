@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0024
 title: "Drop a Tier 1 gap only when the learner's own words cover it"
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-10-25
 aliases: ['ADR-0024']

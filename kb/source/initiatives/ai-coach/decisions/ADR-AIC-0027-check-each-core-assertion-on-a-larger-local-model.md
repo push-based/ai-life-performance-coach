@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0027
 title: 'Decide a concept round by checking each core assertion on a larger local model'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-10-26
 aliases: ['ADR-0027']
