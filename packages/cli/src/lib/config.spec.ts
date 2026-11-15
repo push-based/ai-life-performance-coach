@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ConfigError, loadConfig, ollamaOptions } from './config.js';
 
 describe('loadConfig', () => {
@@ -24,15 +25,8 @@ describe('loadConfig', () => {
     expect(config).toMatchObject({
       configFile: null,
       vault: undefined,
-      docsMcpBin: join(
-        dir,
-        'home',
-        'projects',
-        'kb-template',
-        'packages',
-        'cli',
-        'bin',
-        'docs-mcp.js',
+      docsMcpBin: fileURLToPath(
+        new URL('../../../vault-server/dist/main.js', import.meta.url),
       ),
       stateDir: join(dir, 'home', '.local', 'state', 'ai-coach'),
       ollama: {

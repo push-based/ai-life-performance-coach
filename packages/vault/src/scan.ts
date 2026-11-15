@@ -6,7 +6,7 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import { join, posix } from "node:path";
-import { parseFrontmatter, extractBody } from "@docs-mcp/core/kernel/md/frontmatter.js";
+import { parseFrontmatter, extractBody } from "./md.js";
 import { classify, COACH_ROOT, type ParaLocation } from "./para.js";
 import { extractLinks, type RawLink } from "./links.js";
 

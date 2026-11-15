@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineTool, type ToolDef, type ToolResult } from "../../tool-types.js";
-import type { Vault, WriteResult } from "@docs-mcp/vault/vault.js";
+import type { Vault, WriteResult } from "@ai-coach/vault/vault.js";
 import { json, fail } from "./json.js";
 
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false } as const;

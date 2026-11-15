@@ -39,6 +39,8 @@ const PACKAGE_ORDER = [
   'adapter-vault-mcp',
   'adapter-local-state',
   'cli',
+  'vault',
+  'vault-server',
 ];
 
 export function siteFiles() {

@@ -4,14 +4,14 @@ Find the message you see, then try the fix next to it. Messages are shortened; `
 
 ## Setup and connections
 
-| You see                                                         | Try                                                                                                                                                         |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `No Gemma model configured`                                     | Set `ollama.model` to a name from `ollama list`.                                                                                                            |
-| `Ollama is not reachable`                                       | Start Ollama (`ollama serve` or the app).                                                                                                                   |
-| `Tier 1 runs offline: the Ollama host must be http on loopback` | ai-coach only talks to Ollama on your own machine. Point `ollama.host` at `127.0.0.1` or `localhost`.                                                       |
-| `Could not start the vault server`                              | Check `docsMcpBin` points at kb-template's `docs-mcp.js`, and that kb-template is built (`pnpm run build`). The error includes the end of the server's log. |
-| `unexpected response from the vault server`                     | Your kb-template build and ai-coach disagree on a tool's reply. Pull and rebuild kb-template.                                                               |
-| `config.json: …` with a setting name                            | The file has a typo or an unknown key. The message names it.                                                                                                |
+| You see                                                         | Try                                                                                                                                                              |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `No Gemma model configured`                                     | Set `ollama.model` to a name from `ollama list`.                                                                                                                 |
+| `Ollama is not reachable`                                       | Start Ollama (`ollama serve` or the app).                                                                                                                        |
+| `Tier 1 runs offline: the Ollama host must be http on loopback` | ai-coach only talks to Ollama on your own machine. Point `ollama.host` at `127.0.0.1` or `localhost`.                                                            |
+| `Could not start the vault server`                              | Build the workspace (`npx nx run-many -t build`). If you set `docsMcpBin`, check it points at a built `main.js`. The error includes the end of the server's log. |
+| `unexpected response from the vault server`                     | The vault server and the coach were built from different versions. Rebuild the workspace (`npx nx run-many -t build`).                                           |
+| `config.json: …` with a setting name                            | The file has a typo or an unknown key. The message names it.                                                                                                     |
 
 ## Sparring and synthesizing
 

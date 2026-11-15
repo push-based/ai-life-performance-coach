@@ -75,4 +75,4 @@ One batch, all previewed and shown together:
 
 `plan_days`, `add_tasks` and `update_task` often change the same workstream note. Execute them one after the other, `update_task` first (its `line` addresses come from the overview and shift once lines are added), then `plan_period`, `plan_days`, and `add_tasks` last. When a later call touches a note an earlier one just wrote, preview it again before executing (its `versions` are stale); show the user only what differs from the preview they approved.
 
-**Ask**, execute everything, each call with its own `versions`, then report: goals written with their block ids, tasks scheduled per day, habit checks written, and day plans created. Mention that the plans page (`docs-mcp view --vault <vault path>`, then `http://127.0.0.1:4747/plans`) shows the week against its month.
+**Ask**, execute everything, each call with its own `versions`, then report: goals written with their block ids, tasks scheduled per day, habit checks written, and day plans created. Mention that the plans page (`npm run coach -- view`, then `http://127.0.0.1:4747/plans`) shows the week against its month.

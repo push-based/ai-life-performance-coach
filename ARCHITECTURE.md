@@ -9,7 +9,7 @@ Why each part is the way it is lives in the ADRs in [`docs/adr/`](docs/adr/READM
 ```
                          ┌───────────────────────── your machine ─────────────────────────┐
                          │                                                                │
-  you ── terminal ──►  coach CLI (this repo) ──stdio/MCP──►  docs-mcp serve (kb-template) ──► Obsidian vault
+  you ── terminal ──►  coach CLI (this repo) ──stdio/MCP──►  coach-vault serve (this repo) ──► Obsidian vault
                          │        │                                   ▲                    │   (Markdown files)
                          │        └──HTTP, loopback only──► Ollama (Gemma)                  │
                          │                                            │                    │
@@ -20,7 +20,7 @@ Why each part is the way it is lives in the ADRs in [`docs/adr/`](docs/adr/READM
                                   └──HTTPS, Tier 2 payload only──► Gemini (the judge)
 ```
 
-- **kb-template** owns the vault. Its `docs-mcp` server is the only program that reads or writes vault files (ADR-0003). It keeps the PARA layout, converts PDFs into chapter notes, checks quotes against books, keeps the sparring history in `Coach/sessions/`, runs the planning model in `Plans/`, and serves the graph view on port 4747. Every write it offers is a preview until called with `execute`.
+- **The vault server** (`packages/vault-server`, run as `coach-vault`) owns the vault. It is the only program that reads or writes vault files (ADR-0048). It was first built in kb-template and moved here with its history; the reasons for its behaviour are kb-template's ADR-KI-0058 to ADR-KI-0071. It keeps the PARA layout, converts PDFs into chapter notes, checks quotes against books, keeps the sparring history in `Coach/sessions/`, runs the planning model in `Plans/`, and serves the graph view on port 4747. Every write it offers is a preview until called with `execute`.
 - **The `coach` CLI** holds the learning rules, the conversations with Gemma and Gemini, and the confirm-before-write terminal flow. It starts `node <docsMcpBin> serve --vault <vault>` as a child process for each command, talks to it over MCP on stdio, and stops it when the command ends.
 - **Ollama** runs Gemma locally. The CLI refuses any Ollama host that is not on loopback.
 - **The planning skills** in `.claude/skills/` are instructions for Claude Code, not code. They reach the same server through the MCP registration Claude Code loads (Claude Code starts its own copy), and never touch vault files directly (ADR-0029, ADR-0030).
@@ -30,7 +30,7 @@ Why each part is the way it is lives in the ADRs in [`docs/adr/`](docs/adr/READM
 ```
                     driving side                      driven side
                                          ┌──────────────────────────────┐
-  terminal ──► cli ──► application ──►   │ NotesRepository, SessionLog, │ ◄── adapter-vault-mcp   (kb-template over MCP)
+  terminal ──► cli ──► application ──►   │ NotesRepository, SessionLog, │ ◄── adapter-vault-mcp   (vault server over MCP)
              (composition root)   │      │ VaultFiling, Library         │
                                   │      │ SparringPartner, StudyPartner│ ◄── adapter-ollama      (local Gemma, loopback only)
                                   │      │ StyleClassifier,             │
@@ -40,17 +40,20 @@ Why each part is the way it is lives in the ADRs in [`docs/adr/`](docs/adr/READM
                                          └──────────────────────────────┘
 ```
 
-| Project               | Tag                                   | Contains                                                                                                                                                                                                                                                  | May import                                      |
-| --------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `domain`              | `type:domain`                         | The sparring round aggregate, sparring rules, coaching styles, buzzword and verbatim checks, the review ladder, the judge's verdict rule, the Tier 2 payload invariant, study rounds, synthesis checks, the climb's steps, domain errors                  | `domain` only; no npm package, no Node built-in |
-| `application`         | `type:application`                    | Use cases (`Review`, `Filing`, `Sparring`, `SparringConversation`, `Judging`, `Studying`, `Synthesizing`, `Climbing`, `Generating`, `Elaborating`, `Grouping`, `Reading`, `Teaching`), the ports they need, application errors, in-memory fakes for tests | `domain`; no npm package, no Node built-in      |
-| `adapter-vault-mcp`   | `type:adapter`, `adapter:vault-mcp`   | `McpVault` and `VaultClient`: the vault and library ports over kb-template's MCP server                                                                                                                                                                   | core; `@modelcontextprotocol/sdk`, `zod`, Node  |
-| `adapter-ollama`      | `type:adapter`, `adapter:ollama`      | The four Gemma partners and `OllamaClient`: prompts, fencing, structured replies, the loopback-only guard                                                                                                                                                 | core; `zod`, Node                               |
-| `adapter-gemini`      | `type:adapter`, `adapter:gemini`      | `GeminiJudge`: the blind claim-extraction protocol, fallback model, boundary re-check of the payload                                                                                                                                                      | core; `@google/genai`, `zod`, Node              |
-| `adapter-local-state` | `type:adapter`, `adapter:local-state` | `FilePendingJudgements`, `SystemClock`                                                                                                                                                                                                                    | core; `zod`, Node                               |
-| `cli`                 | `type:app`                            | Terminal I/O, config, commands, and `composeCoach`, the only place a port meets its adapter                                                                                                                                                               | everything                                      |
+| Project               | Tag                                   | Contains                                                                                                                                                                                                                                                  | May import                                                    |
+| --------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `domain`              | `type:domain`                         | The sparring round aggregate, sparring rules, coaching styles, buzzword and verbatim checks, the review ladder, the judge's verdict rule, the Tier 2 payload invariant, study rounds, synthesis checks, the climb's steps, domain errors                  | `domain` only; no npm package, no Node built-in               |
+| `application`         | `type:application`                    | Use cases (`Review`, `Filing`, `Sparring`, `SparringConversation`, `Judging`, `Studying`, `Synthesizing`, `Climbing`, `Generating`, `Elaborating`, `Grouping`, `Reading`, `Teaching`), the ports they need, application errors, in-memory fakes for tests | `domain`; no npm package, no Node built-in                    |
+| `adapter-vault-mcp`   | `type:adapter`, `adapter:vault-mcp`   | `McpVault` and `VaultClient`: the vault and library ports over the vault server's MCP tools                                                                                                                                                               | core; `@modelcontextprotocol/sdk`, `zod`, Node                |
+| `adapter-ollama`      | `type:adapter`, `adapter:ollama`      | The four Gemma partners and `OllamaClient`: prompts, fencing, structured replies, the loopback-only guard                                                                                                                                                 | core; `zod`, Node                                             |
+| `adapter-gemini`      | `type:adapter`, `adapter:gemini`      | `GeminiJudge`: the blind claim-extraction protocol, fallback model, boundary re-check of the payload                                                                                                                                                      | core; `@google/genai`, `zod`, Node                            |
+| `adapter-local-state` | `type:adapter`, `adapter:local-state` | `FilePendingJudgements`, `SystemClock`                                                                                                                                                                                                                    | core; `zod`, Node                                             |
+| `cli`                 | `type:app`                            | Terminal I/O, config, commands, and `composeCoach`, the only place a port meets its adapter                                                                                                                                                               | everything                                                    |
+| `vault`               | `type:vault`                          | The vault engine: PARA scan, search, link graph, sessions and mastery, book conversion, concepts, the climb, filing, planning, and the graph view's HTTP server and pages                                                                                 | `vault` only; `gray-matter`, `flexsearch`, `pdfjs-dist`, Node |
+| `vault-server`        | `type:vault-server`                   | The MCP vault server and the `coach-vault` binary (`serve`, `view`): one tool per vault ability                                                                                                                                                           | `vault`; `@modelcontextprotocol/sdk`, `zod`, Node             |
+| `climb-board`         | `type:vault-asset`                    | The Angular drawing board of the climb page, built into `vault`'s assets                                                                                                                                                                                  | Angular, `ng-diagram`                                         |
 
-Adapters never import each other, and nothing imports the `cli`. Each package's README says what it does in plain words:
+Adapters never import each other, and nothing imports the `cli`. Nothing in the coach imports `vault` or `vault-server` either: the coach reaches the vault only over MCP, through `adapter-vault-mcp` (ADR-0048). Each package's README says what it does in plain words:
 
 | Package                                                         | In one line                                                                     |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -58,9 +61,12 @@ Adapters never import each other, and nothing imports the `cli`. Each package's 
 | [`application`](packages/application/README.md)                 | The things you can do (spar, judge, study, synthesize) and the ports they need. |
 | [`adapter-ollama`](packages/adapter-ollama/README.md)           | The local sparring partner, powered by Gemma.                                   |
 | [`adapter-gemini`](packages/adapter-gemini/README.md)           | The online judge, powered by Gemini.                                            |
-| [`adapter-vault-mcp`](packages/adapter-vault-mcp/README.md)     | Talks to your vault through kb-template's server.                               |
+| [`adapter-vault-mcp`](packages/adapter-vault-mcp/README.md)     | Talks to your vault through the vault server.                                   |
 | [`adapter-local-state`](packages/adapter-local-state/README.md) | Remembers which sessions are waiting for the judge, and what day it is.         |
 | [`cli`](packages/cli/README.md)                                 | The `coach` command you type.                                                   |
+| [`vault`](packages/vault/README.md)                             | Reads and writes your vault, and serves the graph view.                         |
+| [`vault-server`](packages/vault-server/README.md)               | Offers the vault as MCP tools to the coach and to Claude Code.                  |
+| [`climb-board`](apps/climb-board/README.md)                     | The drawing board on the climb page.                                            |
 
 ## Ports and who provides them
 
@@ -87,6 +93,7 @@ Adapters never import each other, and nothing imports the `cli`. Each package's 
 `npm exec nx run-many -- -t lint` runs `@nx/enforce-module-boundaries` with the tags above:
 
 - `onlyDependOnLibsWithTags` keeps dependencies inward and stops adapters importing each other.
+- `type:vault` may depend only on `type:vault`, and `type:vault-server` only on `type:vault`. No other tag lists either, so nothing in the coach can import the vault.
 - `allowedExternalImports` is a whitelist per tag: empty for `domain` and `application`, and only its own SDK for each adapter.
 - `no-restricted-imports` bans Node built-ins in `domain` and `application`, which the whitelist does not cover.
 - Circular project dependencies are errors.
@@ -100,4 +107,4 @@ Adapters never import each other, and nothing imports the `cli`. Each package's 
 | Adapters  | `adapter-ollama`, `adapter-gemini`, `adapter-local-state` | A loopback HTTP server for Ollama, the real Gemini SDK with a fake client, a temporary directory           |
 | CLI       | `cli`                                                     | A scripted terminal and stubbed use cases                                                                  |
 
-Tests that start the kb-template vault server (the MCP adapter and end-to-end CLI tests) are dropped for now (ADR-0010), so `adapter-vault-mcp` has no tests and passes with none.
+Tests that start the vault server (the MCP adapter and end-to-end CLI tests) are dropped for now (ADR-0010), so `adapter-vault-mcp` has no tests and passes with none. The vault server's own packages are tested against temporary vaults: `vault` through its functions and the graph view's HTTP server, `vault-server` through its tool handlers and one in-memory MCP client.

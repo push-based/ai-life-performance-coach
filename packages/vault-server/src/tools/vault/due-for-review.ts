@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineTool, type ToolDef } from "../../tool-types.js";
-import type { Vault } from "@docs-mcp/vault/vault.js";
+import type { Vault } from "@ai-coach/vault/vault.js";
 import { json } from "./json.js";
 
 export function dueForReviewTool(vault: Vault): ToolDef {

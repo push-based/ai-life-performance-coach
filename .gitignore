@@ -65,3 +65,6 @@ docs/handoff/
 ## Docs site
 apps/docs/build
 apps/docs/.docusaurus
+
+# Angular build cache (apps/climb-board)
+.angular/

@@ -100,7 +100,7 @@ export function vaultOptionsFromEnv(
   const serverBin = env['DOCS_MCP_BIN'];
   if (!serverBin) {
     throw new Error(
-      'DOCS_MCP_BIN is not set: point it at kb-template/packages/cli/bin/docs-mcp.js',
+      'DOCS_MCP_BIN is not set: point it at packages/vault-server/dist/main.js',
     );
   }
   return { serverBin, vault: env['DOCS_MCP_VAULT'] || undefined };
