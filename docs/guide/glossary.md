@@ -48,7 +48,7 @@ The online model (Gemini) that gives a second, stricter verdict on your sparring
 
 ## kb-template
 
-A separate project that owns your vault. Its vault server (`docs-mcp`) is the only program that reads or writes vault files; ai-coach and the planning skills both ask it.
+The separate project where the [vault server](#vault-server) was first built. The server moved into ai-coach in November 2026 (ADR-0048); older decision records still cite kb-template's own ones, such as ADR-KI-0058.
 
 ## PARA
 
@@ -108,4 +108,4 @@ The two models. **Tier 1** is the local sparring partner (Gemma on Ollama), whic
 
 ## Vault server
 
-kb-template's `docs-mcp` program. ai-coach starts it for each command and talks to it over the [Model Context Protocol](https://modelcontextprotocol.io).
+The only program that reads or writes your vault files: `packages/vault-server`, run as `coach-vault`. ai-coach starts it for each command and talks to it over the [Model Context Protocol](https://modelcontextprotocol.io); the planning skills reach it through Claude Code. `coach view` starts its graph view.

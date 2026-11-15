@@ -4,7 +4,7 @@
  * byte of the note, its existing frontmatter included, is left exactly as it was.
  */
 
-import { yamlString } from "@docs-mcp/core/kernel/md/yaml.js";
+import { yamlString } from "./md.js";
 
 /** The note's frontmatter block as raw lines, or null when the note has none. */
 function frontmatterBlock(content: string, eol: string): { end: number } | null {

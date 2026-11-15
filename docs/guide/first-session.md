@@ -1,8 +1,8 @@
 # Your first session
 
-This page takes one book through the whole loop: distill, synthesize, spar, judge, study and review, then the rest of the climb. You need a working [setup](setup.md) and a book that kb-template has converted into your vault.
+This page takes one book through the whole loop: distill, synthesize, spar, judge, study and review, then the rest of the climb. You need a working [setup](setup.md) and a book converted into your vault: put its PDF under `3.Resources/0.Raw/` and convert it with the vault server's `convert_raw` tool, for example by asking Claude Code with the [planning skills' server](../../.claude/skills/README.md#set-it-up) connected.
 
-Say you've read _Building a Second Brain_, and kb-template has turned it into chapter notes under `3.Resources/0.Raw/Books/…`.
+Say you've read _Building a Second Brain_, and the vault server has turned it into chapter notes under `3.Resources/0.Raw/Books/…`.
 
 ## 1. Distill: mark what matters
 

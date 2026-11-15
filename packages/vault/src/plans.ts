@@ -217,7 +217,7 @@ export interface PlanPeriodPlan {
   writes: Record<string, string>;
 }
 
-export const slug = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\x00-\x7f]/g, "").replace(/\[\[[^\]]*\|([^\]]*)\]\]|\[\[([^\]]*)\]\]/g, "$1$2")
+export const slug = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{ASCII}]/gu, "").replace(/\[\[[^\]]*\|([^\]]*)\]\]|\[\[([^\]]*)\]\]/g, "$1$2")
   .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24).replace(/-+$/, "") || "goal";
 
 /** The template for a level: the vault's own if it has one, else the built-in. */

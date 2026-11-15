@@ -1,6 +1,6 @@
 # @ai-coach/adapter-vault-mcp
 
-**The bridge to your Obsidian vault.** ai-coach never opens the files in your vault itself. Every read and every change goes through the vault server from **kb-template**, which this package starts and talks to over [MCP](https://modelcontextprotocol.io).
+**The bridge to your Obsidian vault.** ai-coach never opens the files in your vault itself. Every read and every change goes through the [vault server](../vault-server/README.md), which this package starts and talks to over [MCP](https://modelcontextprotocol.io).
 
 That keeps one program in charge of your vault: it knows the folder layout, keeps sparring history, checks quotes against books and refuses unsafe moves. ai-coach just asks.
 
@@ -23,28 +23,27 @@ Every tool that writes **previews first**. ai-coach only executes after you conf
 
 ## Setting it up
 
-Check out and build kb-template, then point ai-coach at its server and your vault:
+Build the workspace, then point ai-coach at your vault:
 
 ```json
 {
-  "vault": "~/Documents/my-vault",
-  "docsMcpBin": "~/projects/kb-template/packages/cli/bin/docs-mcp.js"
+  "vault": "~/Documents/my-vault"
 }
 ```
 
-or with environment variables: `DOCS_MCP_VAULT` and `DOCS_MCP_BIN`.
+or with the environment variable `DOCS_MCP_VAULT`.
 
-If `docsMcpBin` is left out, ai-coach looks for kb-template at `~/projects/kb-template`.
+The server is `packages/vault-server/dist/main.js` in this checkout, and ai-coach finds it there by itself. Set `docsMcpBin` (or `DOCS_MCP_BIN`) only to use a server somewhere else.
 
 `VaultClient.connect` starts the server as a child process, `node <docsMcpBin> serve --vault <vault>`, and talks to it over MCP on stdio. It identifies itself as `ai-coach` and keeps the server's stderr, so a failed start can show the end of the log. `McpVault.close()` stops the server.
 
-Always set the vault. Without `--vault`, `docs-mcp serve` starts kb-template's documentation server instead of the vault server, and the coach's calls will fail.
+Always set the vault. Without it the server looks for one in `DOCS_MCP_VAULT` and `~/.config/docs-mcp/config.json`, and stops if it finds none.
 
 ## Good to know
 
-- **Everything that comes back is checked.** Replies are validated against a schema. If kb-template changes a reply's shape, you get a clear "unexpected response from the vault server" error rather than odd behaviour.
+- **Everything that comes back is checked.** Replies are validated against a schema. If the server changes a reply's shape, you get a clear "unexpected response from the vault server" error rather than odd behaviour.
 - **Refusals come through as they are.** When the server refuses something (a quote not found in the book, a name collision), you see its own explanation as a `VaultRefusedError`.
-- **If something is missing, change kb-template, not this package.** New vault abilities belong in kb-template's server. This package only wraps what the server offers.
+- **If something is missing, add it to the server, not this package.** New vault abilities belong in [`vault`](../vault/README.md) and [`vault-server`](../vault-server/README.md) (ADR-0048). This package only wraps what the server offers.
 - **Server problems are easy to see.** If the server won't start, the error includes the end of its log.
 
 ## Classes
@@ -56,4 +55,4 @@ Always set the vault. Without `--vault`, `docs-mcp serve` starts kb-template's d
 
 ## Tests
 
-There are no automated tests here for now. They would need a running kb-template server (see ADR-0010). Try changes by hand against a **copy** of a vault, never your real one.
+There are no automated tests here for now. They would need a running vault server (see ADR-0010). Try changes by hand against a **copy** of a vault, never your real one.

@@ -27,7 +27,10 @@
           "buildDepsName": "build-deps",
           "watchDepsName": "watch-deps"
         }
-      }
+      },
+      "exclude": [
+        "apps/climb-board/**"
+      ]
     },
     {
       "plugin": "@nx/vitest",

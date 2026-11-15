@@ -58,7 +58,9 @@ async function summaryFor(
 async function pickBook(coach: Coach, term: Terminal): Promise<string | null> {
   const books = await coach.reading().books();
   if (!books.length) {
-    term.print('No converted book yet. Convert one in kb-template first.');
+    term.print(
+      "No converted book yet. Convert a PDF under 3.Resources/0.Raw with the vault server's convert_raw tool first.",
+    );
     return null;
   }
   books.forEach((b, i) =>

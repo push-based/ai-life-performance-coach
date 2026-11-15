@@ -1230,7 +1230,7 @@
       for (const [key, name] of list) {
         const chip = h("button", { type: "button", class: `chip${set.has(key) ? " off" : ""}`, "aria-pressed": String(!set.has(key)) },
           mark(key), h("span", { class: "name", textContent: name }), h("span", { class: "count", textContent: String(count(key)) }));
-        chip.addEventListener("click", () => { set.has(key) ? set.delete(key) : set.add(key); chip.classList.toggle("off", set.has(key)); render(); });
+        chip.addEventListener("click", () => { if (set.has(key)) set.delete(key); else set.add(key); chip.classList.toggle("off", set.has(key)); render(); });
         host.append(chip);
       }
     };
@@ -1275,8 +1275,8 @@
     const now = on ?? !body.classList.contains("present");
     body.classList.toggle("present", now);
     $("present").setAttribute("aria-pressed", String(now));
-    if (now && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
-    if (!now && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    if (now && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => undefined);
+    if (!now && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => undefined);
   }
 
   /* ── Loading ────────────────────────────────────────────────────────────── */

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { defineTool, type ToolDef } from "../../tool-types.js";
-import type { Vault } from "@docs-mcp/vault/vault.js";
-import { periodOf } from "@docs-mcp/vault/plans.js";
-import { isHabitDue } from "@docs-mcp/vault/habits.js";
+import type { Vault } from "@ai-coach/vault/vault.js";
+import { periodOf } from "@ai-coach/vault/plans.js";
+import { isHabitDue } from "@ai-coach/vault/habits.js";
 import { json, fail } from "./json.js";
 
 const SIZE = z.enum(["S", "M", "L"]).optional().describe("Size: S weighs 1, M 3, L 8; none counts as S");

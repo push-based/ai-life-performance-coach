@@ -9,8 +9,8 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createRequire } from "node:module";
-import { createVault } from "@docs-mcp/vault/vault.js";
-import { defaultVaultConfigFile, resolveVaultRoot, type ResolvedVaultRoot } from "@docs-mcp/vault/root.js";
+import { createVault } from "@ai-coach/vault/vault.js";
+import { defaultVaultConfigFile, resolveVaultRoot, type ResolvedVaultRoot } from "@ai-coach/vault/root.js";
 import { createVaultServer } from "./server/vault.js";
 
 export interface ServeVaultOptions {
@@ -60,11 +60,11 @@ export async function serveVault(opts: ServeVaultOptions): Promise<void> {
   const { root, source } = resolveVaultForProcess(opts);
   // The server names itself, not the directory it was launched from: a consumer app
   // starts it from its own repository.
-  const { version } = createRequire(import.meta.url)("@docs-mcp/vault/package.json") as { version: string };
-  const pkg = { name: "docs-mcp", version };
+  const { version } = createRequire(import.meta.url)("@ai-coach/vault/package.json") as { version: string };
+  const pkg = { name: "ai-coach", version };
 
-  console.error(`[docs-mcp-vault] Vault: ${root} (from ${source})`);
+  console.error(`[coach-vault] Vault: ${root} (from ${source})`);
   const server = createVaultServer({ vault: createVault(root), pkg });
   await server.connect(new StdioServerTransport());
-  console.error(`docs-mcp-vault server started (${pkg.name} v${pkg.version})`);
+  console.error(`coach-vault server started (${pkg.name} v${pkg.version})`);
 }

@@ -7,7 +7,7 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import { join, posix } from "node:path";
-import { yamlString } from "@docs-mcp/core/kernel/md/yaml.js";
+import { yamlString } from "./md.js";
 import { COACH_ROOT } from "./para.js";
 
 export const SESSIONS_DIR = posix.join(COACH_ROOT, "sessions");

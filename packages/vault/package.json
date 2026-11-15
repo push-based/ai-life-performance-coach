@@ -1,33 +1,36 @@
 {
-  "name": "@docs-mcp/vault",
-  "version": "2.0.0",
-  "description": "Vault mode for docs-mcp: a personal Obsidian vault on fixed PARA folders, scanned without a schema (ADR-KI-0058)",
-  "license": "MIT",
+  "name": "@ai-coach/vault",
+  "version": "0.0.1",
+  "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=22.18"
-  },
   "exports": {
+    "./package.json": "./package.json",
     ".": {
-      "@docs-mcp/source": "./src/index.ts",
+      "@org/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
     "./*.js": {
-      "@docs-mcp/source": "./src/*.ts",
+      "@org/source": "./src/*.ts",
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js",
       "default": "./dist/*.js"
-    },
-    "./package.json": "./package.json"
+    }
   },
   "files": [
     "assets",
     "dist"
   ],
-  "scripts": {
-    "build": "tsc -b tsconfig.lib.json"
+  "nx": {
+    "tags": [
+      "type:vault"
+    ]
   },
   "dependencies": {
-    "@docs-mcp/core": "workspace:*",
     "flexsearch": "^0.8.212",
-    "pdfjs-dist": "6.4.299"
+    "gray-matter": "^4.0.3",
+    "pdfjs-dist": "6.4.299",
+    "tslib": "^2.3.0"
   }
 }

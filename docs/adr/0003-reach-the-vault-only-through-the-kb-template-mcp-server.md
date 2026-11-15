@@ -1,10 +1,10 @@
 ---
 id: ADR-0003
 title: "Reach the vault only through kb-template's MCP vault server"
-status: accepted
+status: superseded
 date: 2026-10-24
 supersedes: []
-superseded_by: []
+superseded_by: ['ADR-0048']
 links: ['ADR-0007', 'ADR-0008']
 ---
 

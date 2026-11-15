@@ -17,7 +17,6 @@ Relative paths in the file are resolved from the file's folder, and `~` means yo
 ```json
 {
   "vault": "~/Documents/my-vault",
-  "docsMcpBin": "~/projects/kb-template/packages/cli/bin/docs-mcp.js",
   "stateDir": "~/.local/state/ai-coach",
 
   "ollama": {
@@ -58,7 +57,7 @@ Relative paths in the file are resolved from the file's folder, and `~` means yo
 | Setting                         | Default                                                    | Meaning                                                                                                                                                                                                                                 |
 | ------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `vault`                         | none                                                       | Your Obsidian vault. Set it: the server needs it.                                                                                                                                                                                       |
-| `docsMcpBin`                    | `~/projects/kb-template/packages/cli/bin/docs-mcp.js`      | kb-template's server launcher.                                                                                                                                                                                                          |
+| `docsMcpBin`                    | `packages/vault-server/dist/main.js` in this checkout      | The [vault server](glossary.md#vault-server). Set it only to use a server built somewhere else.                                                                                                                                         |
 | `stateDir`                      | `$XDG_STATE_HOME/ai-coach`, else `~/.local/state/ai-coach` | Where ai-coach keeps its own small state: the list of sessions waiting for the judge.                                                                                                                                                   |
 | `ollama.model`                  | **required**                                               | The Gemma model, as listed by `ollama list`.                                                                                                                                                                                            |
 | `ollama.checkModel`             | none                                                       | A larger Gemma model, e.g. `gemma3:12b`, that checks your answers against each core assertion of a concept note at the end of a round. Slower, but much fairer. Without it, `model` decides the round.                                  |

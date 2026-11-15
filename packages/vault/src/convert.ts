@@ -15,7 +15,7 @@
 import { existsSync } from "node:fs";
 import { link, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
-import { yamlString } from "@docs-mcp/core/kernel/md/yaml.js";
+import { yamlString } from "./md.js";
 import { classify, PARA_FOLDERS, RAW_FOLDER } from "./para.js";
 import { safeName } from "./filing.js";
 import type { VaultNote } from "./scan.js";

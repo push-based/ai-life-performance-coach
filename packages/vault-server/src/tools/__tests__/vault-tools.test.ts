@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { createVault, type Vault } from "@docs-mcp/vault/vault.js";
+import { createVault, type Vault } from "@ai-coach/vault/vault.js";
 import { createVaultTools } from "../vault.js";
 import { createVaultServer } from "../../server/vault.js";
 import { parseVaultFlags, workspaceRootsAbove } from "../../serve-vault.js";
