@@ -1,0 +1,7 @@
+{
+  "name": "{{name}}",
+  "prefix": "{{prefix}}",
+  "domain": "{{domain}}",
+  "tags": [],
+  "recommends": ["summary"]
+}

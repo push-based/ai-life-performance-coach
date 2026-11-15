@@ -1,18 +1,20 @@
 ---
-id: ADR-0001
+doc_type: adr
+id: ADR-AIC-0001
 title: 'Record every important change in an architecture decision record'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
+aliases: ['ADR-0001']
+tags: []
 links: []
 ---
 
-# ADR-0001: Record every important change in an architecture decision record
+# ADR-AIC-0001: Record every important change in an architecture decision record
 
 ## Context
 
-ai-coach was built in one session from a written brief, and its decisions lived in that conversation, in commit messages and in `ARCHITECTURE.md`. A reader could not tell why a rule exists, which choices were deliberate, or which were later replaced. ADR-0002 to ADR-0011 gather what had been built by 2026-10-24.
+ai-coach was built in one session from a written brief, and its decisions lived in that conversation, in commit messages and in `ARCHITECTURE.md`. A reader could not tell why a rule exists, which choices were deliberate, or which were later replaced. ADR-AIC-0002 to ADR-AIC-0011 gather what had been built by 2026-10-24.
 
 ## Decision
 

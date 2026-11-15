@@ -1,20 +1,22 @@
 ---
-id: ADR-0043
+doc_type: adr
+id: ADR-AIC-0043
 title: 'Read a chapter page by page in the terminal, and write down what resonates'
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-09
-supersedes: []
-superseded_by: []
-links: ['ADR-0023', 'ADR-0028', 'ADR-0037']
+aliases: ['ADR-0043']
+tags: []
+links: ['ADR-AIC-0023', 'ADR-AIC-0028', 'ADR-AIC-0037']
 ---
 
-# ADR-0043: Read a chapter page by page in the terminal, and write down what resonates
+# ADR-AIC-0043: Read a chapter page by page in the terminal, and write down what resonates
 
 ## Context
 
-Read is the first step of the climb (ADR-0037). In _Building a Second Brain_, Tiago Forte asks readers to capture what resonates, in their own words, and to capture little: each layer of Progressive Summarization keeps about 10 to 20% of the one before. Reading alone gives fluency; taking notes while reading makes it a step. This is the step people most often hand to AI, so the coach must not summarise or suggest anything here.
+Read is the first step of the climb (ADR-AIC-0037). In _Building a Second Brain_, Tiago Forte asks readers to capture what resonates, in their own words, and to capture little: each layer of Progressive Summarization keeps about 10 to 20% of the one before. Reading alone gives fluency; taking notes while reading makes it a step. This is the step people most often hand to AI, so the coach must not summarise or suggest anything here.
 
-Distill (ADR-0028) already lets the learner bold, highlight and summarise a chapter in Obsidian. Nothing guided a reading session. kb-template's ADR-KI-0068 adds `add_reading_notes`, which writes the learner's notes on one page of a chapter, keeps a note that shares six words in a row with the page as a quote, and warns past a fifth of the page's words. Read is done for a chapter once it has one own-words note and the learner's chapter summary, which `write_summary` writes.
+Distill (ADR-AIC-0028) already lets the learner bold, highlight and summarise a chapter in Obsidian. Nothing guided a reading session. kb-template's ADR-KI-0068 adds `add_reading_notes`, which writes the learner's notes on one page of a chapter, keeps a note that shares six words in a row with the page as a quote, and warns past a fifth of the page's words. Read is done for a chapter once it has one own-words note and the learner's chapter summary, which `write_summary` writes.
 
 ## Decision
 

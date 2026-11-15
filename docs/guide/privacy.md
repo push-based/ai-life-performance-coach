@@ -23,4 +23,4 @@ What stays on your machine, what leaves it, and how that's enforced.
 
 ## Why it's built this way
 
-[ADR-0021](../adr/0021-the-judge-may-see-core-assertions.md) records what the judge may see, and [ADR-0002](../adr/0002-two-tier-coach-offline-gemma-and-zero-knowledge-gemini.md) why the coach has two tiers at all.
+[ADR-AIC-0021](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0021-the-judge-may-see-core-assertions.md) records what the judge may see, and [ADR-AIC-0002](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0002-two-tier-coach-offline-gemma-and-zero-knowledge-gemini.md) why the coach has two tiers at all.

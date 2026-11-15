@@ -1,14 +1,16 @@
 ---
-id: ADR-0033
+doc_type: adr
+id: ADR-AIC-0033
 title: 'Write commit messages as Conventional Commits, checked in pull requests'
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-04
-supersedes: []
-superseded_by: []
-links: ['ADR-0001', 'ADR-0032']
+aliases: ['ADR-0033']
+tags: []
+links: ['ADR-AIC-0001', 'ADR-AIC-0032']
 ---
 
-# ADR-0033: Write commit messages as Conventional Commits, checked in pull requests
+# ADR-AIC-0033: Write commit messages as Conventional Commits, checked in pull requests
 
 ## Context
 

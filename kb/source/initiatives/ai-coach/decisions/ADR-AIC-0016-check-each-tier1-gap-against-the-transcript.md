@@ -1,14 +1,16 @@
 ---
-id: ADR-0016
+doc_type: adr
+id: ADR-AIC-0016
 title: 'Check each Tier 1 gap against the transcript before it stands'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0005', 'ADR-0014', 'ADR-0017']
+aliases: ['ADR-0016']
+tags: []
+links: ['ADR-AIC-0005', 'ADR-AIC-0014', 'ADR-AIC-0017']
 ---
 
-# ADR-0016: Check each Tier 1 gap against the transcript before it stands
+# ADR-AIC-0016: Check each Tier 1 gap against the transcript before it stands
 
 ## Context
 
@@ -18,9 +20,9 @@ In the owner's first real session on the Introduction of Building a Second Brain
 
 1. When Gemma concludes, each gap it lists goes through a separate check: one call per gap, at temperature 0, with the focus, the gap and the transcript but not the note, asking whether any answer already explains it, answered `yes` or `no`.
 2. A gap the check answers `yes` to is dropped. An unclear reply keeps the gap.
-3. **A `fail` whose every gap was dropped becomes a `pass`**: a failure Tier 1 cannot name is not one. The judge still has the final word (ADR-0006).
+3. **A `fail` whose every gap was dropped becomes a `pass`**: a failure Tier 1 cannot name is not one. The judge still has the final word (ADR-AIC-0006).
 4. Gaps are written to the learner as "you", one short sentence each, and never list what the transcript already explains.
-5. The shared Ollama plumbing (context guard, plain-text sentences, yes/no replies, JSON turns) moves into `OllamaClient`, used by the sparring partner and the study partner (ADR-0017).
+5. The shared Ollama plumbing (context guard, plain-text sentences, yes/no replies, JSON turns) moves into `OllamaClient`, used by the sparring partner and the study partner (ADR-AIC-0017).
 
 ## Consequences
 

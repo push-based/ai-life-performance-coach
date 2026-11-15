@@ -1,18 +1,20 @@
 ---
-id: ADR-0015
+doc_type: adr
+id: ADR-AIC-0015
 title: 'Load secrets from a git-ignored .env file'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0002', 'ADR-0009']
+aliases: ['ADR-0015']
+tags: []
+links: ['ADR-AIC-0002', 'ADR-AIC-0009']
 ---
 
-# ADR-0015: Load secrets from a git-ignored .env file
+# ADR-AIC-0015: Load secrets from a git-ignored .env file
 
 ## Context
 
-The judge needs `GEMINI_API_KEY` (ADR-0002). The owner keeps it in `.env` at the repository root, and the CLI read only the shell environment, so the key had to be exported by hand before every `coach judge`.
+The judge needs `GEMINI_API_KEY` (ADR-AIC-0002). The owner keeps it in `.env` at the repository root, and the CLI read only the shell environment, so the key had to be exported by hand before every `coach judge`.
 
 ## Decision
 

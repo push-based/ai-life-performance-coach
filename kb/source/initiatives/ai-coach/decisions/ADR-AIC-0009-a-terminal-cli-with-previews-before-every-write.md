@@ -1,14 +1,16 @@
 ---
-id: ADR-0009
+doc_type: adr
+id: ADR-AIC-0009
 title: 'Drive the coach from a terminal CLI that previews every write'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0003', 'ADR-0008']
+aliases: ['ADR-0009']
+tags: []
+links: ['ADR-AIC-0003', 'ADR-AIC-0008']
 ---
 
-# ADR-0009: Drive the coach from a terminal CLI that previews every write
+# ADR-AIC-0009: Drive the coach from a terminal CLI that previews every write
 
 ## Context
 
@@ -25,5 +27,5 @@ The talk needs a demo that is easy to run live. Recording a session or moving a 
 
 ## Consequences
 
-- The CLI is a driving adapter only; all logic sits in the use cases (ADR-0008).
+- The CLI is a driving adapter only; all logic sits in the use cases (ADR-AIC-0008).
 - A web or TUI front end would be another driving adapter over the same use cases.

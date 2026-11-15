@@ -22,7 +22,7 @@ The vault comes from `--vault`, else `DOCS_MCP_VAULT`, else `vault.root` in `~/.
 
 ## Adding a tool
 
-New vault abilities go here and in `vault`, not in the coach (ADR-0048):
+New vault abilities go here and in `vault`, not in the coach (ADR-AIC-0048):
 
 1. Add the behaviour to `vault`, with tests.
 2. Add a tool in `src/tools/vault/` and register it in `src/tools/vault.ts`.

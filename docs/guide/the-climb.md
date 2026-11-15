@@ -187,4 +187,4 @@ Only the judge moves you up the long ladder: a spar pass alone never takes an id
 - [Commands](commands.md) lists every command and option.
 - [Configuration](configuration.md) changes the review ladder and the sparring rules.
 - [Glossary](glossary.md) explains each term.
-- [Decisions](../adr/README.md) explain why the climb works this way, from ADR-0037 to ADR-0047.
+- [Decisions](../../kb/README.md) explain why the climb works this way, from ADR-AIC-0037 to ADR-AIC-0047.

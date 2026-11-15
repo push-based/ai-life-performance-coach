@@ -1,26 +1,28 @@
 ---
-id: ADR-0046
+doc_type: adr
+id: ADR-AIC-0046
 title: "Word Elaborate in the note's coaching style, and probe the reasons and assumptions behind each answer"
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-10
-supersedes: []
-superseded_by: []
-links: ['ADR-0005', 'ADR-0019', 'ADR-0025', 'ADR-0037', 'ADR-0041']
+aliases: ['ADR-0046']
+tags: []
+links: ['ADR-AIC-0005', 'ADR-AIC-0019', 'ADR-AIC-0025', 'ADR-AIC-0037', 'ADR-AIC-0041']
 ---
 
-# ADR-0046: Word Elaborate in the note's coaching style, and probe the reasons and assumptions behind each answer
+# ADR-AIC-0046: Word Elaborate in the note's coaching style, and probe the reasons and assumptions behind each answer
 
 ## Context
 
-Elaborate (ADR-0041) is elaborative interrogation from _Make It Stick_: the learner adds connections to an idea, ungraded. It asks three questions (why, connect, apply), checks each answer in code, and allows one follow-up per answer, "Why?" or "For example?".
+Elaborate (ADR-AIC-0041) is elaborative interrogation from _Make It Stick_: the learner adds connections to an idea, ungraded. It asks three questions (why, connect, apply), checks each answer in code, and allows one follow-up per answer, "Why?" or "For example?".
 
-Two techniques sit close to it. Socratic questioning has two halves. Its question types (clarification, reasons, assumptions, viewpoints, consequences) are elaboration. Its method, testing a claim against counter-examples until it breaks, is a test, and the climb already runs it in Retrieve and Space through `coach spar` (ADR-0005) and the `socratic` style. The Feynman technique, explaining simply to a beginner to find your gaps, is what Teach does (ADR-0044); only its analogy step belongs in Elaborate.
+Two techniques sit close to it. Socratic questioning has two halves. Its question types (clarification, reasons, assumptions, viewpoints, consequences) are elaboration. Its method, testing a claim against counter-examples until it breaks, is a test, and the climb already runs it in Retrieve and Space through `coach spar` (ADR-AIC-0005) and the `socratic` style. The Feynman technique, explaining simply to a beginner to find your gaps, is what Teach does (ADR-AIC-0044); only its analogy step belongs in Elaborate.
 
-The coaching styles (ADR-0019) set how spar, judge and study push the learner, per note. Elaborate passed a fixed `feynman` to the model, so every note's questions were worded in the Feynman style, whatever the note's style. One follow-up stopped a "why" at its first reason, and nothing asked for the conditions an answer takes for granted.
+The coaching styles (ADR-AIC-0019) set how spar, judge and study push the learner, per note. Elaborate passed a fixed `feynman` to the model, so every note's questions were worded in the Feynman style, whatever the note's style. One follow-up stopped a "why" at its first reason, and nothing asked for the conditions an answer takes for granted.
 
 ## Decision
 
-This ADR amends points 2 and 4 of ADR-0041; the rest of ADR-0041 stands.
+This ADR amends points 2 and 4 of ADR-AIC-0041; the rest of ADR-AIC-0041 stands.
 
 1. **Elaborate uses the note's coaching style**, resolved as spar and study resolve it: `--style`, then the note's `style:` frontmatter, then `sparring.style`, then the classifier. When the classifier cannot be reached, Elaborate uses `feynman`, because Elaborate works without a model.
 2. **The style words the connect question.** The model is asked for a connect question from the style's angle, and the fixed fallback question follows the style too:

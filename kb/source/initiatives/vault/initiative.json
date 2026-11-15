@@ -1,0 +1,13 @@
+{
+  "name": "Vault server",
+  "prefix": "KI",
+  "domain": "How the vault server reads and writes the Obsidian vault: the PARA layout, sparring sessions, planning, habits, and the climb",
+  "tags": [
+    "topic/mcp-engine",
+    "topic/knowledge-graph",
+    "kind/decision"
+  ],
+  "recommends": [
+    "summary"
+  ]
+}

@@ -1,18 +1,20 @@
 ---
-id: ADR-0011
+doc_type: adr
+id: ADR-AIC-0011
 title: 'Source code carries no comments'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0001']
+aliases: ['ADR-0011']
+tags: []
+links: ['ADR-AIC-0001']
 ---
 
-# ADR-0011: Source code carries no comments
+# ADR-AIC-0011: Source code carries no comments
 
 ## Context
 
-The owner asked for comment-free code. Reasons belong in ADRs (ADR-0001) and in commit messages, where they are dated and reviewed; comments drift from the code they describe.
+The owner asked for comment-free code. Reasons belong in ADRs (ADR-AIC-0001) and in commit messages, where they are dated and reviewed; comments drift from the code they describe.
 
 ## Decision
 

@@ -1,14 +1,16 @@
 ---
-id: ADR-0006
+doc_type: adr
+id: ADR-AIC-0006
 title: 'Judge Tier 2 by blind claim extraction, and pass only flawless answers'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0002', 'ADR-0004', 'ADR-0007']
+aliases: ['ADR-0006']
+tags: []
+links: ['ADR-AIC-0002', 'ADR-AIC-0004', 'ADR-AIC-0007']
 ---
 
-# ADR-0006: Judge Tier 2 by blind claim extraction, and pass only flawless answers
+# ADR-AIC-0006: Judge Tier 2 by blind claim extraction, and pass only flawless answers
 
 ## Context
 
@@ -28,4 +30,4 @@ The judge has no notes, so it cannot compare an answer with a source. It can sti
 ## Consequences
 
 - The verdict rule is in the domain (`enforceVerdict`), not in the prompt alone.
-- Because a pass has no gaps, gaps only ever lower the review ladder on a fail (ADR-0007).
+- Because a pass has no gaps, gaps only ever lower the review ladder on a fail (ADR-AIC-0007).

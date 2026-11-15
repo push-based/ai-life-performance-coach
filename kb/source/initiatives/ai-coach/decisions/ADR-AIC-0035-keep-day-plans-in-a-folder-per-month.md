@@ -1,18 +1,20 @@
 ---
-id: ADR-0035
+doc_type: adr
+id: ADR-AIC-0035
 title: 'Keep day plans in a folder per month'
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-09
-supersedes: []
-superseded_by: []
-links: ['ADR-0030', 'ADR-0031']
+aliases: ['ADR-0035']
+tags: []
+links: ['ADR-AIC-0030', 'ADR-AIC-0031']
 ---
 
-# ADR-0035: Keep day plans in a folder per month
+# ADR-AIC-0035: Keep day plans in a folder per month
 
 ## Context
 
-The planning skills address day plans by path, for example to tick a habit check or append to a day's log (ADR-0030, ADR-0031). Until now that path was `Plans/Daily/YYYY-MM-DD.md`, one flat folder that grows by one note a day. The user finds that folder hard to use and asked for day plans grouped by month. kb-template owns the vault layout, and its ADR-KI-0067 moves day plans into a year folder and a month folder named by number and name, such as `Plans/Daily/2026/11-November/2026-11-09.md`, so Obsidian lists the months in order with their names.
+The planning skills address day plans by path, for example to tick a habit check or append to a day's log (ADR-AIC-0030, ADR-AIC-0031). Until now that path was `Plans/Daily/YYYY-MM-DD.md`, one flat folder that grows by one note a day. The user finds that folder hard to use and asked for day plans grouped by month. kb-template owns the vault layout, and its ADR-KI-0067 moves day plans into a year folder and a month folder named by number and name, such as `Plans/Daily/2026/11-November/2026-11-09.md`, so Obsidian lists the months in order with their names.
 
 ## Decision
 

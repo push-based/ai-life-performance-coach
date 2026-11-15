@@ -1,20 +1,22 @@
 ---
-id: ADR-0042
+doc_type: adr
+id: ADR-AIC-0042
 title: "Group a book's concepts into the learner's own layers, with embedded questions"
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-09
-supersedes: []
-superseded_by: []
-links: ['ADR-0023', 'ADR-0028', 'ADR-0037']
+aliases: ['ADR-0042']
+tags: []
+links: ['ADR-AIC-0023', 'ADR-AIC-0028', 'ADR-AIC-0037']
 ---
 
-# ADR-0042: Group a book's concepts into the learner's own layers, with embedded questions
+# ADR-AIC-0042: Group a book's concepts into the learner's own layers, with embedded questions
 
 ## Context
 
-Group is the second step of the climb (ADR-0037). _Make It Stick_ calls it structure building: extracting the salient ideas from new material into a coherent mental framework. "High structure-builders learn new material better than low structure-builders" (p. 153), and when questions are embedded in the material, low structure-builders do as well as high ones (p. 155). So the coach's job is to ask the questions that build the frame, never to hand over the frame.
+Group is the second step of the climb (ADR-AIC-0037). _Make It Stick_ calls it structure building: extracting the salient ideas from new material into a coherent mental framework. "High structure-builders learn new material better than low structure-builders" (p. 153), and when questions are embedded in the material, low structure-builders do as well as high ones (p. 155). So the coach's job is to ask the questions that build the frame, never to hand over the frame.
 
-Synthesis (ADR-0023, ADR-0028) makes one concept note per idea, but nothing grouped them or said what builds on what. kb-template's ADR-KI-0068 writes a book's structure note at `3.Resources/Concepts/Structures/<book>.md` with `write_structure`. It refuses fewer than 2 or more than 7 groups, an empty group, a concept in no group or in two, an edge to a missing group, a group building on itself, and a cycle. It warns when a group is named after a heading of the book, sets `group:` on each concept note, and sets `climb.group`.
+Synthesis (ADR-AIC-0023, ADR-AIC-0028) makes one concept note per idea, but nothing grouped them or said what builds on what. kb-template's ADR-KI-0068 writes a book's structure note at `3.Resources/Concepts/Structures/<book>.md` with `write_structure`. It refuses fewer than 2 or more than 7 groups, an empty group, a concept in no group or in two, an edge to a missing group, a group building on itself, and a cycle. It warns when a group is named after a heading of the book, sets `group:` on each concept note, and sets `climb.group`.
 
 ## Decision
 
@@ -26,6 +28,6 @@ Synthesis (ADR-0023, ADR-0028) makes one concept note per idea, but nothing grou
 
 ## Consequences
 
-- A book's concepts get a frame in the learner's own words, which Obsidian shows as a structure note and the due queue uses to mix topics (ADR-0038).
+- A book's concepts get a frame in the learner's own words, which Obsidian shows as a structure note and the due queue uses to mix topics (ADR-AIC-0038).
 - The model can only ask; the code drops a question that tries to supply a structure.
 - A concept created after grouping is left out of the structure until the learner groups the book again, as ADR-KI-0068 notes.

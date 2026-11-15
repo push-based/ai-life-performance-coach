@@ -6,7 +6,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__review_perio
 
 # Planning in the life vault
 
-The vault is the user's Obsidian vault, reached only through the `life-vault` MCP server (ADR-0003, ADR-0029). Never read or write vault files with the file tools or the shell, not even to look.
+The vault is the user's Obsidian vault, reached only through the `life-vault` MCP server (ADR-AIC-0003, ADR-AIC-0029). Never read or write vault files with the file tools or the shell, not even to look.
 
 Before anything else, read the three reference files beside this one:
 

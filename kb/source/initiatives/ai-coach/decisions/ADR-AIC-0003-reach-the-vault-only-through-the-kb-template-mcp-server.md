@@ -1,14 +1,17 @@
 ---
-id: ADR-0003
+doc_type: adr
+id: ADR-AIC-0003
 title: "Reach the vault only through kb-template's MCP vault server"
 status: superseded
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: ['ADR-0048']
-links: ['ADR-0007', 'ADR-0008']
+succeeded_by: ['ADR-AIC-0048']
+aliases: ['ADR-0003']
+tags: []
+links: ['ADR-AIC-0007', 'ADR-AIC-0008']
 ---
 
-# ADR-0003: Reach the vault only through kb-template's MCP vault server
+# ADR-AIC-0003: Reach the vault only through kb-template's MCP vault server
 
 ## Context
 
@@ -21,8 +24,8 @@ The notes live in an Obsidian vault organised by PARA (`0.Inbox`, `1.Projects`, 
 3. The vault path is configurable (`--vault` via config, `DOCS_MCP_VAULT`, or the server's own config) and never hard-coded; the server path comes from `DOCS_MCP_BIN` or config.
 4. A sparred note is identified by its `coach_id`, not its path, so it keeps its history when moved or renamed.
 5. Only notes under `3.Resources` are sparred. Mastery (`unsparred`, `attempted`, `tier1_passed`, `tier2_passed`) is derived by the server from sessions.
-6. Every write previews first and writes only with `execute: true`; the CLI shows the preview and asks before executing (ADR-0009).
-7. The per-note session history ai-coach needs for scheduling, `read_note`'s `history.entries`, was added to kb-template on request rather than kept locally (ADR-0007).
+6. Every write previews first and writes only with `execute: true`; the CLI shows the preview and asks before executing (ADR-AIC-0009).
+7. The per-note session history ai-coach needs for scheduling, `read_note`'s `history.entries`, was added to kb-template on request rather than kept locally (ADR-AIC-0007).
 
 ## Consequences
 

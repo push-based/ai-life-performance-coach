@@ -68,3 +68,7 @@ apps/docs/.docusaurus
 
 # Angular build cache (apps/climb-board)
 .angular/
+
+## Knowledge base
+# Built on demand by docs-mcp
+kb/graph.json

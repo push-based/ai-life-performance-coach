@@ -1,14 +1,16 @@
 ---
-id: ADR-0008
+doc_type: adr
+id: ADR-AIC-0008
 title: 'Structure ai-coach as ports and adapters, enforced by Nx module boundaries'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0003', 'ADR-0004', 'ADR-0010']
+aliases: ['ADR-0008']
+tags: []
+links: ['ADR-AIC-0003', 'ADR-AIC-0004', 'ADR-AIC-0010']
 ---
 
-# ADR-0008: Structure ai-coach as ports and adapters, enforced by Nx module boundaries
+# ADR-AIC-0008: Structure ai-coach as ports and adapters, enforced by Nx module boundaries
 
 ## Context
 

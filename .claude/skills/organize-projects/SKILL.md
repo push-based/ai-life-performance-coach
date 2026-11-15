@@ -95,4 +95,4 @@ Fix what the user agrees to: `set_frontmatter` for a missing `status`, `deadline
 1. Show its open tasks first; each is done (`update_task` `state: "done"`), dropped (`state: "cancelled"`) or moved elsewhere. Then `set_frontmatter {note, set: {status: "done"}}`.
 2. `harvest_workstream {project, workstream}` lists candidates. Go through them with the user: which would another project start from (a checklist, a template, a message, a design)? Name each packet for its reuse ("Speaker announcement checklist") and describe it in the user's words.
 3. Preview with `packets`, show, **ask**, execute. Each becomes a note in `1.Projects/<P>/Intermediate Packets/`.
-4. When the whole project is done, archiving it (`archive_project`, ADR-0022 for which knowledge notes to keep) moves the packets to `3.Resources/Intermediate Packets/<P>/`.
+4. When the whole project is done, archiving it (`archive_project`, ADR-AIC-0022 for which knowledge notes to keep) moves the packets to `3.Resources/Intermediate Packets/<P>/`.

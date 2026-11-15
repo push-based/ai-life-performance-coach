@@ -1,14 +1,16 @@
 ---
-id: ADR-0005
+doc_type: adr
+id: ADR-AIC-0005
 title: 'Run Tier 1 as a Socratic dialogue with banned buzzwords and bounded follow-ups'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0002', 'ADR-0004']
+aliases: ['ADR-0005']
+tags: []
+links: ['ADR-AIC-0002', 'ADR-AIC-0004']
 ---
 
-# ADR-0005: Run Tier 1 as a Socratic dialogue with banned buzzwords and bounded follow-ups
+# ADR-AIC-0005: Run Tier 1 as a Socratic dialogue with banned buzzwords and bounded follow-ups
 
 ## Context
 

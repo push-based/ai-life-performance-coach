@@ -1,14 +1,16 @@
 ---
-id: ADR-0032
+doc_type: adr
+id: ADR-AIC-0032
 title: 'Publish the docs with Docusaurus, built from the Markdown where it lives'
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-04
-supersedes: []
-superseded_by: []
-links: ['ADR-0001', 'ADR-0008', 'ADR-0011']
+aliases: ['ADR-0032']
+tags: []
+links: ['ADR-AIC-0001', 'ADR-AIC-0008', 'ADR-AIC-0011']
 ---
 
-# ADR-0032: Publish the docs with Docusaurus, built from the Markdown where it lives
+# ADR-AIC-0032: Publish the docs with Docusaurus, built from the Markdown where it lives
 
 ## Context
 

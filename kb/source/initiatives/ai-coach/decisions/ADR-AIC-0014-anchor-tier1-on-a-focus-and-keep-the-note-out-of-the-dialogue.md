@@ -1,18 +1,20 @@
 ---
-id: ADR-0014
+doc_type: adr
+id: ADR-AIC-0014
 title: 'Anchor Tier 1 on a focus, and keep the note out of the challenge and the dialogue'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0004', 'ADR-0005', 'ADR-0012', 'ADR-0013']
+aliases: ['ADR-0014']
+tags: []
+links: ['ADR-AIC-0004', 'ADR-AIC-0005', 'ADR-AIC-0012', 'ADR-AIC-0013']
 ---
 
-# ADR-0014: Anchor Tier 1 on a focus, and keep the note out of the challenge and the dialogue
+# ADR-AIC-0014: Anchor Tier 1 on a focus, and keep the note out of the challenge and the dialogue
 
 ## Context
 
-On real chapters of Building a Second Brain with `gemma3:latest`, the ADR-0005 prompts asked about side details: a quotation in chapter 1, Twyla Tharp's box in chapter 5, the author's illness. Follow-ups drifted to the same anecdotes, and a correct answer about PARA was failed for not discussing Tharp. Asking a 4B model for one-sentence answers inside JSON also broke: it copied the book's typographic quotes, closed strings with `”`, and ran on until the length cap, so one reply in six was unusable.
+On real chapters of Building a Second Brain with `gemma3:latest`, the ADR-AIC-0005 prompts asked about side details: a quotation in chapter 1, Twyla Tharp's box in chapter 5, the author's illness. Follow-ups drifted to the same anecdotes, and a correct answer about PARA was failed for not discussing Tharp. Asking a 4B model for one-sentence answers inside JSON also broke: it copied the book's typographic quotes, closed strings with `”`, and ran on until the length cap, so one reply in six was unusable.
 
 Each change below was measured on six chapters with a scratch harness, read-only against the real vault. The measurements are recorded in Consequences.
 
@@ -28,8 +30,8 @@ Each change below was measured on six chapters with a scratch harness, read-only
 ## Consequences
 
 - Measured on six chapters. Before: two of six openings were about anecdotes or a quotation, one was unusable JSON. After: all six openings were on the chapter's idea or a title fallback, none named a person or story, and the longest phrase copied from the note fell from up to 5 words to at most 3. Follow-ups that had asked what Tharp did now asked about the idea.
-- The challenge that reaches the judge is now written without the note, so it carries less of the note than before. This narrows the limit stated in ADR-0004; it does not remove it, because the focus is derived from the note.
+- The challenge that reaches the judge is now written without the note, so it carries less of the note than before. This narrows the limit stated in ADR-AIC-0004; it does not remove it, because the focus is derived from the note.
 - Tier 1 can no longer catch an answer that contradicts a specific detail of the note, only one that fails to explain the focus. Tier 2 never saw the note either, so neither tier checks details.
-- The first part of a chapter split by kb-template can be mostly an anecdote (ADR-0012); its focus is then the idea that anecdote illustrates, or the title fallback.
+- The first part of a chapter split by kb-template can be mostly an anecdote (ADR-AIC-0012); its focus is then the idea that anecdote illustrates, or the title fallback.
 - Tier 1 remains strict: a good answer can still fail when no follow-ups are left, and the judge has the final say.
 - Opening a round now takes two model calls, about 2 to 8 seconds on the first book's chapters.

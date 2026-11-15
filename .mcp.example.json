@@ -8,6 +8,10 @@
         "--vault",
         "/absolute/path/to/your-vault"
       ]
+    },
+    "ai-coach-kb": {
+      "command": "sh",
+      "args": ["-c", "cd kb && exec docs-mcp serve"]
     }
   }
 }

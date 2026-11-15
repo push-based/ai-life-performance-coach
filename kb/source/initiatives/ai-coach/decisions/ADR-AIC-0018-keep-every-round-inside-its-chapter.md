@@ -1,18 +1,20 @@
 ---
-id: ADR-0018
+doc_type: adr
+id: ADR-AIC-0018
 title: 'Spar concept notes against their core assertions; raw material is reference only'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: ['ADR-0012']
-superseded_by: []
-links: ['ADR-0014', 'ADR-0016', 'ADR-0017', 'ADR-0019', 'ADR-0021']
+aliases: ['ADR-0018']
+tags: []
+links: ['ADR-AIC-0014', 'ADR-AIC-0016', 'ADR-AIC-0017', 'ADR-AIC-0019', 'ADR-AIC-0021']
 ---
 
-# ADR-0018: Spar concept notes against their core assertions; raw material is reference only
+# ADR-AIC-0018: Spar concept notes against their core assertions; raw material is reference only
 
 ## Context
 
-Sparring book chapters (ADR-0012) went wrong in the owner's first sessions. Gemma knows Building a Second Brain from its training, followed the learner's mention of CODE, and recorded gaps about later chapters on the Introduction. Its grading also varied from run to run, because every check invented its own reference answer. Patching that inside chapters (grounding gaps in the chapter, searching the book for passages, asking Gemma to choose chapters) only partly worked.
+Sparring book chapters (ADR-AIC-0012) went wrong in the owner's first sessions. Gemma knows Building a Second Brain from its training, followed the learner's mention of CODE, and recorded gaps about later chapters on the Introduction. Its grading also varied from run to run, because every check invented its own reference answer. Patching that inside chapters (grounding gaps in the chapter, searching the book for passages, asking Gemma to choose chapters) only partly worked.
 
 kb-template then changed the unit of learning (its ADR-KI-0060 and ADR-KI-0061). Nothing under `3.Resources/0.Raw` can be sparred any more; `record_session` refuses it and `due_for_review` leaves it out. The sparred unit is a concept note: one idea the learner chose to keep, with `core_assertions` (one to six claims that define it), `forbidden_buzzwords`, and `source_passages` quoted verbatim from a raw chapter and checked on every read. Other notes outside `0.Raw` stay sparrable.
 
@@ -32,4 +34,4 @@ kb-template then changed the unit of learning (its ADR-KI-0060 and ADR-KI-0061).
 - With no concept notes in the vault, there is nothing to spar until the learner distils one; `coach distill` is the planned way to create them with kb-template's `create_concept`.
 - On a test concept, Progressive Summarization with three assertions and two quotes verified on pages 100 and 106, the opening and every follow-up stayed on its assertions.
 - Lexical grounding can drop a real gap phrased in words the reference does not use; Tier 1 is then lenient and the judge still has the final word.
-- This supersedes ADR-0012 and amends ADR-0014 (a concept's assertions replace the generated focus), ADR-0016 (the verdict rule moves into the domain) and ADR-0017 (study grades against assertions and shows verified quotes).
+- This supersedes ADR-AIC-0012 and amends ADR-AIC-0014 (a concept's assertions replace the generated focus), ADR-AIC-0016 (the verdict rule moves into the domain) and ADR-AIC-0017 (study grades against assertions and shows verified quotes).
