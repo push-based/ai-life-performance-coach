@@ -1,10 +1,3 @@
-/**
- * Lexical search over vault notes. The same FlexSearch library and LatinBalance charset
- * as the governed corpus, which folds diacritics, so Polish and English notes share one
- * index. Scoring is field weight by rank position, without the corpus's IDF pass: a
- * personal vault is small enough that the whole-query ranking stands on its own.
- */
-
 import { Document, Charset, type DocumentData } from "flexsearch";
 import type { ParaBucket } from "./para.js";
 import type { VaultNote } from "./scan.js";
@@ -31,7 +24,6 @@ const FIELDS = [
 
 type FieldResultList = { field: string; result: (string | number)[] }[];
 
-/** A searchable unit: a whole note, or one page of a converted book. */
 interface Unit { id: string; title: string; body: string }
 
 function buildIndex(units: Unit[]): Document<DocumentData> {
@@ -47,7 +39,6 @@ function buildIndex(units: Unit[]): Document<DocumentData> {
   return index;
 }
 
-/** Score units by field weight and rank position, the whole query first, then each term. */
 async function rank(units: Unit[], query: string, limit: number): Promise<Map<string, number>> {
   const index = buildIndex(units);
   const weight = Object.fromEntries(FIELDS.map(f => [f.field, f.resolution / 9]));
@@ -100,29 +91,24 @@ export async function searchNotes(notes: VaultNote[], query: string, opts: NoteS
 }
 
 export interface PassageHit {
-  /** The raw note holding the passage: a book's chapter, or a raw note without pages. */
+
   note: string;
-  /** The book or note title the passage belongs to. */
+
   source: string;
-  /** The chapter or note title. */
+
   title: string;
-  /** The page, for a converted book; null for a note without page headings. */
+
   page: number | null;
   score: number;
   snippet: string;
 }
 
 export interface PassageSearchOptions {
-  /** Only raw notes under this folder, e.g. one book's work folder. */
+
   within?: string;
   limit?: number;
 }
 
-/**
- * Search the text of raw resources a page at a time (ADR-KI-0060), so a reading note can
- * be matched to the pages it came from and a quote taken from there. A book's index holds
- * no text and is left out.
- */
 export async function searchPassages(notes: VaultNote[], query: string, opts: PassageSearchOptions = {}): Promise<PassageHit[]> {
   const limit = Math.max(0, opts.limit ?? 10);
   if (!query.trim() || limit === 0) return [];

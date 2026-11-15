@@ -16,7 +16,6 @@ function put(rel: string, content: string): void {
 const read = (rel: string) => readFileSync(join(dir, rel), "utf-8");
 const has = (rel: string) => existsSync(join(dir, rel));
 
-/** Every path under the vault with a hash of each file: equal fingerprints mean nothing changed. */
 function fingerprint(): string[] {
   const out: string[] = [];
   const walk = (abs: string) => {
@@ -82,7 +81,7 @@ describe("init_vault", () => {
     expect(read("1.Projects/Talk/Plan.md")).toBe("plan");
     expect(read("4.Archive/old notes/Journal/2026/Day.md")).toBe("day");
     expect((await vault.notes()).every(n => n.bucket !== null || n.path.startsWith("Plans/"))).toBe(true);
-    // The second run brings the renamed projects folder onto workstreams.
+
     expect((await vault.initVault(false)).actions).toEqual([{ op: "write", to: "1.Projects/Talk/Talk.md" }]);
   });
 
@@ -269,7 +268,7 @@ describe("archive_project", () => {
         { path: "1.Projects/Talk/Shared.md", to: "3.Resources/Talk", reasons: ["linked from 1 note outside the project"] },
         { path: "1.Projects/Talk/Sparred.md", to: "3.Resources/Talk", reasons: ["has sparring history"] },
       ]);
-      // Without keep, the preview still archives the whole folder.
+
       expect(preview.actions.at(-1)).toEqual({ op: "move", from: "1.Projects/Talk", to: "4.Archive/Talk" });
     });
 

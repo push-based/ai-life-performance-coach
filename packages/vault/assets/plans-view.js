@@ -1,12 +1,10 @@
-/* Plans page (ADR-KI-0063). Read-only and self-contained: no library and no request
- * beyond /plans.json, so it runs offline under the same Content-Security-Policy as the
- * vault graph. The goal cascade sits beside an effort timeline; every text is set as a
- * text node, never as HTML. */
 (function () {
   "use strict";
 
   const $ = id => document.getElementById(id);
   const THEME_KEY = "vault-view-theme";
+  const remember = (key, value) => { try { localStorage.setItem(key, value); return true; } catch { return false; } };
+  const recall = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
   const ZOOM = [["year", "month", "Year"], ["quarter", "week", "Quarter"], ["month", "week", "Month"], ["week", "day", "Week"]];
   const STATUS = { met: "met", open: "open", missed: "missed", dropped: "dropped" };
   const state = { span: null, by: null, archived: false, data: null, selected: null };
@@ -29,14 +27,12 @@
   const links = path => el("span", { class: "links" },
     el("a", { href: obsidian(path), text: "Open in Obsidian" }),
     el("a", { href: graphLink(path), text: "Show in graph" }));
-  /** Wikilinks shown as their text. */
-  const plain = t => t.replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, "$2");
-  /** A goal's words without its link, which the page shows as a tag of its own. */
-  const words = t => t.replace(/\[\[[^\]]*\]\]:?/g, "").replace(/\s+/g, " ").trim() || plain(t);
-  /** The row a goal counts for, as a short name. */
-  const ownerName = g => g.owner.workstream || g.owner.project || g.owner.area || null;
 
-  /* ── Loading and the URL ───────────────────────────────────────────────── */
+  const plain = t => t.replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, "$2");
+
+  const words = t => t.replace(/\[\[[^\]]*\]\]:?/g, "").replace(/\s+/g, " ").trim() || plain(t);
+
+  const ownerName = g => g.owner.workstream || g.owner.project || g.owner.area || null;
 
   function readHash() {
     const h = new URLSearchParams(location.hash.slice(1));
@@ -70,8 +66,6 @@
   }
   const go = (span, by) => { state.span = span; state.by = by; state.selected = null; load(); };
 
-  /* ── Header ─────────────────────────────────────────────────────────────── */
-
   function header() {
     const d = state.data;
     $("span").textContent = d.span.period;
@@ -82,8 +76,6 @@
     })));
     $("archived").setAttribute("aria-pressed", String(state.archived));
   }
-
-  /* ── Goal cascade ──────────────────────────────────────────────────────── */
 
   function goalItem(g) {
     const slips = g.slipped.length;
@@ -101,9 +93,6 @@
       : el("div", { class: "empty", text: "No goals in plans overlapping this span. Write them in Plans/ or with plan_period." }));
   }
 
-  /* ── Effort timeline ───────────────────────────────────────────────────── */
-
-  /** Goals pinned in a row's cell: those for the row whose period fits inside the column; larger goals live in the cascade. */
   function pinsFor(rowId, col) {
     const out = [];
     const walk = gs => { for (const g of gs) { if (g.row === rowId && within(g, col)) out.push(g); walk(g.children); } };
@@ -162,8 +151,6 @@
     if (by) go(c.period, by);
   }
 
-  /* ── Side panel ────────────────────────────────────────────────────────── */
-
   function taskItem(t) {
     return el("li", null,
       el("div", { class: t.state === "done" ? "state-done" : null, text: plain(t.text) }),
@@ -174,7 +161,6 @@
       links(t.note));
   }
 
-  /** replaceChildren, skipping the null a conditional leaves (which would print as "null"). */
   const fill = (parent, ...kids) => parent.replaceChildren(...kids.flat().filter(k => k !== null && k !== undefined && k !== false));
 
   function panel() {
@@ -222,9 +208,6 @@
       r.packets.length ? el("ul", null, r.packets.map(k => el("li", null, el("div", { text: k.title }), links(k.path)))) : null);
   }
 
-  /* ── Selection and rendering ───────────────────────────────────────────── */
-
-  /** Select a goal ({ goal }), a row ({ row }) or a cell ({ row, column }); null clears it. */
   function select(s) {
     state.selected = s;
     render();
@@ -236,8 +219,6 @@
     panel();
   }
 
-  /* ── Controls ──────────────────────────────────────────────────────────── */
-
   $("prev").addEventListener("click", () => state.data && go(state.data.previous, state.by));
   $("next").addEventListener("click", () => state.data && go(state.data.next, state.by));
   $("today").addEventListener("click", () => state.data && go(state.data.todayAt[state.data.span.level], state.by));
@@ -245,7 +226,7 @@
   $("theme").addEventListener("click", () => {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     document.documentElement.dataset.theme = next;
-    try { localStorage.setItem(THEME_KEY, next); } catch { /* storage may be unavailable */ }
+    remember(THEME_KEY, next);
   });
   document.addEventListener("keydown", e => {
     if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -261,7 +242,7 @@
     if (`${state.span}|${state.by}|${state.archived}` !== before) load();
   });
 
-  try { const t = localStorage.getItem(THEME_KEY); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch { /* default theme */ }
+  { const t = recall(THEME_KEY); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; }
   readHash();
   load().catch(err => $("timeline").replaceChildren(el("div", { class: "error", text: String(err) })));
 })();

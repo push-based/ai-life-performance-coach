@@ -1,10 +1,3 @@
-/**
- * The climb's writes (ADR-KI-0068): reading notes for Read, a structure note for Group, a
- * guideline from a passed Teach session, and rebuilding `climb:` summaries from the
- * evidence. Each is planned as note writes, previewed, and written only on `execute`
- * with the versions the preview returned (ADR-KI-0064 Decision 2).
- */
-
 import { existsSync, readFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import { yamlString } from "./md.js";
@@ -22,12 +15,12 @@ import {
 
 export const READING_NOTES_FOLDER = posix.join(PARA_FOLDERS.resources, "Reading notes");
 export const STRUCTURES_FOLDER = posix.join(CONCEPTS_FOLDER, "Structures");
-/** Forte keeps each layer to about a tenth to a fifth of the one before. */
+
 export const NOTE_SHARE_WARNING = 0.2;
 
 export interface ClimbWritePlan extends NoteWrites {
   warnings: string[];
-  /** Concept notes whose `climb:` summary changes, with the dates it would hold. */
+
   climbs: { path: string; climb: Record<string, string | null> }[];
 }
 
@@ -35,7 +28,6 @@ const emptyPlan = (): ClimbWritePlan => ({ errors: [], warnings: [], originals: 
 
 const read = (root: string, path: string) => readFileSync(join(root, path), "utf-8");
 
-/** The current text of a note in a plan: what the plan already writes, else the file. */
 function current(root: string, plan: ClimbWritePlan, path: string): string {
   if (path in plan.writes) return plan.writes[path];
   if (!(path in plan.originals)) plan.originals[path] = read(root, path);
@@ -48,14 +40,12 @@ function put(root: string, plan: ClimbWritePlan, path: string, content: string, 
   plan.writes[path] = content;
 }
 
-/** The vault as it will be once the plan's writes are made. */
 function afterPlan(notes: VaultNote[], plan: ClimbWritePlan): VaultNote[] {
   const out = notes.map(n => (n.path in plan.writes ? noteFromContent(n.path, plan.writes[n.path]) : n));
   for (const p of plan.created) out.push(noteFromContent(p, plan.writes[p]));
   return out;
 }
 
-/** Set each concept's `climb:` from the evidence in the vault as the plan leaves it. */
 function refreshClimbs(root: string, notes: VaultNote[], sessions: SessionRecord[], plan: ClimbWritePlan, paths: string[]): void {
   const after = afterPlan(notes, plan);
   for (const path of paths) {
@@ -71,21 +61,17 @@ function refreshClimbs(root: string, notes: VaultNote[], sessions: SessionRecord
 const conceptsQuoting = (notes: VaultNote[], chapter: string) =>
   notes.filter(isConceptNote).filter(c => chaptersOf(c, notes).some(ch => ch.path === chapter)).map(c => c.path);
 
-// ---------------------------------------------------------------------------------------
-// add_reading_notes (Read)
-// ---------------------------------------------------------------------------------------
-
 export interface ReadingNotesInput {
-  /** A raw chapter of a converted book. */
+
   chapter: string;
-  /** The `## Page N` the notes were written on; absent for the chapter as a whole. */
+
   page?: number;
   notes: string[];
 }
 
 export interface ReadingNotesPlan extends ClimbWritePlan {
   path: string | null;
-  /** Each note as classed: a quote shares a run of six or more words with the section. */
+
   entries: { text: string; quote: boolean }[];
 }
 
@@ -129,7 +115,6 @@ export function addReadingNotes(root: string, notes: VaultNote[], sessions: Sess
   return plan;
 }
 
-/** Lines added at the end of a `## ` section, the section created at the end when missing. */
 function insertUnder(content: string, heading: string, add: string[]): string {
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const at = lines.findIndex(l => l.trimEnd() === heading);
@@ -145,18 +130,14 @@ function insertUnder(content: string, heading: string, add: string[]): string {
   return `${out.join("\n").replace(/\n+$/, "")}\n`;
 }
 
-// ---------------------------------------------------------------------------------------
-// write_structure (Group)
-// ---------------------------------------------------------------------------------------
-
 export interface StructureInput {
-  /** A book's structure: every concept quoting the book is in a group. Exactly one of book and topic. */
+
   book?: string;
-  /** A topic's structure (ADR-KI-0070): a subject read across books, listing any concept notes the learner puts in it. */
+
   topic?: string;
-  /** Each group, named by the learner, with its concept notes by path or title. */
+
   groups: { name: string; concepts: string[] }[];
-  /** "from builds on to", both group names. */
+
   builds_on?: { from: string; to: string }[];
 }
 
@@ -164,7 +145,6 @@ export interface StructurePlan extends ClimbWritePlan {
   path: string | null;
 }
 
-/** Every book title the vault's concept notes quote. */
 const allBooks = (notes: VaultNote[]) => new Set(notes.filter(isConceptNote).flatMap(c => conceptBooks(c, notes)));
 
 export function writeStructure(root: string, notes: VaultNote[], sessions: SessionRecord[], input: StructureInput, date: string): StructurePlan {
@@ -255,15 +235,11 @@ export function writeStructure(root: string, notes: VaultNote[], sessions: Sessi
   return plan;
 }
 
-// ---------------------------------------------------------------------------------------
-// list_topics
-// ---------------------------------------------------------------------------------------
-
 export interface TopicListing {
   topic: string;
   path: string;
   concepts: string[];
-  /** The books the topic's concepts quote. */
+
   books: string[];
 }
 
@@ -278,16 +254,12 @@ export function listTopics(notes: VaultNote[]): TopicListing[] {
   return out.sort((a, b) => a.topic.localeCompare(b.topic));
 }
 
-// ---------------------------------------------------------------------------------------
-// save_guideline (Teach)
-// ---------------------------------------------------------------------------------------
-
 export interface GuidelineInput {
   session_id: string;
-  /** The concept note taught, by path; needed only when the session covers several. */
+
   note?: string;
   title: string;
-  /** A folder under 1.Projects or 3.Resources, outside 0.Raw. */
+
   folder: string;
 }
 
@@ -321,10 +293,6 @@ export function saveGuideline(root: string, notes: VaultNote[], sessions: Sessio
   return plan;
 }
 
-// ---------------------------------------------------------------------------------------
-// climb and rebuild_climb
-// ---------------------------------------------------------------------------------------
-
 export function climbs(notes: VaultNote[], sessions: SessionRecord[], note?: string): ConceptClimb[] | { error: string } {
   const concepts = notes.filter(isConceptNote);
   if (!note) return concepts.map(c => climbOf(c, notes, sessions));
@@ -338,28 +306,20 @@ export function rebuildClimbs(root: string, notes: VaultNote[], sessions: Sessio
   return plan;
 }
 
-/** A concept note about to be created, with its `climb:` set when the vault already holds evidence for it. */
 export function conceptWithClimb(path: string, content: string, notes: VaultNote[], sessions: SessionRecord[]): string {
   const note = noteFromContent(path, content);
   const c = climbOf(note, [...notes, note], sessions);
   return CLIMB_STEPS.some(s => c.steps[s]) ? withClimb(content, c.steps) : content;
 }
 
-// ---------------------------------------------------------------------------------------
-// The climb page (ADR-KI-0069)
-// ---------------------------------------------------------------------------------------
-
 export const SKETCHES_FOLDER = posix.join(CONCEPTS_FOLDER, "Sketches");
 export const MAX_SKETCH_BYTES = 4 * 1024 * 1024;
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export interface ClimbView {
-  /** Each concept's climb; book and group are its first book and the group shown, books and groups all of them. */
+
   concepts: (ConceptClimb & { book: string | null; group: string | null })[];
-  /**
-   * The books and topics the page offers, each with its concepts and structure note. A
-   * topic's concepts are those it lists; `candidates` are every concept note it may list.
-   */
+
   books: { book: string; kind: "book" | "topic"; concepts: { path: string; title: string }[]; candidates: { path: string; title: string }[]; structure: string | null }[];
   sketches: { path: string; name: string }[];
 }
@@ -375,7 +335,6 @@ export function climbView(notes: VaultNote[], sessions: SessionRecord[], sketchF
   return { concepts, books: [...topics, ...books], sketches: sketchFiles.map(p => ({ path: p, name: posix.basename(p, ".png") })) };
 }
 
-/** The structure of a book or a topic with its concepts' titles, as revealed after a drawing from memory. */
 export function revealStructure(notes: VaultNote[], name: string) {
   const s = notes.map(structureOf).find(x => x?.book === name || x?.topic === name) ?? null;
   if (!s) return null;
@@ -389,7 +348,6 @@ export interface SketchPlan {
   bytes: number;
 }
 
-/** Where a freehand sketch of a concept or a book goes: a new PNG, never over another. */
 export function planSketch(root: string, notes: VaultNote[], target: string, png: Buffer, date: string): SketchPlan {
   const plan: SketchPlan = { errors: [], path: null, bytes: png.length };
   const concept = notes.filter(isConceptNote).find(c => c.path === target || c.title === target);
@@ -405,27 +363,22 @@ export function planSketch(root: string, notes: VaultNote[], target: string, png
   return plan;
 }
 
-// ---------------------------------------------------------------------------------------
-// extend_concept (ADR-KI-0071)
-// ---------------------------------------------------------------------------------------
-
 export interface ExtendConceptInput {
-  /** An existing concept note, by path or title. */
+
   note: string;
   passages?: Passage[];
-  /** Reading notes the concept now also came from. */
+
   from_notes?: string[];
-  /** Assertions to add, in the learner's own words. */
+
   core_assertions?: string[];
 }
 
 export interface ExtendConceptPlan extends ClimbWritePlan {
   path: string | null;
-  /** Each new passage as checked, with the pages it was found on. */
+
   passages: PassageCheck[];
 }
 
-/** Lines added at the end of a `## ` section of a body; when it is missing it is made before `before`, else at the end. */
 function addToSection(content: string, heading: string, add: string[], before: string[]): string {
   const nl = content.includes("\r\n") ? "\r\n" : "\n";
   const lines = content.split(/\r?\n/);
@@ -445,11 +398,6 @@ function addToSection(content: string, heading: string, add: string[], before: s
   return [...lines.slice(0, last), ...add, ...(end < lines.length ? [""] : []), ...lines.slice(end)].join(nl);
 }
 
-/**
- * Add another book's passages, reading notes or assertions to an existing concept note,
- * so one idea read in several books stays one note. Nothing on the note is removed or
- * rewritten: each list gains entries and the body gains quotes.
- */
 export function extendConcept(root: string, notes: VaultNote[], sessions: SessionRecord[], input: ExtendConceptInput): ExtendConceptPlan {
   const plan: ExtendConceptPlan = { ...emptyPlan(), path: null, passages: [] };
   const ref = String(input.note ?? "").trim();

@@ -114,7 +114,7 @@ describe("create_concept", () => {
       },
       problems: [],
     });
-    // The citation and the reading-notes link are graph edges to the chapter and the note.
+
     const resolver = noteResolver(notes);
     expect(note.links.map(l => resolver.resolve(note.path, l))).toEqual([DISTILL, READING]);
   });
@@ -178,7 +178,7 @@ describe("sparring concept notes, not raw text", () => {
     expect((await vault.dueForReview("2026-10-24")).due).toEqual([
       { path, title: "Layered Marking", concept: true, coachId: "c-concept", nextReview: "2026-10-24", mastery: "tier1_passed", firstReview: false, book: "Notes That Work", group: null, topic: null },
     ]);
-    // The coach_id insert keeps the concept fields readable.
+
     expect(conceptOf((await vault.note(path!))!)!.problems).toEqual([]);
   });
 });

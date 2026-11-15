@@ -1,11 +1,3 @@
-/**
- * `harvest_workstream` (ADR-KI-0062 Decision 12): a workstream set to `done` is turned
- * into Intermediate Packets, the reusable outputs another project can start from. The
- * preview lists candidates; each packet the user keeps is written as a note in the
- * project's `Intermediate Packets/` folder, linking its project and workstream, with a
- * copy of any file it reuses beside it. The workstream itself is never changed.
- */
-
 import { constants, existsSync, readdirSync, statSync } from "node:fs";
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
@@ -23,12 +15,9 @@ export type Candidate =
 
 export interface PacketInput {
   title: string;
-  /** The packet's own words: what it is and how to reuse it. */
+
   text?: string;
-  /**
-   * What it is built from: a note path, `<note path>#<section>` for one section, or a
-   * file path to copy beside it. Checklists are reset to unticked, without dates.
-   */
+
   from?: string[];
 }
 
@@ -40,9 +29,9 @@ export interface HarvestPlan {
   errors: string[];
   warnings: string[];
   collisions: string[];
-  /** New notes, by path. */
+
   writes: Record<string, string>;
-  /** Files to copy, from the workstream to beside the packet. */
+
   copies: { from: string; to: string }[];
 }
 
@@ -51,7 +40,6 @@ const CHECKBOX = /^(\s*[-*+]\s+)\[(.)\]/;
 const SPACED_DATE = new RegExp(`\\s*${DATED_SIGNIFIER.source}`, "gu");
 const SPACED_PRIORITY = new RegExp(`\\s*${PRIORITY_SIGNIFIER.source}`, "gu");
 
-/** A checklist made reusable: unticked, without dates, priorities, slips or block ids; size tags stay. */
 export function resetChecklist(text: string): string {
   return text.split("\n").map(l => {
     if (!CHECKBOX.test(l)) return l;
@@ -64,7 +52,6 @@ export function resetChecklist(text: string): string {
   }).join("\n");
 }
 
-/** Sections of a body: each heading with its lines up to the next heading of the same or a higher level. */
 function sections(body: string): { heading: string; text: string }[] {
   const lines = body.split("\n");
   const out: { heading: string; text: string }[] = [];
@@ -117,8 +104,7 @@ export function harvestWorkstream(root: string, notes: VaultNote[], project: str
   if (!packets?.length) return out;
 
   const folder = posix.join(pr.folder, PACKETS_FOLDER);
-  // Bare names, which Obsidian resolves wherever the note lives, so the links follow the
-  // project into the archive; a path only where the name alone would reach another note.
+
   const resolver = noteResolver(notes);
   const linkTo = (note: string | null, name: string) => {
     if (!note) return name;
@@ -154,7 +140,7 @@ export function harvestWorkstream(root: string, notes: VaultNote[], project: str
         body.push(`## ${part.heading}`, "", resetChecklist(part.text), "");
       } else if (existsSync(join(root, src)) && statSync(join(root, src)).isFile()) {
         const to = posix.join(folder, posix.basename(src));
-        // Packets that reuse the same file share one copy of it.
+
         const shared = out.copies.find(c => c.to === to);
         if (!shared) { if (claim(to)) out.copies.push({ from: src, to }); }
         else if (shared.from !== src) out.collisions.push(to);
@@ -187,5 +173,4 @@ export async function executeHarvest(root: string, plan: HarvestPlan): Promise<v
   }
 }
 
-/** True for an Intermediate Packet note. */
 export const isPacket = (n: VaultNote) => n.frontmatter.type === PACKET_TYPE;

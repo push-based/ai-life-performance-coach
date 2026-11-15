@@ -1,4 +1,3 @@
-// Copy the built board into the vault package's assets, where the view server serves it.
 import { copyFileSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 

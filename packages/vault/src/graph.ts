@@ -1,9 +1,3 @@
-/**
- * The vault's link graph, built in memory from a scan. Phase 1 returns it to the
- * caller and writes nothing; `Coach/graph.json` and mastery rings arrive with the view
- * server (ADR-KI-0058 Decision 11).
- */
-
 import { posix } from "node:path";
 import { LinkResolver } from "./links.js";
 import type { ParaBucket } from "./para.js";
@@ -27,17 +21,15 @@ export interface VaultGraphEdge {
 export interface VaultGraph {
   nodes: VaultGraphNode[];
   edges: VaultGraphEdge[];
-  /** Links whose target matches no note, by linking note. */
+
   unresolved: { source: string; target: string }[];
 }
 
-/** Obsidian `aliases`: a list or a single string in frontmatter. */
 function aliasesOf(n: VaultNote): string[] {
   const a = n.frontmatter.aliases;
   return (Array.isArray(a) ? a : [a]).filter((x): x is string => typeof x === "string" && x.trim() !== "");
 }
 
-/** A resolver over these notes that also follows links to the raw files they were converted from. */
 export function noteResolver(notes: VaultNote[], rename?: { from: string; to: string }): LinkResolver {
   const at = (p: string) => (rename && p === rename.from ? rename.to : p);
   return new LinkResolver(

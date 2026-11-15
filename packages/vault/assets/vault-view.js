@@ -1,15 +1,5 @@
-/* Vault graph view (ADR-KI-0058 Decision 11). Self-contained: no library and no
- * request beyond /graph.json and /page.json, so it runs offline and its CSP can forbid
- * the rest. A converted book (ADR-KI-0059) shows as one node, ringed by its distilling
- * progress, until it is opened; its chapters then sit in reading order on a ring around
- * it. Concept notes (ADR-KI-0060), the notes that are sparred, are diamonds. Raw text is
- * coloured by how far it is distilled (ADR-KI-0061): an open chapter shows its pages,
- * each coloured by its deepest mark and ringed when it has a summary, and a selected
- * page is shown in full in the side panel. */
 (function () {
   "use strict";
-
-  /* ── Vocabulary ─────────────────────────────────────────────────────────── */
 
   const BUCKETS = [
     ["inbox", "Inbox"], ["projects", "Projects"], ["areas", "Areas"],
@@ -30,6 +20,8 @@
 
   const NS = "http://www.w3.org/2000/svg";
   const THEME_KEY = "vault-view-theme";
+  const remember = (key, value) => { try { localStorage.setItem(key, value); return true; } catch { return false; } };
+  const recall = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
   const $ = id => document.getElementById(id);
   const svg = $("graph");
   const body = document.body;
@@ -50,7 +42,6 @@
   const anchor = n => (folded(n) ? state.byId.get(n.book) : n);
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-  /** A chapter's colour: green when complete, else its deepest mark so far. */
   const chapterFill = c => {
     const d = c.distill;
     if (!d) return null;
@@ -64,14 +55,12 @@
     const progress = chapters.filter(c => c.distill && c.distill.state === "in_progress").length;
     return { chapters, total: chapters.length, complete, progress, untouched: chapters.length - complete - progress };
   };
-  /** Concept notes that link to a note, or for a book to any of its chapters. */
+
   const conceptsCiting = n => {
     const targets = new Set([n, ...(state.chaptersOf.get(n.id) || [])]);
     return [...new Set(state.links.filter(([a, b]) => a.concept && targets.has(b)).map(([a]) => a))];
   };
   const obsidian = (file) => `obsidian://open?vault=${encodeURIComponent(state.graph.vaultName)}&file=${encodeURIComponent(file)}`;
-
-  /* ── DOM helpers ────────────────────────────────────────────────────────── */
 
   const el = (tag, attrs, parent) => {
     const e = document.createElementNS(NS, tag);
@@ -122,11 +111,6 @@
   };
   const pill = (text, color) => h("span", { class: "pill", style: { color, borderColor: color, background: `color-mix(in srgb, ${color} 12%, transparent)` } }, text);
 
-  /* ── Layout ─────────────────────────────────────────────────────────────── */
-
-  /* Force layout over everything but chapters: pairwise repulsion, link springs, and a
-   * pull towards each bucket's anchor so PARA buckets form clusters. Chapters are placed
-   * around their book at render time. */
   function layout(w, h) {
     const nodes = state.nodes.filter(n => !n.book);
     const anchors = {};
@@ -167,10 +151,6 @@
 
   const ringOf = count => { const ry = 50 + count * 6; return { rx: ry * 1.25, ry }; };
 
-  /**
-   * Reading notes: the user's own notes in Resources that link a book or one of its
-   * chapters, by book. They sit in a column beside their book, not in the force layout.
-   */
   function readingNotes() {
     const out = new Map();
     for (const [a, b] of state.links) {
@@ -185,7 +165,6 @@
     return out;
   }
 
-  /** Chapters a reading note links: their spokes from the book take the reading colour. */
   function readChapters() {
     const out = new Set();
     for (const [a, b] of state.links) if (b.book && (state.readersOf.get(b.book) || []).includes(a)) out.add(b.id);
@@ -194,11 +173,6 @@
   const bookOf = n => (n.rawRole === "index" ? n.id : n.book);
   const isReading = (a, b) => (state.readersOf.get(bookOf(b)) || []).includes(a) || (state.readersOf.get(bookOf(a)) || []).includes(b);
 
-  /**
-   * Put an open book's chapters on a wide ellipse around it, in reading order clockwise
-   * from just right of the top. Wider than tall, and with no chapter exactly at the top or
-   * bottom, so labels there fan out to either side instead of stacking.
-   */
   function placeChapters() {
     for (const n of state.nodes) if (!n.book && n.hx !== undefined) { n.x = n.hx; n.y = n.hy; }
     for (const [book, chapters] of state.chaptersOf) {
@@ -209,8 +183,7 @@
         const a = ((i + 0.5) / chapters.length) * Math.PI * 2 - Math.PI / 2;
         c.x = b.x + Math.cos(a) * rx; c.y = b.y + Math.sin(a) * ry; c.angle = a;
       });
-      // Other notes never sit inside an open book's ring: push them just outside it,
-      // past the chapter labels, for as long as the book is open.
+
       if (!state.expanded.has(book)) continue;
       const ox = rx + 240, oy = ry + 60;
       const readers = new Set(state.readersOf.get(book) || []);
@@ -222,7 +195,7 @@
         n.x = b.x + Math.cos(a) * ox; n.y = b.y + Math.sin(a) * oy;
       }
     }
-    // Reading notes in a column at the book's left, past its ring when the book is open.
+
     for (const [book, readers] of state.readersOf) {
       const b = state.byId.get(book);
       if (!b) continue;
@@ -233,10 +206,6 @@
 
   const pageRingOf = count => 18 + count * 3.1;
 
-  /**
-   * An open chapter's pages, in order on a small ring just inside the book's ring, between
-   * the chapter and its book: chapter labels point outward, so the inside is free of them.
-   */
   function pagesOf(c) {
     const pages = (c.distill && c.distill.pages) || [];
     const r = pageRingOf(pages.length);
@@ -247,9 +216,6 @@
     }) };
   }
 
-  /* ── Camera ─────────────────────────────────────────────────────────────── */
-
-  /** The part of the screen the graph may use: the canvas minus the floating panels. */
   function viewport() {
     const w = window.innerWidth, hgt = window.innerHeight;
     if (w <= 960) return { x0: 8, x1: w - 8, y0: 76, y1: hgt * 0.45, w, h: hgt };
@@ -259,7 +225,6 @@
 
   const camera = () => { if (state.root) state.root.setAttribute("transform", `translate(${state.view.x},${state.view.y}) scale(${state.view.k})`); };
 
-  /** The view that puts the box (in graph coordinates) in the middle of the free screen. */
   function viewOf(box, maxK = 1.6) {
     const vp = viewport();
     const bw = Math.max(1, box.x1 - box.x0), bh = Math.max(1, box.y1 - box.y0);
@@ -268,10 +233,10 @@
   }
 
   let flight = 0;
-  /** Glide the camera to a view; labels are rebuilt for the new zoom when it lands. */
+
   function flyTo(to, ms = 700) {
     const id = ++flight, from = { ...state.view }, start = performance.now();
-    // Arriving from a link, or with reduced motion, the camera jumps instead of gliding.
+
     if (state.instant || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { state.view = { ...to }; camera(); render(); return; }
     const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
     const step = now => {
@@ -294,7 +259,6 @@
     if (shown.length) flyTo(viewOf(boxAround(shown, 60), 1.4), ms);
   }
 
-  /** Zoom so an open book's ring and its labels fit. */
   function frameBook(b, ms) {
     const { rx, ry } = ringOf((state.chaptersOf.get(b.id) || []).length);
     flyTo(viewOf({ x0: b.x - rx - 170, x1: b.x + rx + 170, y0: b.y - ry - 30, y1: b.y + ry + 30 }, 1.2), ms);
@@ -311,9 +275,6 @@
     flyTo({ k, x: mx - ((mx - state.view.x) * k) / state.view.k, y: my - ((my - state.view.y) * k) / state.view.k }, 280);
   }
 
-  /* ── Rendering ──────────────────────────────────────────────────────────── */
-
-  /** Label size that stays constant on screen when zoomed out and grows only a little when zoomed in. */
   const fontAt = base => `font-size:${((base * Math.min(1.25, Math.max(1, state.view.k))) / state.view.k).toFixed(2)}px`;
 
   function render() {
@@ -331,7 +292,7 @@
     camera();
 
     const shown = new Set(state.nodes.filter(visible).map(n => n.id));
-    // While a note is selected, only it and the notes it links or is linked from stay on screen.
+
     const focal = selectedNote();
     if (focal) {
       const keep = neighbourhood(focal);
@@ -343,7 +304,7 @@
     const touch = (a, b) => { if (!state.adj.has(a)) state.adj.set(a, new Set()); state.adj.get(a).add(b); };
     for (const [x, y] of state.links) {
       let a = anchor(x), b = anchor(y);
-      // A reading note draws one line to its book, never one per chapter across the ring.
+
       if (a && b && isReading(a, b)) { if (b.book) b = state.byId.get(b.book); if (a.book) a = state.byId.get(a.book); }
       if (!a || !b || a === b || !shown.has(a.id) || !shown.has(b.id)) continue;
       const key = a.id < b.id ? a.id + "\0" + b.id : b.id + "\0" + a.id;
@@ -356,7 +317,7 @@
       let d;
       if (spoke || reading) d = `M${a.x},${a.y}L${b.x},${b.y}`;
       else {
-        // A gentle curve, always bowing the same way for the same pair.
+
         const [p, q] = a.id < b.id ? [a, b] : [b, a];
         const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, dx = q.x - p.x, dy = q.y - p.y;
         d = `M${p.x},${p.y}Q${mx - dy * 0.14},${my + dx * 0.14} ${q.x},${q.y}`;
@@ -365,7 +326,7 @@
       const read = chapter && state.readChapters.has(chapter.id);
       const progress = read && chapter.distill && chapter.distill.state !== "untouched" ? chapterFill(chapter) : null;
       if (progress) {
-        // Read and being distilled: two strokes side by side, the reading colour and the chapter's.
+
         const len = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = ((a.y - b.y) / len) * 1.6, ny = ((b.x - a.x) / len) * 1.6;
         for (const [s, color] of [[1, null], [-1, progress]]) {
           el("path", { d: `M${a.x + nx * s},${a.y + ny * s}L${b.x + nx * s},${b.y + ny * s}`, class: `edge spoke read${dim ? " dim" : ""}`, style: color ? `stroke:${color}` : "", "data-a": a.id, "data-b": b.id }, edges);
@@ -375,7 +336,6 @@
       el("path", { d, class: `edge${spoke ? " spoke" : ""}${read ? " read" : ""}${reading ? " reading" : ""}${dim ? " dim" : ""}`, "data-a": a.id, "data-b": b.id }, edges);
     }
 
-    // Page rings sit under the nodes so a chapter stays on top of its own ring.
     const pageLayer = el("g", {}, root);
     const nodeLayer = el("g", {}, root);
     const crowded = shown.size > 60;
@@ -400,7 +360,7 @@
       const shape = { class: "shape", fill, stroke, "stroke-width": selected || hit ? 2.5 : 2, filter: selected ? "url(#glow)" : "" };
 
       if (isBook) {
-        // The book: a tile ringed by its chapters, green for complete and cyan in progress.
+
         const { total, complete, progress } = bookCounts(n);
         const R = r + 8, C = 2 * Math.PI * R;
         el("circle", { r: R + 9, fill, opacity: 0.1 }, g);
@@ -427,12 +387,12 @@
       }
 
       const labelled = isBook || selected || hit || state.view.k > 1.3 || (!crowded && (!n.book || state.expanded.has(n.book)));
-      // A reading note sits at its book's left, so its label points away from the book.
+
       const reader = !n.book && [...state.readersOf.values()].some(list => list.includes(n));
       const cos = n.book ? Math.cos(n.angle) : reader ? -1 : 1, sin = n.book ? Math.sin(n.angle) : 0;
       const steep = n.book && Math.abs(cos) < 0.35;
       const off = isBook ? r + 16 : r + 7;
-      // A chapter exactly at the top or bottom of the ring centres its label over or under it.
+
       const centred = isBook || (steep && Math.abs(cos) < 0.06);
       const at = {
         x: centred ? 0 : cos < 0 ? -off : off,
@@ -488,18 +448,12 @@
       : `${shown.size} of ${state.nodes.length} notes`;
   }
 
-  /** The graph note the selection stands on: the note itself, or the chapter of a selected page. */
   function selectedNote() {
     const s = state.selected;
     const n = s && (s.chapter || s);
     return n && state.byId.get(n.id) === n ? n : null;
   }
 
-  /**
-   * A note, every note it links or is linked from (folded chapters counted as their book,
-   * a reading note's chapter links as one link to the book), and the book around it: a
-   * book keeps its chapter ring, a chapter keeps its book and sibling chapters.
-   */
   function neighbourhood(n) {
     const keep = new Set([n.id]);
     const book = n.rawRole === "index" ? n.id : n.book;
@@ -514,7 +468,6 @@
     return keep;
   }
 
-  /** Light up a node, its neighbours and the links between them; fade the rest. */
   function focus(id) {
     const root = state.root;
     if (!root || (drag && drag.moved)) return;
@@ -524,8 +477,6 @@
     for (const g of root.querySelectorAll(".node[data-id]")) g.classList.toggle("lit", g.dataset.id === id || near.has(g.dataset.id));
     for (const e of root.querySelectorAll(".edge[data-a]")) e.classList.toggle("lit", e.dataset.a === id || e.dataset.b === id);
   }
-
-  /* ── Navigation ─────────────────────────────────────────────────────────── */
 
   function toggleBook(b) {
     if (state.expanded.has(b.id)) {
@@ -541,14 +492,13 @@
 
   function togglePages(c) {
     if (state.openChapters.has(c.id)) { state.openChapters.delete(c.id); return; }
-    // One chapter open per book keeps the ring readable.
+
     for (const other of state.chaptersOf.get(c.book) || []) state.openChapters.delete(other.id);
     state.openChapters.add(c.id);
     placeChapters();
     frameChapter(c);
   }
 
-  /** Select a note from the panel: open what it sits in and glide to it. */
   function reveal(n) {
     if (n.book && !state.expanded.has(n.book)) state.expanded.add(n.book);
     placeChapters();
@@ -561,7 +511,6 @@
     flyTo(viewOf({ x0: n.x - 180, x1: n.x + 180, y0: n.y - 140, y1: n.y + 140 }, 1.6));
   }
 
-  /** Show one page of a chapter, opening the chapter's pages first. */
   function goToPage(c, page) {
     if (!c || !c.distill) return;
     if (c.book) state.expanded.add(c.book);
@@ -572,7 +521,6 @@
     if (p) select(p);
   }
 
-  /** The page before or after the selected one, crossing into the neighbouring chapter. */
   function stepPage(dir) {
     const p = state.selected;
     if (!p || !p.chapter) return;
@@ -582,8 +530,6 @@
     const next = chapters[chapters.indexOf(c) + dir];
     if (next && next.distill && next.distill.pages.length) goToPage(next, dir > 0 ? next.distill.pages[0].page : next.distill.pages[next.distill.pages.length - 1].page);
   }
-
-  /* ── Side panel ─────────────────────────────────────────────────────────── */
 
   function select(n) {
     state.selected = n;
@@ -633,7 +579,6 @@
     return out;
   }
 
-  /** What was made from a raw source: the user's own notes and the concept notes, as tiles and lists. */
   function madeFrom(n, what) {
     const notes = (n.notesFrom || []).map(id => state.byId.get(id)).filter(Boolean);
     const concepts = (n.conceptsFrom || []).map(id => state.byId.get(id)).filter(Boolean);
@@ -653,8 +598,7 @@
 
   function bookPanel(b) {
     const c = bookCounts(b);
-    // Each step shows its own state, so one skipped on the way stays visible; the stage
-    // label is the furthest reached. The first step not done is the current one.
+
     const steps = [
       { name: "Read", done: !!b.readOn },
       { name: "Notes", done: (b.notesFrom || []).length > 0 },
@@ -700,7 +644,6 @@
     ];
   }
 
-  /** The chapter summary editor, its text read through the chapter's first page. */
   function chapterSummaryCard(ch) {
     const host = h("div", {}, h("div", { class: "skeleton", style: { width: "70%" } }));
     loadPage(ch, ch.distill.pages[0].page).then(data => host.replaceChildren(summaryEditor({
@@ -775,9 +718,6 @@
     ].filter(Boolean);
   }
 
-  /* ── Reading a note (ADR-KI-0061 Decision 14) ────────────────────────────────── */
-
-  /** The node a wikilink names: by path, then by file name, then by title. */
   function nodeFor(target) {
     const t = target.split("#")[0].trim();
     if (!t) return null;
@@ -787,10 +727,6 @@
     return nodes.find(n => n.id.endsWith(`/${path}`) || n.id === path) || nodes.find(n => n.title === t) || null;
   }
 
-  /**
-   * One line of a note's markdown as DOM, from text nodes only: `**`/`__` bold, `==`
-   * highlight, `[[target|alias]]` a link to that node in the graph, `[text](url)` its text.
-   */
   function inline(text) {
     const out = [];
     let b = false, hl = false, buf = "";
@@ -816,7 +752,6 @@
     return out;
   }
 
-  /** A note's markdown as read-only DOM: headings, lists, callouts, code, paragraphs. */
   function renderNote(text) {
     const out = [];
     const lines = text.replace(/\r\n/g, "\n").split("\n");
@@ -860,7 +795,6 @@
     return out;
   }
 
-  /** The note's text, read-only, fetched when its panel opens. */
   function noteReader(n) {
     const host = h("div", { class: "reader note" }, [100, 92, 96, 70].map(w => h("div", { class: "skeleton", style: { width: `${w}%` } })));
     fetch(`note.json?note=${encodeURIComponent(n.id)}`, { cache: "no-store" })
@@ -873,12 +807,9 @@
     return host;
   }
 
-  /* ── Reading and distilling a page (ADR-KI-0061 Decision 10) ────────────── */
-
   const TOKEN = (document.querySelector('meta[name="vault-token"]') || {}).content || "";
   const keyOf = (c, page) => `${c.id}#${page}`;
 
-  /** Ask the server for one page, cached until it is edited or the vault is reloaded. */
   async function loadPage(c, page) {
     const key = keyOf(c, page);
     if (state.pages.has(key)) return state.pages.get(key);
@@ -889,11 +820,9 @@
     return data;
   }
 
-  /** A write to the vault from this page. The token proves the request comes from it. */
   async function api(path, body) {
     const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json", "x-vault-token": TOKEN }, body: JSON.stringify(body) });
-    let data = {};
-    try { data = await res.json(); } catch { /* not JSON */ }
+    const data = await res.json().catch(() => ({}));
     return { ok: res.ok, status: res.status, data };
   }
 
@@ -904,7 +833,6 @@
     setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 300); }, 2600);
   }
 
-  /** The page's own summary callout, split from the rest of its text. */
   function splitSummary(text) {
     const m = /^>[ \t]*\[!summary\][^\n]*(?:\n>[^\n]*)*/im.exec(text);
     if (!m) return { summary: null };
@@ -913,13 +841,6 @@
     return { summary: body || null };
   }
 
-  /**
-   * A page as DOM in which every character knows where it sits in the page's markdown, so
-   * a selection maps back to an exact range for the server to mark. Built from text nodes
-   * only; nothing is parsed as HTML. The parse mirrors the server's: `**`/`__` toggle
-   * bold and `==` highlight within a paragraph, a leading `\` is the conversion's escape,
-   * and summary callouts are left out (they have their own editor).
-   */
   function renderPage(text) {
     const lines = [];
     let at = 0;
@@ -948,8 +869,7 @@
         flush();
         return { raw: l.text.replace(/^\\/, "").replace(/\*\*|__|==/g, ""), list };
       });
-      // The PDF gives no blank lines between paragraphs, so a line well short of the
-      // page's full width ends one when it ends a sentence or reads as a Title Case heading.
+
       const full = Math.max(...segs.map(s => s.raw.length));
       const heading = l => {
         const words = l.split(/\s+/).filter(w => /\p{L}/u.test(w));
@@ -970,7 +890,6 @@
     return out.length ? out : [h("p", { class: "muted", textContent: "No text on this page." })];
   }
 
-  /** The selection inside `root` as a [start, end) range of the page's markdown, or null. */
   function selectionRange(root) {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
@@ -984,7 +903,6 @@
     return end > start ? { start, end, rect: range.getBoundingClientRect() } : null;
   }
 
-  /* One floating toolbar serves every editor on screen. */
   const toolbar = h("div", { class: "marker glass", role: "toolbar", "aria-label": "Mark the selection" });
   let toolbarTarget = null;
   for (const [op, name, key] of [["bold", "Bold", "B"], ["highlight", "Highlight", "H"], ["clear", "Clear", "X"]]) {
@@ -1026,7 +944,6 @@
     await refreshData();
   }
 
-  /** An editable summary: shown as a box, edited in place, removed by saving it empty. */
   function summaryEditor({ title, hint, value, empty, onSave }) {
     const wrap = h("div", { class: "summary-edit" });
     const show = () => {
@@ -1079,7 +996,6 @@
     return true;
   }
 
-  /** The editable page: its summary, then the text, which marks as the user selects. */
   function pageEditor(c, page, opts = {}) {
     const host = h("div", { class: `editor${opts.large ? " large" : ""}` });
     const fill = data => {
@@ -1124,8 +1040,6 @@
       card(h("p", { class: "muted", style: { margin: 0, fontSize: "12.5px" }, textContent: "Select text to bold or highlight it. Changes are saved to the chapter note, so Obsidian shows them at once." })),
     ];
   }
-
-  /* ── Edit mode: the page in the middle of the screen ─────────────────────── */
 
   function openFocus(c, page) {
     state.focus = { chapter: c, page };
@@ -1203,7 +1117,6 @@
       ));
   }
 
-  /** Fetch the graph again after an edit and update colours and panels in place. */
   async function refreshData() {
     const res = await fetch("graph.json", { cache: "no-store" });
     if (!res.ok) return;
@@ -1221,8 +1134,6 @@
     if (state.focus) renderFocus();
     select(state.selected);
   }
-
-  /* ── Filters, header, theme ─────────────────────────────────────────────── */
 
   function filters() {
     const build = (host, list, set, count, mark) => {
@@ -1268,7 +1179,7 @@
     document.documentElement.dataset.theme = theme;
     $("theme").replaceChildren(icon(theme === "dark" ? ICONS.sun : ICONS.moon));
     $("theme").title = theme === "dark" ? "Switch to light" : "Switch to dark";
-    if (save) try { localStorage.setItem(THEME_KEY, theme); } catch { /* storage unavailable */ }
+    if (save) remember(THEME_KEY, theme);
   }
 
   function togglePresent(on) {
@@ -1278,8 +1189,6 @@
     if (now && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => undefined);
     if (!now && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => undefined);
   }
-
-  /* ── Loading ────────────────────────────────────────────────────────────── */
 
   async function load() {
     $("status").textContent = "Loading…";
@@ -1302,14 +1211,13 @@
     state.readersOf = readingNotes();
     state.readChapters = readChapters();
     layout(window.innerWidth, window.innerHeight);
-    // A refresh keeps every note that was already on screen where it was.
+
     if (keepView) for (const n of state.nodes) { const at = before.get(n.id); if (at && !n.book) Object.assign(n, at); }
     for (const n of state.nodes) if (!n.book) { n.hx = n.x; n.hy = n.y; }
     placeChapters();
     header();
     filters();
 
-    // #open=<chapter path>[&page=N] opens the chapter's book and its pages, and selects a page.
     const hash = new URLSearchParams(location.hash.slice(1));
     const deep = hash.has("open") ? state.byId.get(hash.get("open")) : null;
     if (!keepView) {
@@ -1336,8 +1244,6 @@
     }
     state.instant = false;
   }
-
-  /* ── Input ──────────────────────────────────────────────────────────────── */
 
   let drag = null, wheelFrame = 0;
   svg.addEventListener("pointerdown", ev => {
@@ -1424,10 +1330,8 @@
     }
   });
 
-  // ?theme=light|dark and ?present set up a demo machine from its bookmark.
   const query = new URLSearchParams(location.search);
-  let saved = null;
-  try { saved = localStorage.getItem(THEME_KEY); } catch { /* storage unavailable */ }
+  const saved = recall(THEME_KEY);
   const theme = query.get("theme") || saved;
   setTheme(theme === "light" ? "light" : "dark", false);
   if (query.has("present")) { body.classList.add("present"); $("present").setAttribute("aria-pressed", "true"); }

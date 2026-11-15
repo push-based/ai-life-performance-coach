@@ -15,7 +15,6 @@ const ADDRESS = {
 };
 const PREVIEW_LINES = "Each previewed edit gives line (0-based in the note body, the same numbering planning_overview reports and line accepts; absent in frontmatter), fileLine (1-based in the file, for showing the user, never to pass back), and under (the heading above it) and above (the line above it) for context.";
 
-/** The tool's snake_case address as the vault reads it. */
 const address = <T extends { include_closed?: boolean }>({ include_closed, ...a }: T) => ({ ...a, ...(include_closed !== undefined ? { includeClosed: include_closed } : {}) });
 
 const refused = (tool: string, r: { errors: string[] }) => fail(`${tool} refused:\n- ${r.errors.join("\n- ")}`);

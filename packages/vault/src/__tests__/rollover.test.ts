@@ -74,7 +74,7 @@ describe("roll_over", () => {
     await executeWrites(dir, plan);
     const week = read("Plans/Weekly/2026-W46.md");
     expect(week).toContain("## Goals\n\n- [ ] All posters out [[Marketing]] #M #slipped/2026-W45 ↑ [[2026-11#^posters-printed]] ⏫ ^all-posters-out\n- [ ] Run twice [[Health]] #slipped/2026-W44 #slipped/2026-W45 ⏫ ^run-twice\n");
-    // The originals stay open in the closed plan, as the record.
+
     expect(read("Plans/Weekly/2026-W45.md")).toContain("- [ ] All posters out [[Marketing]] #M ↑ [[2026-11#^posters-printed]] ^all-posters-out");
     const p = planning(dir, await scanVault(dir));
     const panel = p.tasks.find(t => t.text === "Panel posters")!;

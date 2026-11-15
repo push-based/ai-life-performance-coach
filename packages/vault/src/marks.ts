@@ -1,37 +1,26 @@
-/**
- * The user's marks in a book's chapters as quotable passages (ADR-KI-0061 Decision 11).
- * A mark is wherever the user's bold or highlight falls, which may be a few words or a
- * run cut at the PDF's line ends; a passage is the whole sentence or sentences around it,
- * as the author wrote them, so a concept note quotes something that reads on its own.
- * Sentences joined by one unbroken mark make one passage. Every passage is checked with
- * the same matcher `create_concept` uses before it is returned.
- */
-
 import { posix } from "node:path";
 import { RAW_TEXT } from "./convert.js";
 import { parseMarks, sourceOf, withoutSummaries, type MarkChar } from "./distill.js";
 import { locateQuote } from "./concept.js";
 import type { VaultNote } from "./scan.js";
 
-/** A passage longer than this is cut down to the marked run itself. */
 export const MAX_PASSAGE_CHARS = 600;
 
 export interface MarkedPassage {
-  /** The chapter note, for `create_concept`'s `note`. */
+
   note: string;
   chapter: string;
   page: number;
-  /** The whole sentence(s), verbatim; passes `create_concept` with `pages` as given. */
+
   quote: string;
-  /** The deepest mark inside it: a highlight is the best of the bold. */
+
   depth: "bold" | "highlight";
-  /** What the user marked inside the quote, in order. */
+
   marked: { mark: "bold" | "highlight"; text: string }[];
 }
 
 type Ch = Pick<MarkChar, "ch" | "b" | "h">;
 
-/** The text as a reader sees it: a word split at a line end rejoined, whitespace collapsed. */
 function readable(chars: Ch[]): string {
   return chars.map(c => c.ch).join("")
     .replace(/(\p{L})-\s*\n\s*(\p{Ll})/gu, "$1$2")
@@ -39,7 +28,6 @@ function readable(chars: Ch[]): string {
     .trim();
 }
 
-/** Runs of one mark in a stretch of text, joined across whitespace, each as readable text. */
 function runsOf(chars: Ch[], on: (c: Ch) => boolean, mark: "bold" | "highlight"): MarkedPassage["marked"] {
   const out: MarkedPassage["marked"] = [];
   let i = 0;
@@ -57,11 +45,6 @@ function runsOf(chars: Ch[], on: (c: Ch) => boolean, mark: "bold" | "highlight")
 const SENTENCE_END = /[.!?]/;
 const CLOSER = /["'”’)\]]/;
 
-/**
- * One page's paragraphs as sentences of marked characters. The PDF gives no blank lines
- * between paragraphs, so a line well short of the page's longest also ends a sentence,
- * as it does in the graph view: it is the end of a paragraph or a heading.
- */
 function sentences(text: string): Ch[][] {
   const lines = parseMarks(withoutSummaries(text));
   const plain = (l: { chars: MarkChar[] }) => l.chars.map(c => c.ch).join("").trim();
@@ -93,7 +76,6 @@ const edge = (s: Ch[], from: "start" | "end") => {
   return from === "start" ? xs[0] : xs[xs.length - 1];
 };
 
-/** One chapter's marks as passages, page by page. */
 export function chapterPassages(note: VaultNote): MarkedPassage[] {
   const out: MarkedPassage[] = [];
   for (const part of note.body.split(/^(?=## Page \d+[ \t]*$)/m)) {
@@ -103,7 +85,7 @@ export function chapterPassages(note: VaultNote): MarkedPassage[] {
     const ss = sentences(part.slice(m[0].length));
     for (let i = 0; i < ss.length; i++) {
       if (!ss[i].some(marked)) continue;
-      // One unbroken mark across a sentence end keeps the next sentence in the passage.
+
       let j = i;
       while (j + 1 < ss.length && marked(edge(ss[j], "end")) && marked(edge(ss[j + 1], "start"))) j++;
       const group = ss.slice(i, j + 1).flatMap((s, k) => (k ? [{ ch: " ", b: false, h: false }, ...s] : s));
@@ -128,10 +110,6 @@ export function chapterPassages(note: VaultNote): MarkedPassage[] {
   return out;
 }
 
-/**
- * Passages for a chapter, or for every chapter of a book given its `text.md` or work
- * folder; null when the path is neither.
- */
 export function markedPassages(notes: VaultNote[], target: string): MarkedPassage[] | null {
   const want = target.replace(/\/+$/, "");
   const chapter = notes.find(n => n.path === want && n.rawRole === "chapter");

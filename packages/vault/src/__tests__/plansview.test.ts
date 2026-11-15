@@ -66,7 +66,7 @@ describe("plansView", () => {
     expect(row("a:Health").cells[w45]).toEqual({ done: 1, planned: 0 });
     expect(row("unlinked").cells[w45]).toEqual({ done: 1, planned: 0 });
     expect(row("p:Expo2026")).toMatchObject({ deadline: "2026-11-22", status: "in-progress", note: "1.Projects/Expo2026/Expo2026.md", packets: [{ path: "1.Projects/Expo2026/Intermediate Packets/Onboarding checklist.md", title: "Onboarding checklist" }] });
-    // Cancelled work and work outside the span are left out.
+
     expect(row("w:Expo2026/Marketing").tasks.map(t => t.text)).toEqual(["Workshop posters", "Panel posters", "Social posts"]);
   });
 

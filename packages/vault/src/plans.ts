@@ -1,10 +1,3 @@
-/**
- * Writing plans (ADR-KI-0062 Decision 9): the five plan templates, and `plan_period`,
- * which writes a year, quarter, month, week or day plan with goals and ad-hoc tasks and
- * schedules existing tasks into it. Every write is a preview first; an edit is refused
- * if its note changed after the preview.
- */
-
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -16,17 +9,11 @@ import { isRecurrence, TaskLine } from "./task-line.js";
 import { HABITS_HEADING, habitKey, isHabitDue } from "./habits.js";
 import type { VaultNote } from "./scan.js";
 
-/** Templates live beside the plans, one per level; Periodic Notes reads them (Decision 9). */
 export const TEMPLATES_FOLDER = posix.join(PLANS_ROOT, "Templates");
 export const templatePath = (level: PlanLevel) => posix.join(TEMPLATES_FOLDER, `${PLAN_LEVELS[level]}.md`);
 
 const fence = (lines: string[]) => ["```tasks", ...lines, "```"].join("\n");
 
-/**
- * The built-in templates. `{{title}}` is the period, as Periodic Notes fills it from the
- * file name; `plan_period` fills it the same way. No template holds an empty checkbox,
- * which would read as an unlinked task.
- */
 export const TEMPLATES: Record<PlanLevel, string> = {
   year: ["# {{title}}", "", "## Goals", "", "## Review", ""].join("\n"),
   quarter: ["# {{title}}", "", "## Goals", "", "## Review", ""].join("\n"),
@@ -56,7 +43,7 @@ export const TEMPLATES: Record<PlanLevel, string> = {
 export interface Period {
   level: PlanLevel;
   period: string;
-  /** First and last day, inclusive, as YYYY-MM-DD. */
+
   start: string;
   end: string;
 }
@@ -64,13 +51,11 @@ export interface Period {
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const utc = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
 
-/** Monday of ISO week 1: the week holding the year's first Thursday. */
 function isoWeekOne(year: number): Date {
   const jan4 = utc(year, 0, 4);
   return utc(year, 0, 4 - ((jan4.getUTCDay() + 6) % 7));
 }
 
-/** The ISO week a day falls in, as `YYYY-Www`. */
 export function isoWeekOf(day: string): string {
   const d = new Date(`${day}T00:00:00Z`);
   const thursday = utc(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 3 - ((d.getUTCDay() + 6) % 7));
@@ -79,7 +64,6 @@ export function isoWeekOf(day: string): string {
   return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
-/** A period by its name, or null when the name is not one. */
 export function periodOf(name: string): Period | null {
   const level = (Object.keys(PLAN_LEVELS) as PlanLevel[]).find(l => isPeriodName(l, name));
   const ref = level ? { level, period: name } : null;
@@ -99,7 +83,7 @@ export function periodOf(name: string): Period | null {
       const w = Number(name.slice(6));
       const monday = isoWeekOne(y);
       const start = utc(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + (w - 1) * 7);
-      // Week 53 exists only in years whose ISO calendar has it.
+
       if (isoWeekOf(iso(start)) !== name) return null;
       return { ...ref, start: iso(start), end: iso(utc(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 6)) };
     }
@@ -110,7 +94,6 @@ export function periodOf(name: string): Period | null {
   }
 }
 
-/** The period of a level that holds a day. */
 export function periodAt(level: PlanLevel, day: string): Period {
   const name = { year: day.slice(0, 4), quarter: `${day.slice(0, 4)}-Q${Math.floor((Number(day.slice(5, 7)) - 1) / 3) + 1}`, month: day.slice(0, 7), week: isoWeekOf(day), day }[level];
   return periodOf(name)!;
@@ -121,10 +104,8 @@ const shift = (day: string, by: number) => {
   return iso(utc(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + by));
 };
 
-/** The period of the same level that follows this one. */
 export const nextPeriod = (p: Period): Period => periodAt(p.level, shift(p.end, 1));
 
-/** The period of the same level before this one. */
 export const previousPeriod = (p: Period): Period => periodAt(p.level, shift(p.start, -1));
 
 export { planPathOf } from "./planning.js";
@@ -133,42 +114,41 @@ const PARENT_LEVEL: Record<PlanLevel, PlanLevel | null> = { year: null, quarter:
 
 export interface GoalInput {
   text: string;
-  /** A project, workstream or area: its name, or a note path. Defaults to the first of `links`. */
+
   link?: string;
-  /** Further notes it links after its owner, e.g. an area beside a workstream. */
+
   links?: string[];
   size?: Size;
-  /** The goal one level up it serves: `<period>#^<block id>`, e.g. `2026-Q4#^expo`. */
+
   parent?: string;
 }
 
-/** The Tasks fields a new task can carry beside its text, links and size (ADR-KI-0064). */
 export interface TaskFields {
   priority?: Priority;
-  /** A Tasks recurrence rule, e.g. "every week on Monday". */
+
   recurrence?: string;
-  /** A `🆔` unique among the vault's planned tasks. */
+
   id?: string;
-  /** `🆔`s of tasks this one waits on, written as `⛔`. */
+
   blockedBy?: string[];
 }
 
 export interface AdHocInput extends TaskFields {
   text: string;
-  /** The owner: a project, workstream or area. Defaults to the first of `links`. */
+
   link?: string;
   links?: string[];
   size?: Size;
-  /** A day inside the period; the task is scheduled on it. */
+
   date?: string;
 }
 
 export interface ScheduleInput {
-  /** The note the task is written in. */
+
   note: string;
-  /** The task's description, or a unique part of it. */
+
   task: string;
-  /** A day inside the period; defaults to its first day. */
+
   date?: string;
 }
 
@@ -181,52 +161,47 @@ export interface PlanPeriodInput {
 
 export interface NoteEdit {
   note: string;
-  /**
-   * 0-based line in the note body, the numbering planning_overview reports and update_task
-   * and add_tasks accept; absent for a change in the frontmatter or a note being created.
-   */
+
   line?: number;
-  /** 1-based line in the note file, as an editor shows it; never an address. */
+
   fileLine: number;
   before: string;
   after: string;
-  /** The nearest heading above the change, when it has one. */
+
   under?: string;
-  /** The unchanged line directly above the change, for context. */
+
   above?: string;
 }
 
 export interface PlanPeriodPlan {
   plan: string;
   period: Period | null;
-  /** True when the plan note does not exist yet and is written from its template. */
+
   creates: boolean;
-  /** The plan note as it will be written. */
+
   content: string;
-  /** Block ids given to the new goals, for child plans to link with `↑ [[<period>#^<id>]]`. */
+
   goalIds: { text: string; id: string }[];
-  /** Task lines edited in other notes to schedule them. */
+
   edits: NoteEdit[];
-  /** Checks added to a day plan's Habits section for the habits due that day (ADR-KI-0065). */
+
   habits: string[];
   errors: string[];
   warnings: string[];
-  /** Notes as previewed, by path; a write is refused if one differs. */
+
   originals: Record<string, string>;
-  /** Full new content of each edited note, by path. */
+
   writes: Record<string, string>;
 }
 
 export const slug = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^\p{ASCII}]/gu, "").replace(/\[\[[^\]]*\|([^\]]*)\]\]|\[\[([^\]]*)\]\]/g, "$1$2")
   .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24).replace(/-+$/, "") || "goal";
 
-/** The template for a level: the vault's own if it has one, else the built-in. */
 export function templateFor(root: string, level: PlanLevel): string {
   const own = join(root, templatePath(level));
   return existsSync(own) ? readFileSync(own, "utf-8") : TEMPLATES[level];
 }
 
-/** Insert lines at the end of a `## <heading>` section, or append the section when it is missing. */
 export function addToSection(content: string, heading: string, lines: string[]): string {
   if (!lines.length) return content;
   const all = content.split("\n");
@@ -234,7 +209,7 @@ export function addToSection(content: string, heading: string, lines: string[]):
   if (at < 0) return `${content.replace(/\n*$/, "\n")}\n## ${heading}\n\n${lines.join("\n")}\n`;
   let end = all.findIndex((l, i) => i > at && /^#{1,6}\s/.test(l));
   if (end < 0) end = all.length;
-  // Insert after the section's last non-blank line, keeping one blank line before the next heading.
+
   let last = end - 1;
   while (last > at && all[last].trim() === "") last--;
   const before = all.slice(0, last + 1);
@@ -243,23 +218,12 @@ export function addToSection(content: string, heading: string, lines: string[]):
   return [...before, ...body, ...(after.length && after[0].trim() !== "" ? [""] : after.length ? [] : [""]), ...after].join("\n");
 }
 
-/**
- * Edits task lines in place, one note file read once, recording each note as it was
- * for the stale-preview check. A task is addressed by its 0-based body line.
- */
 export class TaskLineEditor {
   private readonly files = new Map<string, string[]>();
   readonly edits: NoteEdit[] = [];
-  /**
-   * `overlay` holds notes as an earlier step of the same call left them, unwritten; a note
-   * read from it keeps the original from disk for the stale-preview check.
-   */
+
   constructor(private readonly root: string, private readonly originals: Record<string, string>, private readonly overlay: Record<string, string> = {}) {}
 
-  /**
-   * Change one task's line; returns an error, or null when it was edited or left as it was.
-   * Only an open task is edited unless `anyState` is set.
-   */
   edit(note: VaultNote, bodyLine: number, change: (line: string) => string, anyState = false): string | null {
     let file = this.files.get(note.path);
     if (!file) {
@@ -268,11 +232,11 @@ export class TaskLineEditor {
       file = (this.overlay[note.path] ?? disk).split("\n");
       this.files.set(note.path, file);
     }
-    // The body starts after the frontmatter, if the note has one.
+
     const i = file.length - note.body.split("\n").length + bodyLine;
     const raw = file[i] ?? "";
     if (!(anyState ? /^\s*[-*+]\s+\[.\]/ : OPEN_CHECKBOX).test(raw)) return `line ${i + 1} of ${note.path} is not ${anyState ? "a" : "an open"} task`;
-    // A CRLF note keeps its line ending: the change sees the line without it.
+
     const cr = raw.endsWith("\r") ? "\r" : "";
     const before = cr ? raw.slice(0, -1) : raw;
     const after = change(before);
@@ -280,12 +244,10 @@ export class TaskLineEditor {
     return null;
   }
 
-  /** A note's content with the edits so far, or null when no edit touched it. */
   contentOf(path: string): string | null {
     return this.edits.some(e => e.note === path) ? this.files.get(path)!.join("\n") : null;
   }
 
-  /** Every changed note's new content. */
   writes(): Record<string, string> {
     const out: Record<string, string> = {};
     for (const note of new Set(this.edits.map(e => e.note))) out[note] = this.contentOf(note)!;
@@ -294,20 +256,14 @@ export class TaskLineEditor {
 }
 
 const SCHEDULED_DATE = /⏳\uFE0F?\s*\d{4}-\d{2}-\d{2}/;
-/** Set a task line's scheduled date, replacing any it has. */
+
 export const scheduleLine = (line: string, day: string) =>
   SCHEDULED_DATE.test(line) ? line.replace(SCHEDULED_DATE, `⏳ ${day}`) : insertBeforeBlockId(line, ` ⏳ ${day}`);
 
-/** A note's version as a preview shows it: the first 12 hex digits of its SHA-256. */
 export const versionOf = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 12);
 export const versionsOf = (originals: Record<string, string>) =>
   Object.fromEntries(Object.entries(originals).map(([k, v]) => [k, versionOf(v)]));
 
-/**
- * The stale-preview check across calls (ADR-KI-0064 Decision 2): each existing note a write
- * changes must still be the version its preview returned. Returns one error per note that
- * differs or that the preview did not show.
- */
 export function staleNotes(w: Pick<NoteWrites, "originals" | "writes">, expected: Record<string, string>): string[] {
   const out: string[] = [];
   for (const note of Object.keys(w.writes)) {
@@ -319,7 +275,6 @@ export function staleNotes(w: Pick<NoteWrites, "originals" | "writes">, expected
   return out;
 }
 
-/** Every 🆔 already used by a planned task, and an error for each clash or unknown ⛔ in new tasks. */
 export function checkTaskIds(p: Planning, inputs: { what: string; id?: string; blockedBy?: string[] }[]): string[] {
   const errors: string[] = [];
   const known = new Set(p.tasks.map(t => t.id).filter((x): x is string => !!x));
@@ -336,7 +291,6 @@ export function checkTaskIds(p: Planning, inputs: { what: string; id?: string; b
   return errors;
 }
 
-/** Write a task's Tasks fields onto a line in the plugin's order; returns errors for bad values. */
 export function applyFields(line: TaskLine, f: TaskFields & { scheduled?: string | null }, what: string): string[] {
   const errors: string[] = [];
   if (f.priority !== undefined) {
@@ -366,7 +320,6 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   const p: Planning = planning(root, notes);
   const resolver = noteResolver(notes);
 
-  // Which project, workstream or area a link names (Decision 8).
   const owners = new Map<string, string>();
   for (const pr of p.projects) {
     if (pr.note) owners.set(pr.note, pr.name);
@@ -382,7 +335,7 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
     }
     return wikilinkTo(resolver, path, target);
   };
-  // The owner, then any further links, each to a note that exists.
+
   const linksFor = (what: string, x: { link?: string; links?: string[] }): string | null => {
     const [owner, ...more] = x.link ? [x.link, ...(x.links ?? [])] : (x.links ?? []);
     const first = linkFor(what, owner);
@@ -412,7 +365,6 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   let content = overlay[path] ?? original ?? templateFor(root, period.level).replace(/\{\{title\}\}/g, period.period);
   if (original !== null) out.originals[path] = original;
 
-  // Goals, each with a block id unique in the note and a parent one level up (Decision 7).
   const goals = input.goals ?? [];
   if (goals.length && period.level === "day") out.errors.push("a day plan holds no goals; add the work as ad-hoc tasks or schedule tasks into it");
   const taken = new Set(parseTasks(path, content).map(t => t.blockId).filter(Boolean));
@@ -456,7 +408,6 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
     if (link !== null) adHocLines.push(line.toString());
   }
 
-  // Scheduling: add or replace ⏳ on an open task's line, where it stands.
   const editor = new TaskLineEditor(root, out.originals, overlay);
   for (const s of input.schedule ?? []) {
     const n = byPath.get(s.note) ?? byPath.get(`${s.note}.md`);
@@ -478,7 +429,6 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   out.edits = editor.edits;
   Object.assign(out.writes, editor.writes());
 
-  // Goals and ad-hoc tasks go in last, on top of any scheduling edit made to the plan itself.
   content = addToSection(addToSection(editor.contentOf(path) ?? content, "Goals", goalLines), "Ad-hoc", adHocLines);
   if (period.level === "day") {
     const checked = parseTasks(path, content, period).filter(t => t.habit).map(t => {
@@ -498,7 +448,6 @@ export function planPeriod(root: string, notes: VaultNote[], input: PlanPeriodIn
   return out;
 }
 
-/** Add habit checks to a day plan's Habits section, putting a missing section before Ad-hoc. */
 function addHabitChecks(content: string, checks: string[]): string {
   if (!checks.length) return content;
   const all = content.split("\n");
@@ -509,24 +458,21 @@ function addHabitChecks(content: string, checks: string[]): string {
   return [...all.slice(0, adHoc), `## ${HABITS_HEADING}`, "", ...checks, "", ...all.slice(adHoc)].join("\n");
 }
 
-/** A wikilink to a note: its bare name when that resolves to it from `from`, the path otherwise. */
 export function wikilinkTo(resolver: ReturnType<typeof noteResolver>, from: string, target: string): string {
   const name = posix.basename(target, ".md");
   return resolver.resolve(from, { kind: "wikilink", target: name }) === target ? `[[${name}]]` : `[[${target.slice(0, -3)}|${name}]]`;
 }
 
-/** Put text before a trailing `^block-id`, so the id stays last on the line. */
 export function insertBeforeBlockId(line: string, text: string): string {
   const m = line.match(/\s\^[A-Za-z0-9-]+\s*$/);
   return m ? `${line.slice(0, m.index)}${text}${line.slice(m.index)}` : `${line.replace(/\s+$/, "")}${text}`;
 }
 
-/** A set of note writes checked against the preview: edits of notes as they were, and new notes. */
 export interface NoteWrites {
   errors: string[];
   originals: Record<string, string>;
   writes: Record<string, string>;
-  /** Notes the writes create; refused if one appeared since the preview. */
+
   created: string[];
 }
 
@@ -551,16 +497,11 @@ export interface DayInput {
 }
 
 export interface PlanDaysPlan extends NoteWrites {
-  /** Each day's plan as `plan_period` would write it, in date order. */
+
   days: Omit<PlanPeriodPlan, "originals" | "writes" | "errors">[];
   warnings: string[];
 }
 
-/**
- * Several day plans in one preview (ADR-KI-0064 Decision 7): each day is planned as
- * `plan_period` plans it, on top of the notes as the days before it left them, so two days
- * can schedule tasks in the same note.
- */
 export function planDays(root: string, notes: VaultNote[], days: Record<string, DayInput>): PlanDaysPlan {
   const out: PlanDaysPlan = { days: [], errors: [], warnings: [], originals: {}, writes: {}, created: [] };
   const names = Object.keys(days).sort();

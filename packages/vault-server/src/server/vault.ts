@@ -1,9 +1,3 @@
-/**
- * The vault server (ADR-KI-0058 Decision 8): a third kind of server, owned by the
- * vault's user, separate from the maintainer and consumer servers. It writes no
- * telemetry: the tool arguments are a person's notes and queries.
- */
-
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Vault } from "@ai-coach/vault/vault.js";
 import { createVaultTools } from "../tools/vault.js";

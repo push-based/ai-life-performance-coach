@@ -1,11 +1,3 @@
-/**
- * The climb (ADR-KI-0068): seven learning steps per concept note, from reading to
- * teaching. Each step is worked out from evidence the vault holds (reading notes and a
- * chapter summary, a structure note, session files), and the result is kept as a
- * `climb:` summary in the concept note's frontmatter. The summary is only ever written
- * from the evidence, so a disagreement is fixed by rebuilding it, never by hand.
- */
-
 import { posix } from "node:path";
 import { yamlString } from "./md.js";
 import { fold, conceptOf } from "./concept.js";
@@ -20,16 +12,15 @@ export const READING_NOTES_TYPE = "reading-notes";
 export const STRUCTURE_TYPE = "structure";
 export const GUIDELINE_TYPE = "guideline";
 
-/** A run of this many words shared with the source makes a note a quote (ADR-KI-0068 Decision 3). */
 export const VERBATIM_RUN_WORDS = 6;
-/** A Generate attempt shorter than this, and not marked /idk, is not an attempt. */
+
 export const MIN_ATTEMPT_WORDS = 10;
-/** A spaced review comes at least this many days after the previous attempt. */
+
 export const SPACING_DAYS = 1;
 
 export interface StepEvidence {
   date: string;
-  /** A vault path or a session id that proves the step. */
+
   evidence: string;
 }
 
@@ -39,28 +30,27 @@ export interface ConceptClimb {
   path: string;
   title: string;
   steps: ClimbSteps;
-  /** The `climb:` block as the note holds it now; null when it has none. */
+
   stored: Record<ClimbStep, string | null> | null;
-  /** True when the stored block holds exactly the dates the evidence gives; no block holds no dates. */
+
   current: boolean;
   next: ClimbStep | null;
-  /** Steps left open below a step that is done: shown as skipped, never blocked. */
+
   skipped: ClimbStep[];
-  /** A passed review at least a day after the previous attempt, which Teach needs. */
+
   spacedPass: StepEvidence | null;
-  /** Every book the concept quotes, and its group in each book's structure note that places it. */
+
   books: string[];
   groups: Record<string, string>;
-  /** Books the concept quotes whose structure note does not place it yet. */
+
   ungroupedIn: string[];
-  /** The topic whose structure note lists the concept, at most one (ADR-KI-0070). */
+
   topic: string | null;
   teach: { ok: boolean; reason?: string };
 }
 
 const words = (text: string) => fold(text).split(/[^\p{L}\p{N}']+/u).filter(Boolean);
 
-/** True when `text` shares a run of `n` or more words with `source`, both folded. */
 export function sharesRun(text: string, source: string, n = VERBATIM_RUN_WORDS): boolean {
   const a = words(text);
   if (a.length < n) return false;
@@ -77,7 +67,6 @@ export const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T0
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** The book a raw note belongs to: a chapter's `book`, else its index's title, else its work folder. */
 export function bookOf(raw: VaultNote, notes: VaultNote[]): string | null {
   if (typeof raw.frontmatter.book === "string" && raw.frontmatter.book.trim()) return raw.frontmatter.book.trim();
   if (raw.rawRole === "index") return raw.title;
@@ -85,7 +74,6 @@ export function bookOf(raw: VaultNote, notes: VaultNote[]): string | null {
   return index?.title ?? raw.rawWork ?? null;
 }
 
-/** The raw chapters a concept note quotes, in passage order. */
 export function chaptersOf(concept: VaultNote, notes: VaultNote[]): VaultNote[] {
   const c = conceptOf(concept);
   if (!c) return [];
@@ -98,12 +86,10 @@ export function chaptersOf(concept: VaultNote, notes: VaultNote[]): VaultNote[] 
   return out;
 }
 
-/** The book a concept note belongs to: that of its first quoted raw note. */
 export function conceptBook(concept: VaultNote, notes: VaultNote[]): string | null {
   return conceptBooks(concept, notes)[0] ?? null;
 }
 
-/** Every book a concept note quotes, in passage order: a concept drawn from several books belongs to each. */
 export function conceptBooks(concept: VaultNote, notes: VaultNote[]): string[] {
   const out: string[] = [];
   for (const ch of chaptersOf(concept, notes)) {
@@ -115,15 +101,11 @@ export function conceptBooks(concept: VaultNote, notes: VaultNote[]): string[] {
 
 export const isConceptNote = (n: VaultNote) => n.concept && n.bucket === "resources" && !n.raw;
 
-// ---------------------------------------------------------------------------------------
-// Reading notes (step 1)
-// ---------------------------------------------------------------------------------------
-
 export interface ReadingEntry {
   date: string;
   text: string;
   page: number | null;
-  /** True when the entry shares a run of words with the section it was written on. */
+
   quote: boolean;
 }
 
@@ -131,7 +113,6 @@ const ENTRY = /^- (\d{4}-\d{2}-\d{2}) · (.+?)\s*$/;
 const ENTRY_LINK = /\s+—\s+\[\[[^\]]*\]\]$/;
 const QUOTE_MARK = /\s+\(quote\)$/;
 
-/** The text of a chapter's page, or of the whole chapter, as a reading note is checked against. */
 export function sectionText(chapter: VaultNote, page: number | null): string {
   const body = withoutSummaries(chapter.body);
   if (page === null) return body;
@@ -139,7 +120,6 @@ export function sectionText(chapter: VaultNote, page: number | null): string {
   return m ?? "";
 }
 
-/** A reading-notes file's entries, each checked again against its chapter. */
 export function readingEntries(file: VaultNote, chapter: VaultNote | undefined): ReadingEntry[] {
   const out: ReadingEntry[] = [];
   let page: number | null = null;
@@ -158,7 +138,6 @@ export function readingEntries(file: VaultNote, chapter: VaultNote | undefined):
 
 const chapterOfFile = (n: VaultNote) => (typeof n.frontmatter.chapter === "string" ? n.frontmatter.chapter : null);
 
-/** Read is done for a chapter with an own-words reading note and an own-words chapter summary. */
 export function readEvidence(chapter: VaultNote, notes: VaultNote[]): StepEvidence | null {
   const summary = chapterSummaryOf(chapter.body);
   if (!summary || sharesRun(summary, withoutSummaries(chapter.body))) return null;
@@ -173,19 +152,15 @@ export function readEvidence(chapter: VaultNote, notes: VaultNote[]): StepEviden
   return best;
 }
 
-// ---------------------------------------------------------------------------------------
-// Structure notes (step 2)
-// ---------------------------------------------------------------------------------------
-
 export interface StructureGroup {
   name: string;
-  /** Vault-relative paths of the concept notes in the group. */
+
   concepts: string[];
 }
 
 export interface Structure {
   path: string;
-  /** Exactly one of book and topic: a book's structure, or a topic's across books (ADR-KI-0070). */
+
   book: string | null;
   topic: string | null;
   date: string;
@@ -193,7 +168,6 @@ export interface Structure {
   buildsOn: { from: string; to: string }[];
 }
 
-/** A structure note's record, read from its frontmatter; null for any other note. */
 export function structureOf(n: VaultNote): Structure | null {
   const fm = n.frontmatter;
   if (fm.type !== STRUCTURE_TYPE) return null;
@@ -214,11 +188,6 @@ export function structureOf(n: VaultNote): Structure | null {
   return { path: n.path, book, topic, date: typeof fm.date === "string" ? fm.date : "", groups, buildsOn };
 }
 
-/**
- * The structure rules (ADR-KI-0068 Decision 4): what is wrong with a set of groups and
- * edges. With `bookConcepts`, a book's structure, every concept of the book must be in a
- * group; a topic's structure passes null and lists what the learner puts in it (ADR-KI-0070).
- */
 export function structureErrors(groups: StructureGroup[], buildsOn: { from: string; to: string }[], bookConcepts: string[] | null): string[] {
   const errors: string[] = [];
   if (groups.length < 2 || groups.length > 7) errors.push(`a structure has 2 to 7 groups, got ${groups.length}`);
@@ -268,10 +237,6 @@ function findCycle(edges: Map<string, string[]>): string[] | null {
   return null;
 }
 
-// ---------------------------------------------------------------------------------------
-// Sessions (steps 3 to 7)
-// ---------------------------------------------------------------------------------------
-
 interface Attempt { kind: SessionKind; tier: 1 | 2; date: string; session: string; item: SessionItem }
 
 function attemptsOf(concept: VaultNote, around: string[], sessions: SessionRecord[]): Attempt[] {
@@ -286,7 +251,6 @@ function attemptsOf(concept: VaultNote, around: string[], sessions: SessionRecor
   return out;
 }
 
-/** A Generate attempt counts when it was saved before the reveal and every wrong mark is corrected. */
 export function generateCounts(item: SessionItem): boolean {
   const g = item.generate;
   if (!g) return false;
@@ -294,12 +258,6 @@ export function generateCounts(item: SessionItem): boolean {
   return g.marks.every(m => m.mark !== "wrong" || !!m.correction?.trim());
 }
 
-/**
- * Reviews of the note at least a day after the attempt before them; the first, and the
- * first passed. Only the learner's own attempts count, at Tier 1: a Tier 2 session is the
- * judge grading an answer already given, on whatever day the learner was back online, and
- * is no new recall.
- */
 export function spacedReviews(attempts: Attempt[]): { any: StepEvidence | null; passed: StepEvidence | null } {
   let any: StepEvidence | null = null;
   let passed: StepEvidence | null = null;
@@ -314,7 +272,6 @@ export function spacedReviews(attempts: Attempt[]): { any: StepEvidence | null; 
   return { any, passed };
 }
 
-/** Every step's evidence for one concept note, from the vault as it is and the sessions given. */
 export function climbOf(concept: VaultNote, notes: VaultNote[], sessions: SessionRecord[]): ConceptClimb {
   const chapters = chaptersOf(concept, notes);
   const placing = notes.map(structureOf).filter((x): x is Structure => !!x && x.groups.some(g => g.concepts.includes(concept.path)));
@@ -372,7 +329,6 @@ export function teachGate(spacedPass: StepEvidence | null): { ok: boolean; reaso
   return spacedPass ? { ok: true } : { ok: false, reason: "Teach needs a passed spaced review: a spar passed at least a day after the attempt before it. Spar the note again after a gap first." };
 }
 
-/** The `climb:` block of a note's frontmatter; null when it has none. */
 export function storedClimb(n: Pick<VaultNote, "frontmatter">): Record<ClimbStep, string | null> | null {
   const c = n.frontmatter.climb;
   if (!c || typeof c !== "object" || Array.isArray(c)) return null;
@@ -384,16 +340,8 @@ export function climbLines(steps: ClimbSteps): string[] {
   return ["climb:", ...CLIMB_STEPS.map(s => `  ${s}: ${steps[s] ? yamlString(steps[s]!.date) : "null"}`)];
 }
 
-// ---------------------------------------------------------------------------------------
-// Frontmatter keys written line by line
-// ---------------------------------------------------------------------------------------
-
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n?---(?:\r?\n|$)/;
 
-/**
- * Set one top-level frontmatter key to the given lines (the key's own line and any
- * indented lines under it), or remove it with null. Every other line stays as it is.
- */
 export function setFrontmatterLines(content: string, key: string, lines: string[] | null): string {
   const nl = content.includes("\r\n") ? "\r\n" : "\n";
   const m = content.match(FRONTMATTER);
@@ -407,20 +355,10 @@ export function setFrontmatterLines(content: string, key: string, lines: string[
   return m ? block + content.slice(m[0].length) : block + content;
 }
 
-/** The content with its `climb:` block set to the steps, or unchanged when it already holds them. */
 export function withClimb(content: string, steps: ClimbSteps): string {
   return setFrontmatterLines(content, "climb", climbLines(steps));
 }
 
-// ---------------------------------------------------------------------------------------
-// Interleaving the due queue (step 6)
-// ---------------------------------------------------------------------------------------
-
-/**
- * Reorder so no two neighbours share a key whenever another item allows it, keeping the
- * given order otherwise: each place takes the earliest remaining item whose key differs
- * from the one before.
- */
 export function interleave<T>(items: T[], key: (t: T) => string): T[] {
   const left = [...items];
   const out: T[] = [];
@@ -432,11 +370,6 @@ export function interleave<T>(items: T[], key: (t: T) => string): T[] {
   return out;
 }
 
-/**
- * A concept's group in each book that places it, from `groups:` (book → group), which
- * write_structure keeps. A single `group:` from before ADR-KI-0068's amendment is read as
- * the group in the concept's first book.
- */
 export function groupsOf(n: VaultNote, firstBook?: string | null): Record<string, string> {
   const g = n.frontmatter.groups;
   const out: Record<string, string> = {};
@@ -445,10 +378,8 @@ export function groupsOf(n: VaultNote, firstBook?: string | null): Record<string
   return out;
 }
 
-/** The topic a concept is in, from the `topic:` key write_structure keeps (ADR-KI-0070). */
 export const topicOf = (n: VaultNote): string | null => (typeof n.frontmatter.topic === "string" && n.frontmatter.topic.trim() ? n.frontmatter.topic.trim() : null);
 
-/** The group shown and interleaved by: its topic's, else the one in its first book that places it. */
 export function groupOf(n: VaultNote, notes: VaultNote[] = []): string | null {
   const books = conceptBooks(n, notes);
   const groups = groupsOf(n, books[0]);
@@ -458,7 +389,6 @@ export function groupOf(n: VaultNote, notes: VaultNote[] = []): string | null {
   return book ? groups[book] : typeof n.frontmatter.group === "string" && n.frontmatter.group.trim() ? n.frontmatter.group.trim() : null;
 }
 
-/** Where a concept is kept for interleaving: its topic group, else its group within its book, else its book, else its folder. */
 export function queueKey(n: VaultNote, notes: VaultNote[]): string {
   const books = conceptBooks(n, notes);
   const groups = groupsOf(n, books[0]);
@@ -471,11 +401,6 @@ export function queueKey(n: VaultNote, notes: VaultNote[]): string {
   return `folder:${posix.dirname(n.path)}`;
 }
 
-// ---------------------------------------------------------------------------------------
-// Drawing a structure from memory (ADR-KI-0069)
-// ---------------------------------------------------------------------------------------
-
-/** What a drawing from memory is marked on: each group of the structure and each of its edges. */
 export function structureLabels(s: Pick<Structure, "groups" | "buildsOn">): string[] {
   return [...s.groups.map(g => `group: ${g.name}`), ...s.buildsOn.map(e => `${e.from} → ${e.to}`)];
 }
@@ -488,17 +413,10 @@ export interface DrawnStructure {
 export interface SuggestedMark {
   assertion: string;
   mark: "got it" | "wrong" | "missed";
-  /** Why the mark was suggested, for the learner to confirm or overrule. */
+
   why: string;
 }
 
-/**
- * Suggest a mark for each group and edge of the real structure, from a drawing made
- * without seeing it. A real group is matched to the drawn group sharing most of its
- * concepts: the same members is got it, some is wrong, none is missed. An edge is got it
- * when the matched groups are joined the same way, wrong when reversed, else missed. The
- * learner confirms or overrules every mark before it is recorded.
- */
 export function compareStructure(drawn: DrawnStructure, actual: Pick<Structure, "groups" | "buildsOn">, titleOf: (path: string) => string = p => p): SuggestedMark[] {
   const match = new Map<string, StructureGroup | null>();
   for (const g of actual.groups) {
@@ -532,12 +450,10 @@ export function compareStructure(drawn: DrawnStructure, actual: Pick<Structure, 
   return marks;
 }
 
-/** A drawing as text lines, the attempt a session records: one line per group, then one per edge. */
 export function drawingText(drawn: DrawnStructure, titleOf: (path: string) => string = p => p): string {
   return [...drawn.groups.map(g => `${g.name}: ${g.concepts.map(titleOf).join(", ") || "(empty)"}`), ...drawn.buildsOn.map(e => `${e.from} builds on ${e.to}`)].join("\n");
 }
 
-/** A drawing from memory is an attempt when it names two groups that each hold a concept. */
 export const MIN_DRAWN_GROUPS = 2;
 
 export function drawingErrors(drawn: DrawnStructure): string[] {
@@ -545,7 +461,6 @@ export function drawingErrors(drawn: DrawnStructure): string[] {
   return named.length >= MIN_DRAWN_GROUPS ? [] : [`a drawing is an attempt with at least ${MIN_DRAWN_GROUPS} named groups that each hold a concept; draw more, or press I don't know`];
 }
 
-/** The same rule on a drawing recorded as text lines, "<group>: <concepts>". */
 export function drawnGroupsIn(text: string): number {
   return text.split("\n").filter(l => /^[^:]+:\s*\S/.test(l) && !/:\s*\(empty\)\s*$/.test(l)).length;
 }
