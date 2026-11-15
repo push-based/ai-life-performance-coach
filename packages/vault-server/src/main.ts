@@ -13,7 +13,10 @@ export const USAGE = [
   '  view --vault [<path>] [--port=<n>]               the vault graph, plans and climb pages on 127.0.0.1 (default port 4747)',
 ].join('\n');
 
-export async function main(argv: string[], io: CliIo = { cwd: process.cwd() }): Promise<number> {
+export async function main(
+  argv: string[],
+  io: CliIo = { cwd: process.cwd() },
+): Promise<number> {
   const [command, ...rest] = argv;
   switch (command) {
     case 'serve': {
@@ -29,7 +32,10 @@ export async function main(argv: string[], io: CliIo = { cwd: process.cwd() }): 
   }
 }
 
-const invoked = process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+const invoked =
+  process.argv[1] &&
+  realpathSync(process.argv[1]) ===
+    realpathSync(fileURLToPath(import.meta.url));
 if (invoked) {
   const code = await main(process.argv.slice(2));
   if (code !== 0) process.exitCode = code;
