@@ -23,6 +23,8 @@ export const GUIDE = [
   'setup',
   'first-session',
   'the-climb',
+  'vault-view',
+  'planning',
   'commands',
   'coaching-styles',
   'configuration',

@@ -4,13 +4,23 @@ This page gets ai-coach running against your vault. When you're done, `coach due
 
 ## What you need
 
-| You need                                                                             | Why                                                             |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
-| **Node.js 24 or newer**                                                              | ai-coach is a Node command-line tool.                           |
-| **An Obsidian vault**, organised in [PARA](https://fortelabs.com/blog/para/) folders | Your notes. `coach init` can create the folders for you.        |
-| **[Ollama](https://ollama.com)** with a Gemma model                                  | Runs the sparring partner on your machine.                      |
-| **A Gemini API key** (optional)                                                      | Only for `coach judge`. Everything else works without it.       |
-| **[Claude Code](https://claude.com/claude-code)** (optional)                         | Only for the [planning skills](../../.claude/skills/README.md). |
+| You need                                                                                                    | Why                                                             |
+| ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **[Node.js](https://nodejs.org) 24 or newer**                                                               | ai-coach is a Node command-line tool.                           |
+| **An [Obsidian](https://obsidian.md) vault**, organised in [PARA](https://fortelabs.com/blog/para/) folders | Your notes. `coach init` can create the folders for you.        |
+| **[Ollama](https://ollama.com)** with a Gemma model                                                         | Runs the sparring partner on your machine.                      |
+| **A Gemini API key** (optional)                                                                             | Only for `coach judge`. Everything else works without it.       |
+| **[Claude Code](https://claude.com/claude-code)** (optional)                                                | Only for the [planning skills](../../.claude/skills/README.md). |
+
+### Obsidian
+
+[Download Obsidian](https://obsidian.md/download) and open a folder as a vault, or use the vault you have. A vault is a folder of plain Markdown files: ai-coach reads and writes those files, and Obsidian is where you read and mark them.
+
+If you plan with Claude Code, also install the [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) community plugin (Settings → Community plugins → Browse → "Tasks"). Tasks and habits are written in its syntax, and it ticks off repeating tasks for you.
+
+### Ollama
+
+[Install Ollama](https://ollama.com/download) for your system. It's open source ([github.com/ollama/ollama](https://github.com/ollama/ollama)) and serves models on `http://127.0.0.1:11434`. ai-coach refuses any Ollama host that isn't on your own machine.
 
 ## 1. Install and build ai-coach
 
@@ -47,11 +57,16 @@ Every other setting is in [Configuration](configuration.md).
 
 ## 4. Add your Gemini key (optional)
 
-For the judge only. Put it in a `.env` file in the repository root; git ignores it too.
+For the judge only. The judge runs on Gemini, `gemini-4-argon` by default. The example config adds `gemini-3.8-flash` as a fallback for when it's busy. You can change both in [Configuration](configuration.md#settings).
+
+1. Sign in to [Google AI Studio](https://aistudio.google.com/apikey) and create an API key.
+2. Put it in a `.env` file in the repository root; git ignores it too.
 
 ```sh
 GEMINI_API_KEY=your-key-here
 ```
+
+Without a key, sparring still works. Each session waits for the judge, and `coach judge` picks them all up once you've added the key.
 
 ## 5. Connect Claude Code (optional)
 
