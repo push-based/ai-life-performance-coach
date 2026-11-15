@@ -28,17 +28,30 @@ Why each part is the way it is lives in the ADRs in [`docs/adr/`](docs/adr/READM
 ## Projects
 
 ```
-                    driving side                      driven side
-                                         ┌──────────────────────────────┐
-  terminal ──► cli ──► application ──►   │ NotesRepository, SessionLog, │ ◄── adapter-vault-mcp   (vault server over MCP)
-             (composition root)   │      │ VaultFiling, Library         │
-                                  │      │ SparringPartner, StudyPartner│ ◄── adapter-ollama      (local Gemma, loopback only)
-                                  │      │ StyleClassifier,             │
-                                  │      │ SynthesisPartner             │
-                                  ▼      │ Judge                        │ ◄── adapter-gemini      (Gemini)
-                                domain   │ PendingJudgements, Clock     │ ◄── adapter-local-state (queue file, clock)
-                                         └──────────────────────────────┘
+  driving side            ports, defined in application         driven side
+
+                        ┌────────────────────────────────────┐
+  terminal              │ vault       NotesRepository        │  ◄── adapter-vault-mcp    MCP ─► vault-server ─► vault
+     │                  │             SessionLog             │
+     ▼                  │             VaultFiling            │
+    cli                 │             Library                │
+  (composition root,    ├────────────────────────────────────┤
+   plugs adapters in)   │ local model SparringPartner        │  ◄── adapter-ollama       Gemma, loopback only
+     │                  │             StudyPartner           │
+     ▼                  │             StyleClassifier        │
+  application           │             SynthesisPartner       │
+  (use cases) ── uses ─►│             StructurePartner       │
+     │                  │             ElaborationPartner     │
+     ▼                  │             TeachPartner           │
+   domain               ├────────────────────────────────────┤
+  (rules, no I/O)       │ judge       Judge                  │  ◄── adapter-gemini       Gemini, Tier 2 payload only
+                        ├────────────────────────────────────┤
+                        │ local state PendingJudgements      │  ◄── adapter-local-state  queue file, clock
+                        │             Clock                  │
+                        └────────────────────────────────────┘
 ```
+
+The ports are the interfaces in `packages/application/src/lib/ports/`: the vault ports in `vault.ts` and `library.ts`, the model ports in `models.ts` and `library.ts`, and the local state in `state.ts`. Each group has one adapter. `McpVault` implements all four vault ports, each local model port has its own `Ollama…` class, `GeminiJudge` is the judge, and `FilePendingJudgements` and `SystemClock` keep the local state. Only `cli` knows the adapters: `composeCoach` plugs them into the use cases.
 
 | Project               | Tag                                   | Contains                                                                                                                                                                                                                                                  | May import                                                    |
 | --------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
