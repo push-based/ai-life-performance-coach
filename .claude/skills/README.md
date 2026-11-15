@@ -90,7 +90,7 @@ To view your plans in a browser, run `npm run coach -- view` and open http://127
 
 ## The planning model
 
-The model was decided in kb-template, where the vault server was first built (its ADR-KI-0062, 0064 and 0065; see ADR-0048). In short:
+The model was decided while the vault server lived in a branch of kb-template, in ADR-KI-0062, 0064 and 0065, which aren't public (see ADR-0048). In short:
 
 | Thing          | Where in the vault                                                                                | Is                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |

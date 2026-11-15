@@ -33,7 +33,7 @@ Start it with `npm run coach -- view`.
 
 ## Good to know
 
-- **Why it behaves the way it does:** this code was first built in kb-template. The reasons for its behaviour are kb-template's ADR-KI-0058 to ADR-KI-0071. New decisions go in [`docs/adr/`](../../docs/adr/README.md).
+- **Why it behaves the way it does:** this code was written for ai-coach in a branch of kb-template, and only `md.ts` comes from kb-template itself (see [Code from kb-template](../../README.md#code-from-kb-template)). The reasons for its behaviour are the ADR-KI-0058 to ADR-KI-0071 written there, which aren't public. New decisions go in [`docs/adr/`](../../docs/adr/README.md).
 - **The names on the vault itself are unchanged:** `DOCS_MCP_VAULT` and `~/.config/docs-mcp/config.json` still pick the vault, and a vault inside a folder with a `docs-mcp.config.json` is refused.
 - **Known gap:** search folds `ż`, `ó`, `ę` and `ś`, but not `ł`.
 

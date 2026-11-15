@@ -38,9 +38,21 @@ Writing down everything you remember about an idea, with the note closed, before
 
 Trying to answer before you see the answer: explaining a [concept note](#concept-note) from its title, or saying what a chapter will teach before you read it. You then mark each point as got it, wrong or missed, and correct each wrong guess in your own words. `coach generate` runs it. It is the Generate step of the [climb](#climb), and is never graded.
 
+## Goal
+
+An outcome you can check at the end of a period, such as "Talks announced", in the `## Goals` section of a year, quarter, month or week plan. It links the project, workstream or area it counts for, and the goal it serves one level up. See [Planning and habits](planning.md#goals-chain-upward).
+
 ## Group
 
 Sorting a book's [concept notes](#concept-note) into groups you name, and saying which group builds on which. `coach group` runs it and writes the [structure note](#structure-note). It is the Group step of the [climb](#climb).
+
+## Habit
+
+A routine you keep or miss each day, such as "Up at 6:00 🔁 every day", defined under `## Habits` in its owner's note. Each day plan gets that day's checks. A missed day is never carried over; reviews count your streaks. See [Planning and habits](planning.md#habits).
+
+## Intermediate Packet
+
+A reusable piece of a finished [workstream](#workstream), such as a checklist or a note, kept in the project's `Intermediate Packets/` folder for your next project. Archiving the project moves its packets to Resources. See [Planning and habits](planning.md#when-a-workstream-is-done).
 
 ## Judge
 
@@ -48,7 +60,7 @@ The online model (Gemini) that gives a second, stricter verdict on your sparring
 
 ## kb-template
 
-The separate project where the [vault server](#vault-server) was first built. The server moved into ai-coach in November 2026 (ADR-0048); older decision records still cite kb-template's own ones, such as ADR-KI-0058.
+A separate, private documentation project by [Kirill](https://github.com/Karnaukhov-kh). The [vault server](#vault-server) was written for ai-coach in a branch of it, then moved into ai-coach in November 2026 (ADR-0048). Only three small files come from kb-template itself: see [Code from kb-template](../../README.md#code-from-kb-template). Decision records numbered ADR-KI, such as ADR-KI-0058, were written there and aren't public.
 
 ## PARA
 
@@ -106,6 +118,18 @@ The finding that you learn something better when you teach it, because explainin
 
 The two models. **Tier 1** is the local sparring partner (Gemma on Ollama), which sees your notes and runs offline. **Tier 2** is the online judge (Gemini), which never sees your notes.
 
+## Topic
+
+A structure of concepts from several sources on one subject, such as everything you read on ADHD. You draw it on the [climb page](vault-view.md#draw). A concept belongs to one topic at most, and reviews mix due ideas by topic.
+
 ## Vault server
 
 The only program that reads or writes your vault files: `packages/vault-server`, run as `coach-vault`. ai-coach starts it for each command and talks to it over the [Model Context Protocol](https://modelcontextprotocol.io); the planning skills reach it through Claude Code. `coach view` starts its graph view.
+
+## Vault view
+
+Your vault in the browser at http://127.0.0.1:4747, opened with `coach view`: the link graph and a reader for distilling, your plans, and the climb of each idea. See [The vault view](vault-view.md).
+
+## Workstream
+
+A part of a project that's finished on its own, such as the talks of a conference. Tasks written in it belong to it. See [Planning and habits](planning.md#the-pieces).
