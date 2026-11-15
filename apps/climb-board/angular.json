@@ -21,7 +21,13 @@
             "optimization": true,
             "sourceMap": false,
             "extractLicenses": true,
-            "budgets": [{ "type": "initial", "maximumWarning": "900kb", "maximumError": "1.5mb" }]
+            "budgets": [
+              {
+                "type": "initial",
+                "maximumWarning": "900kb",
+                "maximumError": "1.5mb"
+              }
+            ]
           }
         }
       }

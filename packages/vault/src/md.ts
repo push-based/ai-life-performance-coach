@@ -10,7 +10,8 @@ function normalizeValue(val: unknown): unknown {
 function normalizeLinkEntry(val: unknown): unknown {
   const norm = normalizeValue(val);
   if (typeof norm === 'string') return norm;
-  if (typeof norm === 'number' || typeof norm === 'boolean') return String(norm);
+  if (typeof norm === 'number' || typeof norm === 'boolean')
+    return String(norm);
   return norm;
 }
 
@@ -20,9 +21,17 @@ function normalizeFrontmatter(data: Record<string, unknown>): Frontmatter {
     const val = normalizeValue(raw);
     if (key === 'links' && Array.isArray(val)) {
       fm[key] = val.map(normalizeLinkEntry);
-    } else if (key === 'provenance' && typeof val === 'object' && val !== null && !Array.isArray(val)) {
+    } else if (
+      key === 'provenance' &&
+      typeof val === 'object' &&
+      val !== null &&
+      !Array.isArray(val)
+    ) {
       fm[key] = Object.fromEntries(
-        Object.entries(val as Record<string, unknown>).map(([k, v]) => [k, normalizeValue(v)]),
+        Object.entries(val as Record<string, unknown>).map(([k, v]) => [
+          k,
+          normalizeValue(v),
+        ]),
       );
     } else if (Array.isArray(val)) {
       fm[key] = val.map(normalizeValue);
