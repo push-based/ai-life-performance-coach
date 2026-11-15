@@ -5,7 +5,7 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Vault } from "@docs-mcp/vault/vault.js";
+import type { Vault } from "@ai-coach/vault/vault.js";
 import { createVaultTools } from "../tools/vault.js";
 
 export interface VaultServerOptions {

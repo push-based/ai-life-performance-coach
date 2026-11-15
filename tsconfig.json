@@ -23,6 +23,12 @@
     },
     {
       "path": "./packages/cli"
+    },
+    {
+      "path": "./packages/vault"
+    },
+    {
+      "path": "./packages/vault-server"
     }
   ],
   "compilerOptions": {}

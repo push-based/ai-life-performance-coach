@@ -1,8 +1,8 @@
 {
-  "name": "@docs-mcp/climb-board",
+  "name": "@ai-coach/climb-board",
   "version": "0.0.0",
   "private": true,
-  "description": "The drawing board of the vault view's climb page (ADR-KI-0069), built with ng-diagram and bundled into @docs-mcp/vault's assets",
+  "description": "The drawing board of the vault view's climb page, built with ng-diagram and bundled into @ai-coach/vault's assets",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -21,5 +21,10 @@
     "@angular/build": "21.2.28",
     "@angular/cli": "21.2.28",
     "@angular/compiler-cli": "21.2.25"
+  },
+  "nx": {
+    "tags": [
+      "type:vault-asset"
+    ]
   }
 }

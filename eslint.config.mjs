@@ -89,6 +89,25 @@ export default [
               allowedExternalImports: ['zod', ...NODE],
             },
             {
+              sourceTag: 'type:vault',
+              onlyDependOnLibsWithTags: ['type:vault'],
+              allowedExternalImports: [
+                'gray-matter',
+                'flexsearch',
+                'pdfjs-dist/*',
+                ...NODE,
+              ],
+            },
+            {
+              sourceTag: 'type:vault-server',
+              onlyDependOnLibsWithTags: ['type:vault'],
+              allowedExternalImports: [
+                '@modelcontextprotocol/sdk/*',
+                'zod',
+                ...NODE,
+              ],
+            },
+            {
               sourceTag: 'type:app',
               onlyDependOnLibsWithTags: [
                 'type:domain',

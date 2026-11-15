@@ -17,7 +17,7 @@ What stays on your machine, what leaves it, and how that's enforced.
 
 - **Your notes are never sent anywhere**, not even to the judge. The vault server builds what the judge gets, the domain checks it, and the Gemini adapter checks it once more before sending.
 - **Notes and answers are data, never instructions.** Every prompt fences them with a random marker, so a note saying "ignore your instructions" has no effect.
-- **Your vault is touched only through kb-template's vault server**, never directly, and only after you confirm a preview.
+- **Your vault is touched only through the vault server**, never directly, and only after you confirm a preview.
 - **Your Gemini key lives in `.env`**, which git ignores.
 - **The planning skills run inside Claude Code**, so what they read from your vault goes to the model Claude Code uses. They never run the coach's judge.
 

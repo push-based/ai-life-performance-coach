@@ -13,9 +13,10 @@ npx nx run-many -t lint typecheck # check style, types and package boundaries
 npx nx format:check               # check formatting
 npx nx test @ai-coach/domain      # test one package
 npx nx graph                      # see how the packages depend on each other
+npm run build:board -w @ai-coach/climb-board   # rebuild the climb page's drawing board, then commit its output
 ```
 
-Tests don't need Ollama, Gemini or kb-template: each layer is tested with fakes or a local stub server. The vault adapter has no automated tests yet ([ADR-0010](docs/adr/0010-test-each-layer-and-drop-server-dependent-tests-for-now.md)), so try changes to it against a copy of a vault.
+Tests don't need Ollama, Gemini or a real vault: each layer is tested with fakes, a local stub server or a temporary vault. The vault adapter has no automated tests yet ([ADR-0010](docs/adr/0010-test-each-layer-and-drop-server-dependent-tests-for-now.md)), so try changes to it against a copy of a vault.
 
 CI runs format, lint, test, build and typecheck on every push to `main` and every pull request.
 
@@ -45,5 +46,5 @@ Write for someone new: say who a page is for and what they'll be able to do, use
 - **No comments in source code.** Names and tests carry the meaning (ADR-0011).
 - **Commit messages follow [Conventional Commits](https://www.conventionalcommits.org)**: `feat(cli): add the review command`, `fix(domain): …`, `docs: …`, `build: …`. CI checks every commit in a pull request (ADR-0033); `npx commitlint --from origin/main` checks yours before you push.
 - **Rules go in the domain, not in prompts.** If a model could talk its way past it, it belongs in code.
-- **New vault abilities belong in kb-template**, not in `adapter-vault-mcp`, which only wraps what the server offers.
+- **New vault abilities belong in the vault server**: `packages/vault` and `packages/vault-server`. `adapter-vault-mcp` only wraps the tools the server offers, and nothing else in the coach may import the vault ([ADR-0048](docs/adr/0048-keep-the-vault-server-in-this-repository-behind-the-same-mcp-boundary.md)).
 - **Never point tests or experiments at your real vault.** Use a copy.

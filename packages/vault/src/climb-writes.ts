@@ -7,7 +7,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join, posix } from "node:path";
-import { yamlString } from "@docs-mcp/core/kernel/md/yaml.js";
+import { yamlString } from "./md.js";
 import { classify, PARA_FOLDERS } from "./para.js";
 import { safeName } from "./filing.js";
 import { CONCEPTS_FOLDER, MAX_ASSERTIONS, MAX_PASSAGES, checkPassages, conceptListLines, conceptOf, fold, fromNoteLine, passageLines, passagesLines, type Passage, type PassageCheck } from "./concept.js";

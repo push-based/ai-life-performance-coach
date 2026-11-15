@@ -7,7 +7,7 @@
  */
 
 import { posix } from "node:path";
-import { yamlString } from "@docs-mcp/core/kernel/md/yaml.js";
+import { yamlString } from "./md.js";
 import { fold, conceptOf } from "./concept.js";
 import { chapterSummaryOf, withoutSummaries } from "./distill.js";
 import { bySessionDate, type SessionRecord, type SessionItem, type SessionKind } from "./sessions.js";

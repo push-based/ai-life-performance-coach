@@ -4,7 +4,7 @@
 
 These skills turn Claude Code into a planning partner that works on the same vault as the `coach` CLI. You say "plan my week". Claude closes last week, shows what slipped, helps you set this week's goals under the month's, spreads the work over the days by your own scheduling rules, and writes it all into your vault after you've seen a preview and said yes.
 
-They are instructions, not code. All the bookkeeping (plans, goal links, roll-overs, effort counts, habit streaks) is done by the planning tools of kb-template's `docs-mcp` server. The skills teach Claude when to call which tool, how to read the results, and how to talk you through a plan.
+They are instructions, not code. All the bookkeeping (plans, goal links, roll-overs, effort counts, habit streaks) is done by the planning tools of the vault server (`packages/vault-server`). The skills teach Claude when to call which tool, how to read the results, and how to talk you through a plan.
 
 ---
 
@@ -43,7 +43,7 @@ When a request spans periods, the skills run from the largest down: a year befor
 
 ## Set it up
 
-**1. Have the vault server ready.** Build kb-template's `docs-mcp` as in the [setup guide](../../docs/guide/setup.md#1-build-kb-templates-vault-server). The planning tools need a recent build. If a skill reports that `add_tasks`, `plan_days` or `add_habits` is missing, pull and rebuild kb-template.
+**1. Have the vault server ready.** Build the workspace as in the [setup guide](../../docs/guide/setup.md#1-install-and-build-ai-coach). The planning tools need a recent build. If a skill reports that `add_tasks`, `plan_days` or `add_habits` is missing, pull and rebuild (`npx nx run-many -t build`).
 
 **2. Create your `.mcp.json`.** Claude Code reaches the vault server through a `.mcp.json` file at the repository root. The repository doesn't ship one, because it holds your own paths: it is git-ignored. Copy the example and fill in two absolute paths:
 
@@ -57,7 +57,7 @@ cp .mcp.example.json .mcp.json
     "life-vault": {
       "command": "node",
       "args": [
-        "/absolute/path/to/kb-template/packages/cli/bin/docs-mcp.js",
+        "/absolute/path/to/ai-coach/packages/vault-server/dist/main.js",
         "serve",
         "--vault",
         "/absolute/path/to/your-vault"
@@ -70,12 +70,12 @@ cp .mcp.example.json .mcp.json
 - Keep the name **`life-vault`**. The skills call its tools as `mcp__life-vault__<tool>`.
 - Use **absolute paths**. `~` is not expanded here.
 - Use the same vault as `vault` in your `coach.config.json`.
-- Never leave out `--vault`: without it, `docs-mcp serve` starts kb-template's documentation server instead of the vault server.
+- Keep `--vault` explicit. Without it the server falls back to `DOCS_MCP_VAULT` or `~/.config/docs-mcp/config.json`, which may name another vault.
 
 Prefer the command line? This registers the same server in your own Claude Code settings instead of a file:
 
 ```sh
-claude mcp add life-vault -- node /absolute/path/to/kb-template/packages/cli/bin/docs-mcp.js serve --vault /absolute/path/to/your-vault
+claude mcp add life-vault -- node /absolute/path/to/ai-coach/packages/vault-server/dist/main.js serve --vault /absolute/path/to/your-vault
 ```
 
 **3. Approve and check it.** Start Claude Code in the ai-coach folder. It asks once whether to trust the `life-vault` server from `.mcp.json`: say yes. Then run `/mcp` (or `claude mcp list` in a shell): `life-vault` should show as connected. Ask "what's on today?" to try it.
@@ -90,7 +90,7 @@ To view your plans in a browser, run `npm run coach -- view` and open http://127
 
 ## The planning model
 
-The model belongs to kb-template (its ADR-KI-0062, 0064 and 0065). In short:
+The model was decided in kb-template, where the vault server was first built (its ADR-KI-0062, 0064 and 0065; see ADR-0048). In short:
 
 | Thing          | Where in the vault                                                                                | Is                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -165,7 +165,7 @@ Each `SKILL.md` has a frontmatter `description` (when Claude should use it), an 
 
 The decisions behind them are [ADR-0029](../../docs/adr/0029-plan-the-vault-with-agent-skills-through-the-vault-tools-only.md) (skills, not CLI commands, and the vault only through the server), [ADR-0030](../../docs/adr/0030-plan-the-vault-with-the-full-set-of-vault-planning-tools.md) (the full tool set and passing versions back) and [ADR-0031](../../docs/adr/0031-plan-habits-as-definitions-checked-off-per-day-never-carried-over.md) (habits checked off per day).
 
-To change a skill, edit its `SKILL.md`. If kb-template changes a tool's arguments, update `vault-planning/tools.md` first: every skill relies on it.
+To change a skill, edit its `SKILL.md`. If a change to the vault server changes a tool's arguments, update `vault-planning/tools.md` in the same commit: every skill relies on it.
 
 ---
 
@@ -174,7 +174,7 @@ To change a skill, edit its `SKILL.md`. If kb-template changes a tool's argument
 | You see                                              | Try                                                                                                   |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Claude says the `life-vault` tools are missing       | Register the server as above, then `/mcp` to reconnect, or restart Claude Code.                       |
-| `add_tasks`, `plan_days` or `add_habits` is missing  | Your kb-template build is older than the skills. Pull, `pnpm run build`, reconnect the server.        |
+| `add_tasks`, `plan_days` or `add_habits` is missing  | Your build is older than the skills. Pull, `npx nx run-many -t build`, reconnect the server.          |
 | A write is refused because a note changed            | You edited it in Obsidian after the preview. Let Claude preview again.                                |
 | All slipped tasks land on Monday                     | That's what a roll-over does. `plan-week` spreads them out right after; ask it to if it didn't.       |
 | A goal reports "links no parent goal"                | There's no plan one level up, or no goal there to link. Run `set-goal` to build the chain.            |

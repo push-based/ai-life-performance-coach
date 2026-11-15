@@ -43,12 +43,12 @@ The same vault can also hold your plans: [Claude Code skills](.claude/skills/REA
 
 ## Quick start
 
-You need Node.js 24+, an Obsidian vault, [Ollama](https://ollama.com), and a built checkout of kb-template (see [Status](#status)).
+You need Node.js 24+, an Obsidian vault and [Ollama](https://ollama.com).
 
 ```sh
 npm install && npx nx run-many -t build
 ollama pull gemma3
-cp coach.config.example.json coach.config.json   # set vault, docsMcpBin, ollama.model
+cp coach.config.example.json coach.config.json   # set vault and ollama.model
 npm run coach -- init                            # set up the vault folders
 npm run coach -- due                             # see what to study today
 ```
@@ -75,8 +75,8 @@ Everything is also on the [documentation site](https://push-based.github.io/ai-p
 
 ## Status
 
-ai-coach is a personal project, used daily and still changing. It needs **kb-template**, which owns the vault and is not public yet, so it can't run without a checkout of it. Small local models make mistakes: treat a sparring verdict as a first opinion, which is what the judge is for.
+ai-coach is a personal project, used daily and still changing. Small local models make mistakes: treat a sparring verdict as a first opinion, which is what the judge is for.
 
 ## License
 
-[MIT](LICENSE) © 2026 push-based. kb-template is a separate project with its own license.
+[MIT](LICENSE) © 2026 push-based.

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import {
   DEFAULT_CONTEXT_WINDOW,
@@ -15,6 +16,12 @@ import {
   type Ladder,
   type SparringRules,
 } from '@ai-coach/domain';
+
+function defaultVaultServerBin(): string {
+  return fileURLToPath(
+    new URL('../../../vault-server/dist/main.js', import.meta.url),
+  );
+}
 
 const ConfigFile = z.strictObject({
   vault: z.string().min(1).optional(),
@@ -169,16 +176,7 @@ export function loadConfig(options: LoadConfigOptions = {}): CoachConfig {
       : path(file.vault),
     docsMcpBin: fromEnv('DOCS_MCP_BIN')
       ? expand(env['DOCS_MCP_BIN']!, home, cwd)
-      : (path(file.docsMcpBin) ??
-        join(
-          home,
-          'projects',
-          'kb-template',
-          'packages',
-          'cli',
-          'bin',
-          'docs-mcp.js',
-        )),
+      : (path(file.docsMcpBin) ?? defaultVaultServerBin()),
     stateDir:
       path(file.stateDir) ??
       join(
