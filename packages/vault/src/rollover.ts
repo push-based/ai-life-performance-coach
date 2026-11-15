@@ -1,12 +1,3 @@
-/**
- * `roll_over` (ADR-KI-0062 Decision 10): open work of a closed week, month or quarter
- * moves into the next period at high priority with a `#slipped/<period>` tag. A task is
- * rescheduled where it stands; a goal is copied into the next plan and the original stays
- * open in its own. A year is reviewed instead, and a day carries no slip. A repeating task
- * (`🔁`) stays where it is: Tasks makes its next occurrence when it is ticked. A day's
- * habit check never slips: left open, it is a missed day (ADR-KI-0065).
- */
-
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PARA_FOLDERS } from "./para.js";
@@ -17,26 +8,23 @@ import type { VaultNote } from "./scan.js";
 export interface RollOverPlan extends NoteWrites {
   from: Period | null;
   to: Period | null;
-  /** The next period's plan note, which receives the open goals. */
+
   plan: string;
   creates: boolean;
-  /** Task lines rescheduled into the next period. */
+
   tasks: NoteEdit[];
-  /** Goals copied into the next plan, with their new block ids. */
+
   goals: { text: string; id: string }[];
   warnings: string[];
 }
 
-// Priorities below highest; 🔺 is kept as it is.
 const LOWER_PRIORITY = /\s?[⏫🔼🔽⏬]\uFE0F?/gu;
 
-/** Put text before the first Tasks signifier or block id, so the description stays first. */
 function beforeSignifiers(line: string, text: string): string {
   const m = line.match(FIRST_SIGNIFIER);
   return m ? `${line.slice(0, m.index)}${text}${line.slice(m.index)}` : `${line.replace(/\s+$/, "")}${text}`;
 }
 
-/** Raise a line to high priority, keeping a highest one. */
 function raise(line: string): string {
   if (line.includes("🔺")) return line;
   const plain = line.replace(LOWER_PRIORITY, "");
@@ -57,11 +45,10 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
   const p = planning(root, notes);
   const byPath = new Map(notes.map(n => [n.path, n]));
 
-  // Tasks scheduled in the closed period, rescheduled where they stand.
   const editor = new TaskLineEditor(root, out.originals);
   for (const t of p.tasks) {
     if (t.goal || t.habit || t.recurrence || t.state !== "open" || !t.scheduled || t.scheduled < from.start || t.scheduled > from.end) continue;
-    // An archived project's leftovers stay where they were left; only live work slips.
+
     if (t.note.startsWith(`${PARA_FOLDERS.archive}/`)) continue;
     const err = editor.edit(byPath.get(t.note)!, t.line, line => {
       const tagged = t.slipped.includes(from.period) ? line : beforeSignifiers(line, ` ${tag}`);
@@ -72,7 +59,6 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
   out.tasks = editor.edits;
   Object.assign(out.writes, editor.writes());
 
-  // Open goals of the closed plan, copied into the next one.
   const target = byPath.get(out.plan);
   const original = target ? readFileSync(join(root, out.plan), "utf-8") : null;
   if (original !== null) out.originals[out.plan] ??= original;
@@ -86,7 +72,7 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
       out.warnings.push(`goal "${g.text}" was already rolled into ${to.period}`);
       continue;
     }
-    // The id comes from the goal's words, not its link, as plan_period gives it.
+
     const base = slug(g.text.replace(/\[\[[^\]]*\]\]/g, ""));
     let id = base;
     for (let i = 2; taken.has(id); i++) id = `${base}-${i}`;
@@ -97,13 +83,13 @@ export function rollOver(root: string, notes: VaultNote[], periodName: string): 
       const pp = periodOf(g.parent.target);
       if (pp && (pp.end < to.start || pp.start > to.end)) out.warnings.push(`goal "${g.text}": its parent in ${pp.period} does not overlap ${to.period}; link a new parent if it moved on`);
     }
-    // ⏫ after the parent link: Tasks reads signifiers only after the last link and tag.
+
     lines.push(`- [ ] ${g.text}${g.size ? ` #${g.size}` : ""}${slips}${parent} ⏫ ^${id}`);
     out.goals.push({ text: g.text, id });
   }
   out.creates = !target && lines.length > 0;
   if (lines.length) {
-    // On top of any task this run rescheduled inside the next plan itself.
+
     out.writes[out.plan] = addToSection(editor.contentOf(out.plan) ?? content, "Goals", lines);
     if (out.creates) out.created.push(out.plan);
   }

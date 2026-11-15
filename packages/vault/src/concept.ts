@@ -1,14 +1,3 @@
-/**
- * Concept notes (ADR-KI-0060): the unit that is sparred. A concept note holds one idea
- * the user chose to keep, written from their own reading notes, with the assertions a
- * judge checks an explanation against, the words a Feynman drill bans, and verbatim
- * passages from a raw resource that ground it. Raw resources are the reference those
- * passages are checked against and are never sparred themselves.
- *
- * Every passage is verified on write, and again on every read, against the text of the
- * raw note it cites, so a concept note can never quote its source wrongly unnoticed.
- */
-
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
@@ -23,20 +12,20 @@ export const CONCEPTS_FOLDER = posix.join(PARA_FOLDERS.resources, "Concepts");
 export const MAX_ASSERTIONS = 6;
 export const MAX_BUZZWORDS = 5;
 export const MAX_PASSAGES = 12;
-/** A quote shorter than this, once folded, matches too easily to ground anything. */
+
 export const MIN_QUOTE_CHARS = 12;
 
 export interface Passage {
   quote: string;
-  /** Vault-relative path of the raw note quoted. */
+
   note: string;
-  /** "N" or "N-M" for a note with `## Page N` headings; absent for one without. */
+
   pages?: string;
 }
 
 export interface PassageCheck extends Passage {
   found: boolean;
-  /** Why the quote was not found, when it was not. */
+
   problem?: string;
 }
 
@@ -49,12 +38,6 @@ export interface ConceptFields {
 
 const isConcept = (fm: Record<string, unknown>) => fm.type === CONCEPT_TYPE;
 
-/**
- * Text as compared for a quote: escapes the conversion added removed, the user's bold and
- * highlight marks removed (ADR-KI-0061), typographic quotes, dashes and ellipses folded,
- * words broken across a line rejoined, whitespace collapsed, case ignored. Copying from a
- * PDF reader or retyping a quote should still match.
- */
 export function fold(text: string): string {
   return text
     .normalize("NFKC")
@@ -69,7 +52,6 @@ export function fold(text: string): string {
     .toLowerCase();
 }
 
-/** A quote's pieces between elisions ("…", "...", "[…]"), each folded. */
 function segments(quote: string): string[] {
   return quote.split(/\[?(?:\.\.\.|…)\]?/).map(fold).filter(Boolean);
 }
@@ -84,7 +66,6 @@ function inOrder(text: string, parts: string[]): boolean {
   return true;
 }
 
-/** A note's `## Page N` sections, in order; empty for a note without them. */
 function pagesIn(body: string): { page: number; text: string }[] {
   return body
     .split(/^(?=## Page \d+\s*$)/m)
@@ -92,10 +73,6 @@ function pagesIn(body: string): { page: number; text: string }[] {
     .filter(s => Number.isInteger(s.page) && s.page > 0);
 }
 
-/**
- * Find a quote in a raw note. With `pages`, only there; without, on any one page or two
- * neighbouring pages (a quote can cross a page break), and the pages found are returned.
- */
 export function locateQuote(note: VaultNote, quote: string, pages?: string): { found: boolean; pages?: string; problem?: string } {
   const parts = segments(quote);
   if (parts.join(" ").length < MIN_QUOTE_CHARS) return { found: false, problem: `the quote is shorter than ${MIN_QUOTE_CHARS} characters` };
@@ -121,7 +98,6 @@ export function locateQuote(note: VaultNote, quote: string, pages?: string): { f
   return { found: false, problem: `not found in ${note.path}` };
 }
 
-/** Check passages against the vault as it is now. */
 export function checkPassages(notes: VaultNote[], passages: Passage[]): PassageCheck[] {
   const byPath = new Map(notes.map(n => [n.path, n]));
   return passages.map(p => {
@@ -136,10 +112,6 @@ export function checkPassages(notes: VaultNote[], passages: Passage[]): PassageC
 
 const strings = (v: unknown): string[] | null => (Array.isArray(v) && v.every(s => typeof s === "string") ? v : v === undefined ? [] : null);
 
-/**
- * A concept note's fields as its frontmatter holds them, with what is wrong with them;
- * null for a note that is not a concept note.
- */
 export function conceptOf(note: Pick<VaultNote, "frontmatter">): { fields: ConceptFields; problems: string[] } | null {
   const fm = note.frontmatter;
   if (!isConcept(fm)) return null;
@@ -164,35 +136,30 @@ export function conceptOf(note: Pick<VaultNote, "frontmatter">): { fields: Conce
 
 export interface ConceptInput {
   title: string;
-  /** The idea in the user's own words; the note's body. */
+
   summary: string;
   core_assertions: string[];
   forbidden_buzzwords?: string[];
   passages: Passage[];
-  /** The user's reading notes the concept was distilled from. */
+
   from_notes?: string[];
-  /** Folder under 3.Resources, outside 0.Raw; defaults to 3.Resources/Concepts. */
+
   folder?: string;
 }
 
 export interface ConceptPlan {
   path: string | null;
   errors: string[];
-  /**
-   * What would make the note spar badly, without refusing it (ADR-KI-0061 Decision 12):
-   * fragment quotes, assertions about the learner, near-duplicate assertions, no banned
-   * words, a title word that looks misspelled against the source.
-   */
+
   warnings: string[];
   collisions: string[];
-  /** Each passage as checked, with the pages it was found on. */
+
   passages: PassageCheck[];
   content: string | null;
 }
 
 const wikilink = (path: string, anchor: string, text: string) => `[[${path.replace(/\.md$/, "")}${anchor}|${text}]]`;
 
-/** A passage as the note's body quotes it, with its citation. */
 export function passageLines(p: Passage, byPath: Map<string, VaultNote>): string[] {
   const raw = byPath.get(p.note);
   const book = typeof raw?.frontmatter.book === "string" ? raw.frontmatter.book : raw?.title ?? p.note;
@@ -203,7 +170,6 @@ export function passageLines(p: Passage, byPath: Map<string, VaultNote>): string
 
 export const fromNoteLine = (n: string, byPath: Map<string, VaultNote>) => `- ${wikilink(n, "", byPath.get(n)?.title ?? posix.basename(n, ".md"))}`;
 
-/** The frontmatter lines of a concept's lists, as create_concept writes them. */
 export function conceptListLines(key: "core_assertions" | "forbidden_buzzwords" | "from_notes", values: string[]): string[] {
   return values.length ? [`${key}:`, ...values.map(v => `  - ${yamlString(v)}`)] : [`${key}: []`];
 }
@@ -244,7 +210,6 @@ const nonEmpty = (xs: unknown, key: string, max: number, min: number, errors: st
   if (xs.length < min || xs.length > max) errors.push(`${key} takes ${min} to ${max} entries, got ${xs.length}`);
 };
 
-/** Validate a concept note, verify every passage, and render it; nothing is written. */
 export function planConcept(root: string, notes: VaultNote[], input: ConceptInput, date: string): ConceptPlan {
   const errors: string[] = [];
   const name = safeName(input.title ?? "");
@@ -284,7 +249,6 @@ export function planConcept(root: string, notes: VaultNote[], input: ConceptInpu
 
 const STOP = new Set("that this with from then than into onto each every your their they them there which what when where while within about only more most some also have been being will would could should does done learner user reader student author".split(" "));
 
-/** Content words, crudely stemmed, for telling two assertions apart. */
 function contentWords(text: string): Set<string> {
   return new Set(
     (fold(text).match(/\p{L}+/gu) ?? [])
@@ -293,7 +257,6 @@ function contentWords(text: string): Set<string> {
   );
 }
 
-/** Edit distance, stopping early once it passes `max`. */
 function distance(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1;
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -308,7 +271,6 @@ function distance(a: string, b: string, max: number): number {
 
 const ABOUT_SOMEONE = /^\s*(?:the\s+)?(?:learner|user|reader|student|author)\b|\bthe\s+(?:learner|user|reader|student)\b/i;
 
-/** Warnings for a concept note that is valid but would spar badly. */
 export function conceptWarnings(input: ConceptInput, notes: VaultNote[]): string[] {
   const warnings: string[] = [];
   input.passages.forEach((p, i) => {

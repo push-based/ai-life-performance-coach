@@ -1,12 +1,10 @@
-/* Climb page (ADR-KI-0069). Self-contained: no library and no request off the machine,
- * under the same Content-Security-Policy as the vault graph. Every text is set as a text
- * node, never as HTML. Writes go to this server with the page's token and preview first;
- * the vault checks every rule again before it writes. */
 (function () {
   "use strict";
 
   const $ = id => document.getElementById(id);
   const THEME_KEY = "vault-view-theme";
+  const remember = (key, value) => { try { localStorage.setItem(key, value); return true; } catch { return false; } };
+  const recall = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
   const TOKEN = (document.querySelector('meta[name="vault-token"]') || {}).content || "";
   const STEPS = ["read", "group", "generate", "retrieve", "elaborate", "space", "teach"];
   const SVG = "http://www.w3.org/2000/svg";
@@ -72,8 +70,6 @@
     if (state.tab === "sketch") renderSketchTab();
   }
 
-  /* ── Stairs and table ─────────────────────────────────────────────────── */
-
   function pip(c, step) {
     const done = c.steps[step];
     const cls = done ? (step === "teach" ? "pip teach" : "pip done") : c.skipped.includes(step) ? "pip skipped" : "pip";
@@ -134,8 +130,6 @@
       gs.forEach((g, i) => setTimeout(() => g.classList.remove("hide"), 350 + i * 650));
     }
   }
-
-  /* ── Drawing: the ng-diagram board (packages/climb-board) ─────────────── */
 
   const board = { book: null, mode: null, ready: false };
   window.addEventListener("climb-board:ready", () => { board.ready = true; if (state.tab === "draw") renderDrawTab(); });
@@ -226,8 +220,6 @@
       el("div", { class: "compare" }, real, el("div", {}, el("h2", { text: "Check each one" }), el("ul", { class: "marks" }, ...rows.map(r => r.li)), record, status))));
   }
 
-  /* ── Sketch pad ───────────────────────────────────────────────────────── */
-
   const pad = { strokes: [], current: null, erase: false, ready: false };
 
   function renderSketchTab() {
@@ -297,8 +289,6 @@
     out.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  /* ── Wiring ───────────────────────────────────────────────────────────── */
-
   $("tabs").addEventListener("click", ev => {
     const b = ev.target.closest("button[data-tab]");
     if (!b) return;
@@ -339,7 +329,7 @@
   $("theme").addEventListener("click", () => {
     const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     document.documentElement.dataset.theme = next;
-    try { localStorage.setItem(THEME_KEY, next); } catch { /* not kept */ }
+    remember(THEME_KEY, next);
     if (state.tab === "sketch") paint();
   });
   window.addEventListener("resize", () => { if (state.tab === "sketch") setupPad(); });
@@ -356,7 +346,7 @@
     }
   });
 
-  try { const t = localStorage.getItem(THEME_KEY); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch { /* default theme */ }
+  { const t = recall(THEME_KEY); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; }
   const want = new URLSearchParams(location.hash.slice(1)).get("note");
   if (want) state.selected = want;
   load();

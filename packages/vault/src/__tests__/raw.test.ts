@@ -7,7 +7,6 @@ import { buildVaultGraph, noteResolver } from "../graph.js";
 
 interface Entry { title: string; page: number; children?: Entry[] }
 
-/** A minimal text PDF: one page per string, an Info dictionary, and an optional outline. */
 function makePdf(pages: string[], info: { Title?: string; Author?: string } = {}, outline: Entry[] = []): Buffer {
   const objs: string[] = [];
   const reserve = () => { objs.push(""); return objs.length; };
@@ -69,7 +68,6 @@ const PDF = `${HOME}/e-book.pdf`;
 const INDEX = `${HOME}/text.md`;
 const CH = (name: string) => `${HOME}/chapters/${name}.md`;
 
-/** Seven pages: title, intro, a part holding chapters 1 and 2, then the index. */
 const PAGES = [
   "Notes That Work",
   "Introduction text.\n# not a heading",
@@ -174,7 +172,7 @@ describe("converted books in the vault", () => {
     await vault.convertRaw(BOOK, true);
     expect(await vault.listRaw()).toEqual([
       { path: "3.Resources/0.Raw/Articles/Clipped.md", kind: "Articles", author: null, work: null, note: "3.Resources/0.Raw/Articles/Clipped.md", convertible: false, notes: [], concepts: [] },
-      // PARA.md links the book three ways (a page of the PDF, its title, a relative link): one note made from it.
+
       { path: PDF, kind: "Books", author: "Jane Doe", work: "Notes That Work", note: INDEX, convertible: true, notes: ["3.Resources/PKM/PARA.md"], concepts: [] },
     ]);
   });
@@ -244,7 +242,7 @@ describe("planUnits", () => {
   });
 
   it("never lets a part exceed the limit when page sizes are uneven", () => {
-    const sizes = [900, 100, 100, 900, 100, 900]; // a balanced cut into 2 would put 1,100 in one part
+    const sizes = [900, 100, 100, 900, 100, 900];
     const plan = planUnits(pdf([{ title: "Uneven", page: 1, part: null, isPart: false }], sizes.map(n => "w".repeat(n))), 1000);
     expect(plan.units.every(u => u.chars <= 1000)).toBe(true);
     expect(plan.units.map(u => [u.from, u.to])).toEqual([[1, 2], [3, 4], [5, 6]]);

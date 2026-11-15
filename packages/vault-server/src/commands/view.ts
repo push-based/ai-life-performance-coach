@@ -4,11 +4,6 @@ import { createVault } from "@ai-coach/vault/vault.js";
 import { createVaultViewServer, listenOnLoopback, GRAPH_FILE } from "@ai-coach/vault/view.js";
 import { resolveVaultForProcess } from "../serve-vault.js";
 
-/**
- * `view --vault [<path>] [--port=<n>]` — the vault graph in a browser (ADR-KI-0058
- * Decision 11). A loopback server rooted at the vault, separate from this repository's
- * `pnpm run viz`; it runs until interrupted.
- */
 export async function run(args: string[], io: CliIo): Promise<number> {
   if (!args.some(a => a === "--vault" || a.startsWith("--vault="))) {
     console.error("coach-vault view: --vault is required");

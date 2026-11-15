@@ -1,17 +1,3 @@
-/**
- * Raw resources (ADR-KI-0059): list the files under `3.Resources/0.Raw/`, and convert a
- * PDF once, offline (pdf.js), into notes in its `<kind>/<author>/<work>/` folder:
- *
- *   e-book.pdf                 the original, never changed
- *   text.md                    the book's index: one link per chapter
- *   chapters/NN <title>.md     the text, one note per chapter, a long chapter in parts
- *
- * A book is far larger than a local model's context, so the chapter is the unit an agent
- * reads when it checks a concept note against the book (ADR-KI-0060); none of these notes
- * is sparred. Chapters come from the PDF's outline; a book without one is cut into blocks
- * of pages. Every unit stays under a size limit, splitting at page boundaries.
- */
-
 import { existsSync } from "node:fs";
 import { link, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
@@ -21,28 +7,27 @@ import { safeName } from "./filing.js";
 import type { VaultNote } from "./scan.js";
 
 export const RAW_ROOT = posix.join(PARA_FOLDERS.resources, RAW_FOLDER);
-/** Fixed names inside a work folder; the folder carries the title (ADR-KI-0059). */
+
 export const RAW_PDF = "e-book.pdf";
 export const RAW_TEXT = "text.md";
 export const RAW_CHAPTERS = "chapters";
-/** About 5,000 tokens: a sparring unit that leaves a small local model room for the dialogue. */
+
 export const MAX_UNIT_CHARS = 20_000;
 const CONVERTIBLE = /\.pdf$/i;
-/** Outline entries that are not reading matter; they stay in the PDF and are listed in the index. */
+
 const NOT_A_CHAPTER = /^(cover|title page|half title|dedication|epigraph|(table of )?contents|copyright|acknowledg\w*|about the author|also by|praise for|notes|endnotes|index|bibliography)\b/i;
 
 export interface RawItem {
-  /** Vault-relative path of the raw file. */
+
   path: string;
   kind: string | null;
   author: string | null;
   work: string | null;
-  /** The note that carries this file's text: itself for markdown, the book index for a converted PDF, else null. */
+
   note: string | null;
   convertible: boolean;
 }
 
-/** Every file under `3.Resources/0.Raw/` except the notes a conversion wrote, with the note that carries its text. */
 export async function listRaw(root: string, notes: VaultNote[]): Promise<RawItem[]> {
   const files: string[] = [];
   async function walk(rel: string): Promise<void> {
@@ -75,11 +60,11 @@ export async function listRaw(root: string, notes: VaultNote[]): Promise<RawItem
 
 export interface OutlineEntry {
   title: string;
-  /** 1-based page the entry points at. */
+
   page: number;
-  /** The top-level entry this one sits under, such as "Part Two"; null for a top-level entry. */
+
   part: string | null;
-  /** True for a top-level entry that has entries under it (a part, not a chapter). */
+
   isPart: boolean;
 }
 
@@ -87,11 +72,10 @@ export interface PdfText {
   title: string | null;
   author: string | null;
   pages: string[];
-  /** The PDF's outline, two levels deep, in page order; empty when the PDF has none. */
+
   outline: OutlineEntry[];
 }
 
-/** Text of every page of a PDF and its outline, offline. */
 export async function extractPdf(bytes: Uint8Array): Promise<PdfText> {
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const task = getDocument({ data: bytes, disableFontFace: true, verbosity: 0 });
@@ -131,29 +115,28 @@ export async function extractPdf(bytes: Uint8Array): Promise<PdfText> {
 }
 
 export interface Unit {
-  /** Position of the chapter in the book, 1-based; parts of one chapter share it. */
+
   seq: number;
-  /** The chapter's title as the outline gives it, with " (k of n)" for a part. */
+
   title: string;
-  /** The title used in the file name: no "Chapter N:" prefix. */
+
   shortTitle: string;
   part: string | null;
   from: number;
   to: number;
-  /** "k of n" when the chapter is split, else null. */
+
   section: string | null;
   chars: number;
 }
 
 export interface UnitPlan {
   units: Unit[];
-  /** Outline entries left in the PDF: front and back matter. */
+
   skipped: { title: string; page: number }[];
-  /** True when the PDF had no usable outline and the book was cut into blocks of pages. */
+
   byPages: boolean;
 }
 
-/** Cut pages `from..to` into `n` runs of roughly equal size, at page boundaries. */
 function balanced(size: (p: number) => number, from: number, to: number, total: number, n: number): [number, number][] {
   const target = total / n;
   const runs: [number, number][] = [];
@@ -170,10 +153,6 @@ function balanced(size: (p: number) => number, from: number, to: number, total: 
   return runs;
 }
 
-/**
- * Cut pages `from..to` into the fewest roughly equal runs that each stay under `limit`,
- * at page boundaries. Only a single page larger than the limit may exceed it.
- */
 function cut(pages: string[], from: number, to: number, limit: number): [number, number][] {
   const size = (p: number) => pages[p - 1].length;
   const sum = (a: number, b: number) => { let t = 0; for (let p = a; p <= b; p++) t += size(p); return t; };
@@ -187,7 +166,6 @@ function cut(pages: string[], from: number, to: number, limit: number): [number,
 
 const charsOf = (pages: string[], from: number, to: number) => pages.slice(from - 1, to).reduce((n, t) => n + t.length, 0);
 
-/** The chapters of a book, each under `limit` characters, from its outline or else by pages. */
 export function planUnits(pdf: PdfText, limit = MAX_UNIT_CHARS): UnitPlan {
   const last = pdf.pages.length;
   const skipped: UnitPlan["skipped"] = [];
@@ -218,7 +196,6 @@ export function planUnits(pdf: PdfText, limit = MAX_UNIT_CHARS): UnitPlan {
   return { units, skipped, byPages };
 }
 
-/** Page text as markdown that cannot turn into structure: no stray headings, rules, or fences. */
 function pageMarkdown(text: string): string {
   return text
     .replace(/\r\n?/g, "\n")
@@ -294,37 +271,32 @@ export function renderIndex(book: Book, plan: UnitPlan, paths: string[], pdf: Pd
 }
 
 export interface ConvertOptions {
-  /** Author folder name; defaults to the author folder the PDF is in, else the PDF's metadata author. */
+
   author?: string;
-  /** Work folder name; defaults to the PDF's metadata title, else its file name. */
+
   title?: string;
-  /** Largest unit in characters before a chapter splits into parts; defaults to MAX_UNIT_CHARS. */
+
   maxChars?: number;
 }
 
 export interface ConvertPlan {
   source: string;
-  /** Where the PDF moves first: `<kind>/<author>/<title>/e-book.pdf`; null when it is already there. */
+
   move: { from: string; to: string } | null;
-  /** The book index, `text.md`. */
+
   to: string | null;
   chapters: { path: string; title: string; pages: string; chars: number }[];
   skipped: { title: string; page: number }[];
-  /** True when the PDF had no outline and was cut into blocks of pages. */
+
   byPages: boolean;
   collisions: string[];
   errors: string[];
   pages: number;
   chars: number;
-  /** Files to write, index last; internal, never returned by the tool. */
+
   writes: { path: string; content: string }[];
 }
 
-/**
- * Plan converting one raw PDF. Extraction and chapter planning run in the preview too, so
- * its numbers and file names are the ones `execute` writes. A PDF not yet in a work folder
- * moves first into `<kind>/<author>/<title>/e-book.pdf`.
- */
 export async function planConvert(root: string, path: string, date: string, opts: ConvertOptions = {}): Promise<ConvertPlan> {
   const plan: ConvertPlan = { source: path, move: null, to: null, chapters: [], skipped: [], byPages: false, collisions: [], errors: [], pages: 0, chars: 0, writes: [] };
   if (!path.startsWith(`${RAW_ROOT}/`) || path.split("/").some(p => p === ".." || p.startsWith("."))) {
@@ -347,7 +319,6 @@ export async function planConvert(root: string, path: string, date: string, opts
   plan.chars = pdf.pages.reduce((n, p) => n + p.length, 0);
   if (!pdf.pages.some(p => p.trim())) { plan.errors.push(`${path} has no extractable text (a scanned PDF needs OCR first)`); return plan; }
 
-  // 3.Resources / 0.Raw / <kind> / <author> / <work> / e-book.pdf + text.md + chapters/
   let folder = posix.dirname(path);
   if (parts.length < 6) {
     const author = safeName(opts.author ?? (parts.length === 5 ? parts[3] : pdf.author ?? ""));
@@ -382,7 +353,7 @@ export async function planConvert(root: string, path: string, date: string, opts
 export async function executeConvert(root: string, plan: ConvertPlan): Promise<void> {
   if (plan.errors.length || plan.collisions.length || !plan.to || !plan.writes.length) throw new Error("refusing to write a conversion with errors or collisions");
   if (plan.move) {
-    // Link then unlink: a move that fails rather than replace an existing file.
+
     const dst = join(root, plan.move.to);
     await mkdir(dirname(dst), { recursive: true });
     await link(join(root, plan.move.from), dst);
@@ -394,10 +365,6 @@ export async function executeConvert(root: string, plan: ConvertPlan): Promise<v
   }
 }
 
-/**
- * The body limited to a page range, for notes converted with `## Page N` headings.
- * `range` is "N" or "N-M"; returns null when the note has no such pages.
- */
 export function pagesOf(body: string, range: string): string | null {
   const m = range.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
   if (!m) return null;

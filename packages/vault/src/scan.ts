@@ -1,9 +1,3 @@
-/**
- * Read a vault as it is (ADR-KI-0058 Decisions 1 and 3). Every `*.md` outside
- * dot-folders and `Coach/` is a note; frontmatter is optional and never required.
- * Scanning reads only: no note is written, moved, or touched.
- */
-
 import { readdir, readFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 import { parseFrontmatter, extractBody } from "./md.js";
@@ -11,26 +5,25 @@ import { classify, COACH_ROOT, type ParaLocation } from "./para.js";
 import { extractLinks, type RawLink } from "./links.js";
 
 export interface VaultNote extends ParaLocation {
-  /** Vault-relative, forward-slash path; the note's address until Phase 2 adds `coach_id`. */
+
   path: string;
   title: string;
-  /** Parsed frontmatter, or an empty object when the note has none. */
+
   frontmatter: Record<string, unknown>;
   body: string;
-  /** `coach_id` from frontmatter, when the note has been sparred. */
+
   coachId: string | null;
-  /** `converted_from` from frontmatter: the raw file (e.g. a PDF) this note was converted from. */
+
   convertedFrom: string | null;
-  /** `raw_role` from frontmatter: a converted book's `index` (text.md) or one of its `chapter`s. */
+
   rawRole: "index" | "chapter" | null;
-  /** True for a concept note, `type: "concept"` (ADR-KI-0060): the unit that is sparred. */
+
   concept: boolean;
-  /** For a chapter, the PDF pages it holds, from its `pages: "a-b"`. */
+
   pageRange: [number, number] | null;
   links: RawLink[];
 }
 
-/** Vault-relative paths of every note, in code-unit order so a scan is the same everywhere. */
 export async function listNotePaths(root: string): Promise<string[]> {
   const out: string[] = [];
   async function walk(rel: string): Promise<void> {
@@ -63,7 +56,6 @@ export async function readNote(root: string, path: string): Promise<VaultNote> {
   return noteFromContent(path, await readFile(join(root, path), "utf-8"));
 }
 
-/** A note as the scan reads it, from its path and content; also for a note a plan is about to write. */
 export function noteFromContent(path: string, content: string): VaultNote {
   const frontmatter = (parseFrontmatter(content) ?? {}) as Record<string, unknown>;
   const body = Object.keys(frontmatter).length ? extractBody(content) : content;

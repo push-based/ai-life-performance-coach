@@ -1,23 +1,18 @@
-/**
- * Where the vault is (ADR-KI-0058 Decision 2). The caller reads argv, the environment
- * and the config file; this module only decides, so it reads no process state.
- */
-
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 export interface VaultRootSources {
-  /** The `--vault <path>` value, highest precedence. */
+
   flag?: string;
-  /** The `DOCS_MCP_VAULT` value. */
+
   env?: string;
-  /** Path of a JSON config file whose `vault.root` names the vault. Missing file is not an error. */
+
   configFile?: string;
-  /** Home directory, for a leading `~`. */
+
   home: string;
-  /** Directory relative paths resolve against. */
+
   cwd: string;
-  /** Directories the vault must not sit inside: the docs-mcp workspace the server runs from. */
+
   protectedRoots: string[];
 }
 
@@ -26,7 +21,6 @@ export interface ResolvedVaultRoot {
   source: "flag" | "env" | "config";
 }
 
-/** `$XDG_CONFIG_HOME/docs-mcp/config.json`, else `~/.config/docs-mcp/config.json`. */
 export function defaultVaultConfigFile(home: string, xdgConfigHome?: string): string {
   return join(xdgConfigHome || join(home, ".config"), "docs-mcp", "config.json");
 }
@@ -53,11 +47,6 @@ export function isInside(child: string, parent: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-/**
- * Resolve the vault root: flag, then environment, then config file. Throws when none
- * names a vault, when the named directory does not exist, or when it lies inside a
- * protected root, so a vault can never be served from inside the docs-mcp workspace.
- */
 export function resolveVaultRoot(s: VaultRootSources): ResolvedVaultRoot {
   const configured = s.configFile ? readConfigRoot(s.configFile) : undefined;
   const pick: [string | undefined, ResolvedVaultRoot["source"]][] = [[s.flag, "flag"], [s.env, "env"], [configured, "config"]];

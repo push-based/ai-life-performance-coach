@@ -170,7 +170,6 @@ describe("Phase 2 exit: history follows the note, not its path", () => {
     await vault.recordSession({ tier: 1, items: [item("3.Resources/TypeScript/Event loop.md", { next_review: "2026-10-20" })] }, true);
     await vault.recordSession({ tier: 2, items: [item("3.Resources/TypeScript/Event loop.md", { next_review: "2026-10-22" })] }, true);
 
-    // The user drags the note to another Resources folder in Obsidian and renames it.
     mkdirSync(join(dir, "3.Resources/JavaScript"), { recursive: true });
     renameSync(join(dir, "3.Resources/TypeScript/Event loop.md"), join(dir, "3.Resources/JavaScript/The event loop.md"));
 

@@ -90,7 +90,7 @@ describe("harvest_workstream", () => {
       "## Onboarding", "",
       "- [ ] Found", "- [ ] Announced on social media #S", "- [ ] Moved to Discord", "  - [ ] Sent the invite", "",
     ].join("\n"));
-    // The workstream is not changed, and the packet links into the graph.
+
     expect(read(`${WS}/Workshops.md`)).toContain("- [x] Found ⏫ ✅ 2026-10-01");
     const edges = buildVaultGraph(await scanVault(dir)).edges.filter(e => e.source === path).map(e => e.target);
     expect(edges).toEqual(["1.Projects/Expo2026/Expo2026.md", `${WS}/Workshops.md`]);
@@ -151,7 +151,7 @@ describe("archive_project with Intermediate Packets (Decision 13)", () => {
     expect(r.suggestions?.some(s => s.path.includes("Intermediate Packets"))).toBe(false);
     expect(existsSync(join(dir, "3.Resources/Intermediate Packets/Expo2026/Onboarding checklist.md"))).toBe(true);
     expect(existsSync(join(dir, "4.Archive/Expo2026/Expo2026.md"))).toBe(true);
-    // The packet's wikilinks name notes, so they resolve to the archived project.
+
     const edges = buildVaultGraph(await scanVault(dir)).edges.filter(e => e.source.endsWith("Onboarding checklist.md")).map(e => e.target);
     expect(edges).toEqual(["4.Archive/Expo2026/Expo2026.md", "4.Archive/Expo2026/Workstreams/Workshops.md"]);
     const p = await vault.planning();

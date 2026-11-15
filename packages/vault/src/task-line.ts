@@ -1,17 +1,5 @@
-/**
- * One Obsidian Tasks line, edited surgically (ADR-KI-0006 Decision 1, ADR-KI-0064): a
- * field that is set replaces its own signifier where it stands, a new one goes in at its
- * place in the order the Tasks plugin writes them, and every other byte of the line is
- * kept. Nothing here reads or writes a file.
- *
- * Tasks reads its signifiers from the end of the line, so they must all follow the
- * description, its links and its tags: anything after the first signifier that is not one
- * stops the plugin reading further.
- */
-
 import type { Priority } from "./planning.js";
 
-/** The fields this module edits, in the order the Tasks plugin's default layout writes them. */
 export const FIELD_ORDER = ["id", "blockedBy", "priority", "recurrence", "onCompletion", "created", "start", "scheduled", "due", "cancelled", "done"] as const;
 export type Field = (typeof FIELD_ORDER)[number];
 
@@ -25,11 +13,10 @@ const FIELD_OF = new Map<string, Field>([
   ...Object.values(PRIORITY_EMOJI).map(e => [e, "priority"] as [string, Field]),
 ]);
 
-/** A signifier, with any whitespace before it. Astral-plane emoji need the `u` flag. */
 const SIGNIFIER = /\s*([🆔⛔🔺⏫🔼🔽⏬🔁🏁➕🛫⏳📅❌✅])️?/gu;
 const CHECKBOX = /^(\s*[-*+]\s+\[)(.)(\]\s+)/;
 const BLOCK_SUFFIX = /\s+\^[A-Za-z0-9-]+\s*$/;
-/** What each signifier's value looks like; the rest of its segment is kept as it is. */
+
 const VALUE: Record<Field, RegExp> = {
   id: /^\s*[A-Za-z0-9_-]+/,
   blockedBy: /^\s*[A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)*/,
@@ -42,12 +29,12 @@ const VALUE: Record<Field, RegExp> = {
 
 interface Segment {
   field: Field;
-  /** The signifier as written (for priority, which of the five). */
+
   emoji: string;
   value: string;
-  /** Text after the value that is not part of it, such as a tag or a parent link Tasks will not read. */
+
   tail: string;
-  /** The segment exactly as it was read, or null once it is changed. */
+
   raw: string | null;
 }
 
@@ -56,13 +43,12 @@ export class TaskLine {
     private head: string,
     private status: string,
     private gap: string,
-    /** The description with its links and tags, up to the first signifier. */
+
     public description: string,
     private readonly segments: Segment[],
     private readonly suffix: string,
   ) {}
 
-  /** A checkbox line, or null when the line is not one. */
   static parse(line: string): TaskLine | null {
     const m = line.match(CHECKBOX);
     if (!m) return null;
@@ -83,7 +69,6 @@ export class TaskLine {
     return new TaskLine(m[1], m[2], m[3], description, segments, suffix);
   }
 
-  /** A new open task line from its description. */
   static create(indent: string, description: string): TaskLine {
     return new TaskLine(`${indent}- [`, " ", "] ", description.trim(), [], "");
   }
@@ -100,7 +85,6 @@ export class TaskLine {
     return field === "priority" ? PRIORITY_OF.get(s.emoji)! : s.value;
   }
 
-  /** Set a field, or remove it with null; a removed segment's tail is kept. */
   set(field: Field, value: string | null): void {
     const i = this.segments.findIndex(x => x.field === field);
     const emoji = field === "priority" ? (value ? PRIORITY_EMOJI[value as Priority] : "") : EMOJI[field];
@@ -126,7 +110,6 @@ export class TaskLine {
     else this.segments.splice(at, 0, seg);
   }
 
-  /** Remove text from every segment's tail, such as a parent link written after a signifier. */
   stripTails(pattern: RegExp): void {
     for (const s of this.segments) {
       const t = s.tail.replace(pattern, "");
@@ -142,5 +125,4 @@ export class TaskLine {
   }
 }
 
-/** A Tasks recurrence rule starts with "every", e.g. "every week on Monday". */
 export const isRecurrence = (rule: string) => /^every\s+\S/i.test(rule.trim());

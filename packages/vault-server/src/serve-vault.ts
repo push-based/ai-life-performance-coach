@@ -1,9 +1,3 @@
-/**
- * Serve a vault over stdio (ADR-KI-0058). The one place that reads the process for the
- * vault mode: argv, DOCS_MCP_VAULT, the home directory, and the docs-mcp workspace the
- * vault must stay out of.
- */
-
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
@@ -19,10 +13,8 @@ export interface ServeVaultOptions {
   env: Record<string, string | undefined>;
 }
 
-/** `--vault <path>` or `--vault=<path>`; a bare `--vault` defers to the environment and config. */
 export function parseVaultFlags(argv: string[]): { vault?: string; vaultConfig?: string } {
-  // By hand rather than parseArgs: a flag whose value is optional must not take the next
-  // option as its value, as in `--vault --port=5000`.
+
   const value = (name: string): string | undefined => {
     for (let i = 0; i < argv.length; i++) {
       if (argv[i].startsWith(`--${name}=`)) return argv[i].slice(name.length + 3) || undefined;
@@ -33,7 +25,6 @@ export function parseVaultFlags(argv: string[]): { vault?: string; vaultConfig?:
   return { vault: value("vault"), vaultConfig: value("vault-config") };
 }
 
-/** Every directory from `cwd` upward that holds a docs-mcp.config.json. */
 export function workspaceRootsAbove(cwd: string): string[] {
   const roots: string[] = [];
   for (let dir = resolve(cwd); ; dir = dirname(dir)) {
@@ -42,7 +33,6 @@ export function workspaceRootsAbove(cwd: string): string[] {
   }
 }
 
-/** Resolve the vault root from a process's flags, environment and config file. */
 export function resolveVaultForProcess({ cwd, argv, env }: ServeVaultOptions): ResolvedVaultRoot {
   const flags = parseVaultFlags(argv);
   const home = env.HOME ?? homedir();
@@ -58,8 +48,7 @@ export function resolveVaultForProcess({ cwd, argv, env }: ServeVaultOptions): R
 
 export async function serveVault(opts: ServeVaultOptions): Promise<void> {
   const { root, source } = resolveVaultForProcess(opts);
-  // The server names itself, not the directory it was launched from: a consumer app
-  // starts it from its own repository.
+
   const { version } = createRequire(import.meta.url)("@ai-coach/vault/package.json") as { version: string };
   const pkg = { name: "ai-coach", version };
 

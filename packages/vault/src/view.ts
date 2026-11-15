@@ -1,15 +1,3 @@
-/**
- * The vault view (ADR-KI-0058 Decision 11): a loopback HTTP server rooted at the vault,
- * separate from this repository's view server. It serves the page, its script, the
- * graph, regenerated into `Coach/graph.json` on every request, and one page of a
- * converted book's chapter (ADR-KI-0061), to read and distil there: the user can bold,
- * highlight and summarise from the page, which writes the chapter note. Any other note in
- * the graph is served read-only to read in the view (ADR-KI-0061 Decision 14); sessions and the graph
- * file are not notes and are never served. Only chapters are written, and the page may
- * load nothing from off the machine (Content-Security-Policy), so it works offline and
- * leaks nothing.
- */
-
 import { readFileSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
@@ -34,27 +22,27 @@ export interface VaultViewGraph {
   nodes: {
     id: string;
     title: string;
-    /** A short label for the graph; the full title stays in `title`. */
+
     label: string;
     bucket: ParaBucket | null;
     container: string | null;
     raw: boolean;
     rawRole: "index" | "chapter" | null;
-    /** A concept note (ADR-KI-0060), drawn as a diamond. */
+
     concept: boolean;
-    /** For a chapter, the id of its book's index, so the view can fold a book into one node. */
+
     book: string | null;
-    /** For a book index, how many chapter notes it has. */
+
     chapterCount: number | null;
-    /** For a book index, its reading stage and how many chapters are complete (ADR-KI-0061). */
+
     stage: ReadingStage | null;
-    /** For a book index, when the user marked it read. */
+
     readOn: string | null;
     chaptersComplete: number | null;
-    /** For a raw source (a book's index or a raw note), the user's notes and concept notes made from it. */
+
     notesFrom: string[] | null;
     conceptsFrom: string[] | null;
-    /** For a chapter, its distilling: the chapter state and each page's mark and summary. */
+
     distill: { state: ChapterState; summary: boolean; pages: { page: number; mark: PageMark; summary: boolean; empty: boolean }[] } | null;
     mastery: Mastery;
     nextReview: string | null;
@@ -66,10 +54,6 @@ export interface VaultViewGraph {
 const LABEL_MAX = 28;
 const clip = (s: string) => (s.length > LABEL_MAX ? `${s.slice(0, LABEL_MAX - 1).trimEnd()}…` : s);
 
-/**
- * A label short enough to read in a crowded graph. A chapter drops "Chapter N:" for its
- * number and keeps the words before a dash or colon: "4. Capture (1/3)".
- */
 export function shortLabel(note: Pick<VaultNote, "title" | "rawRole" | "frontmatter">): string {
   if (note.rawRole !== "chapter") return clip(note.title);
   const title = note.title.replace(/\s*\(\d+ of \d+\)$/, "");
@@ -80,7 +64,6 @@ export function shortLabel(note: Pick<VaultNote, "title" | "rawRole" | "frontmat
   return clip(`${m ? `${m[1]}. ` : ""}${name}`) + suffix;
 }
 
-/** Build the view graph from the vault and write it to `Coach/graph.json`, replacing the previous one. */
 export async function writeViewGraph(vault: Vault, now: Date = new Date()): Promise<VaultViewGraph> {
   const { notes } = await vault.notesWithHistory();
   const history = new Map(notes.map(n => [n.path, n.history]));
@@ -113,7 +96,7 @@ export async function writeViewGraph(vault: Vault, now: Date = new Date()): Prom
   };
   const abs = join(vault.root, GRAPH_FILE);
   await mkdir(join(vault.root, COACH_ROOT), { recursive: true });
-  // A tmp file per write: overlapping requests must not truncate each other's file.
+
   const tmp = `${abs}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(tmp, `${JSON.stringify(graph, null, 2)}\n`);
   await rename(tmp, abs);
@@ -134,16 +117,12 @@ export interface BookPage {
   note: string;
   title: string;
   page: number;
-  /** The page as it stands in the chapter note: the author's text with the user's marks and summary. */
+
   text: string;
-  /** The chapter's summary, written by the user, or null. */
+
   chapterSummary: string | null;
 }
 
-/**
- * One page of a converted book's chapter, or null for anything else: a note that is not
- * a chapter, a page it does not hold, or a path outside the vault.
- */
 export async function bookPage(vault: Vault, path: string, page: number): Promise<BookPage | null> {
   return vault.pageText(path, page);
 }
@@ -151,21 +130,17 @@ export async function bookPage(vault: Vault, path: string, page: number): Promis
 export interface NoteBody {
   note: string;
   title: string;
-  /** The note's markdown without its frontmatter, for the view to render as text. */
+
   text: string;
 }
 
-/**
- * Any note the graph shows, read-only (ADR-KI-0061 Decision 14), or null for a path that is not one:
- * outside the vault, under `Coach/`, or not a markdown note.
- */
 export async function noteBody(vault: Vault, path: string): Promise<NoteBody | null> {
   const note = await vault.note(path);
   return note ? { note: note.path, title: note.title, text: note.body } : null;
 }
 
 const MAX_BODY = 64 * 1024;
-/** A sketch arrives as base64 PNG, a third larger than its bytes. */
+
 const MAX_SKETCH_BODY = Math.ceil(MAX_SKETCH_BYTES * 1.4) + 4096;
 
 function readJson(req: IncomingMessage, max = MAX_BODY): Promise<Record<string, unknown> | null> {
@@ -185,15 +160,14 @@ function readJson(req: IncomingMessage, max = MAX_BODY): Promise<Record<string, 
 }
 
 export interface ViewServerOptions {
-  /** The write token; random per server unless a test fixes it. */
+
   token?: string;
-  /** The clock; injectable so tests can fix the attempt and reveal times. */
+
   now?: () => Date;
 }
 
 const WRITES = new Set(["/api/mark", "/api/summary", "/api/structure", "/api/reveal", "/api/generate", "/api/sketch"]);
 
-/** The drawing a page sends: groups of concept paths and builds-on edges between group names. */
 function drawingOf(body: Record<string, unknown>): DrawnStructure {
   const groups = (Array.isArray(body.groups) ? body.groups : []).map(g => {
     const r = (g ?? {}) as Record<string, unknown>;
@@ -208,28 +182,10 @@ function drawingOf(body: Record<string, unknown>): DrawnStructure {
 
 interface PendingAttempt { book: string; structure: string; drawing: string; idk: boolean; attemptedAt: string; revealedAt: string }
 
-/**
- * The vault view server. Answers `/`, `/vault-view.js`, `/graph.json`,
- * `/page.json?note=<chapter>&page=<N>`, `/note.json?note=<note>`, the read-only plans page
- * `/plans` with `/plans-view.js` and `/plans.json?span=<period>&by=<level>` (ADR-KI-0063),
- * the climb page `/climb` with `/climb-view.js`, its ng-diagram board `/climb-board/main.js` and
- * `/climb-board/styles.css`, `/climb.json`, `/structure.json?book=<book>`
- * and `/sketch.png?path=<sketch>`
- * (ADR-KI-0069), and the writes from the pages themselves: `POST /api/mark` and
- * `POST /api/summary` (ADR-KI-0061 Decision 10), and `POST /api/structure`, `/api/reveal`,
- * `/api/generate` and `/api/sketch` (ADR-KI-0069), each previewing unless `execute: true`;
- * everything else is 404.
- *
- * Every request must name this server's own loopback address in its Host header, which
- * stops another site reaching it by rebinding a domain name to 127.0.0.1. A write must
- * also carry the token embedded in the page this server served, in a custom header,
- * with a JSON body: a page on another origin can neither read the token nor send that
- * header without a preflight this server never grants.
- */
 export function createVaultViewServer(vault: Vault, opts: ViewServerOptions = {}): Server {
   const token = opts.token ?? randomBytes(24).toString("hex");
   const clock = opts.now ?? (() => new Date());
-  /** Drawings from memory saved at the reveal, waiting for their marks (ADR-KI-0069). */
+
   const pending = new Map<string, PendingAttempt>();
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
@@ -343,7 +299,6 @@ export function createVaultViewServer(vault: Vault, opts: ViewServerOptions = {}
   return server;
 }
 
-/** Listen on loopback only; resolves to the URL to open. */
 export function listenOnLoopback(server: Server, port: number): Promise<string> {
   return new Promise((resolveUrl, reject) => {
     server.once("error", reject);

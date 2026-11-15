@@ -1,10 +1,3 @@
-/**
- * The data behind the plans page (ADR-KI-0063 Decision 3): a span cut into columns, one
- * row per project and its workstreams, per area and for unlinked work, each cell holding
- * the weighted work done and planned in it, and the goal cascade of every plan that
- * overlaps the span. Reading only.
- */
-
 import { planning, PLAN_LEVELS, type OwnedTask, type Owner, type PlanLevel, type Status } from "./planning.js";
 import { nextPeriod, periodAt, periodOf, previousPeriod, type Period } from "./plans.js";
 import type { VaultNote } from "./scan.js";
@@ -12,9 +5,9 @@ import type { VaultNote } from "./scan.js";
 const ORDER = Object.keys(PLAN_LEVELS) as PlanLevel[];
 
 export interface Cell {
-  /** Weighted work done in the column, by done date. */
+
   done: number;
-  /** Weighted open work scheduled in the column. */
+
   planned: number;
 }
 
@@ -27,20 +20,20 @@ export interface TaskRef {
   scheduled: string | null;
   doneOn: string | null;
   slipped: string[];
-  /** The column the task counts in: by done date when done, else by scheduled date. */
+
   column: number;
 }
 
 export interface Row {
-  /** `p:<project>`, `w:<project>/<workstream>`, `a:<area>` or `unlinked`. */
+
   id: string;
   kind: "project" | "workstream" | "area" | "unlinked";
   name: string;
-  /** For a workstream, its project. */
+
   project: string | null;
   archived: boolean;
   status: Status | null;
-  /** The row's own note, when it has one. */
+
   note: string | null;
   deadline: string | null;
   doneWhen: string | null;
@@ -54,14 +47,14 @@ export interface GoalNode {
   note: string;
   level: PlanLevel;
   period: string;
-  /** The period's first and last day, so the page never redoes the calendar. */
+
   start: string;
   end: string;
   blockId: string | null;
   status: "met" | "open" | "missed" | "dropped";
   slipped: string[];
   owner: Owner;
-  /** The timeline row the goal counts for, or null when it links nothing. */
+
   row: string | null;
   children: GoalNode[];
 }
@@ -75,9 +68,9 @@ export interface PlansView {
   columns: (Period & { current: boolean })[];
   rows: Row[];
   goals: GoalNode[];
-  /** The period of each level holding today, for the Today button. */
+
   todayAt: Record<PlanLevel, string>;
-  /** The period of each level to zoom to: today's when the span holds today, else the span's first. */
+
   focusAt: Record<PlanLevel, string>;
 }
 
@@ -107,7 +100,7 @@ export function plansView(root: string, notes: VaultNote[], spanName: string, by
   const rows: Row[] = [];
   const index = new Map<string, Row>();
   const push = (r: Row) => { rows.push(r); index.set(r.id, r); };
-  // Active projects first, then archived ones, each followed by its workstreams.
+
   for (const pr of [...p.projects].sort((a, b) => Number(a.archived) - Number(b.archived) || (a.name < b.name ? -1 : 1))) {
     push(row({
       id: `p:${pr.name}`, kind: "project", name: pr.name, project: null, archived: pr.archived, status: pr.status, note: pr.note,
@@ -125,7 +118,7 @@ export function plansView(root: string, notes: VaultNote[], spanName: string, by
     const col = t.state === "done" ? columnOf(t.doneOn) : columnOf(t.scheduled);
     if (col < 0) continue;
     const ref: TaskRef = { text: t.text, note: t.note, state: t.state, size: t.size, weight: t.weight, scheduled: t.scheduled, doneOn: t.doneOn, slipped: t.slipped, column: col };
-    // A workstream's work also counts for its project's row.
+
     const ids = [rowOf(t.owner) ?? "unlinked", ...(t.owner.workstream ? [`p:${t.owner.project}`] : [])];
     for (const id of ids) {
       const r = index.get(id);
@@ -135,7 +128,6 @@ export function plansView(root: string, notes: VaultNote[], spanName: string, by
     }
   }
 
-  // Goals of every plan overlapping the span, as trees by their parent links.
   const overlapping = p.tasks.filter(t => {
     if (!t.goal || !t.plan) return false;
     const gp = periodOf(t.plan.period);

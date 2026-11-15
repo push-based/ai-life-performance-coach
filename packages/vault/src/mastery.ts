@@ -1,15 +1,7 @@
-/**
- * Mastery and due dates, derived from sessions by lookup and never stored on a note
- * (ADR-KI-0058 Decision 7). Sessions are matched to notes by `coach_id`, so a note keeps
- * its history wherever it is moved.
- */
-
 import { bySessionDate, type SessionRecord, type SessionItem, type Tier, type Verdict } from "./sessions.js";
-
 
 export type Mastery = "unsparred" | "attempted" | "tier1_passed" | "tier2_passed";
 
-/** One session's outcome for one note. Challenge and answer stay in the session file. */
 export interface HistoryEntry {
   session_id: string;
   tier: Tier;
@@ -21,14 +13,11 @@ export interface HistoryEntry {
 
 export interface NoteHistory {
   mastery: Mastery;
-  /** The next review date from the latest session covering the note. */
+
   nextReview: string | null;
   lastSession: string | null;
   sessions: number;
-  /**
-   * Every session covering the note, oldest first. A scheduler needs the run of
-   * outcomes at one tier, which the latest next review date alone cannot give it.
-   */
+
   entries: HistoryEntry[];
 }
 
@@ -36,12 +25,6 @@ export const UNSPARRED: Readonly<NoteHistory> = Object.freeze({ mastery: "unspar
 
 interface Latest { item: SessionItem; session: SessionRecord }
 
-/**
- * History per coach_id, from sessions taken oldest first by date (bySessionDate), so a
- * session dated later is the latest whenever it was recorded. Mastery and the entries come
- * from sparring sessions only; the next review date is the latest any session set, so a
- * Generate or Teach attempt can schedule a review (ADR-KI-0068 Decision 8).
- */
 export function histories(sessions: SessionRecord[]): Map<string, NoteHistory> {
   const latest = new Map<string, { any: Latest | null; byTier: Partial<Record<Tier, Latest>>; entries: HistoryEntry[]; nextReview: string | null }>();
   for (const session of [...sessions].sort(bySessionDate)) {

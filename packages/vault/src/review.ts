@@ -1,10 +1,3 @@
-/**
- * `review_period` (ADR-KI-0062 Decision 11): where a year, quarter, month, week or day
- * went. Effort is the size-weighted sum of tasks done in the period, per project and its
- * workstreams, per area, and unlinked; goals are met, open, missed or dropped, each with
- * the goals that serve it down the chain. Reading only.
- */
-
 import { planning, type OwnedTask, type Owner, type Planning } from "./planning.js";
 import { periodOf, planPathOf, type Period } from "./plans.js";
 import { dayBefore, daysBetween, habitKey, isHabitDue } from "./habits.js";
@@ -12,7 +5,7 @@ import { noteResolver } from "./graph.js";
 import type { VaultNote } from "./scan.js";
 
 export interface Effort {
-  /** Size-weighted sum: S 1, M 3, L 8, untagged 1. */
+
   weight: number;
   tasks: number;
 }
@@ -20,7 +13,7 @@ export interface Effort {
 export interface ProjectEffort extends Effort {
   name: string;
   archived: boolean;
-  /** Work done in the project's own notes, outside any workstream. */
+
   direct: Effort;
   workstreams: (Effort & { name: string })[];
 }
@@ -34,46 +27,46 @@ export interface GoalReview {
   owner: Owner;
   status: GoalStatus;
   slipped: string[];
-  /** Weighted work done in the period for the goal's workstream, project or area. */
+
   effort: Effort;
-  /** Goals one level down that link this one as their parent, reviewed the same way. */
+
   children: GoalReview[];
 }
 
 export interface HabitReview {
   text: string;
-  /** The note the habit is defined in. */
+
   note: string;
   owner: Owner;
   rule: string;
-  /** Days in the period, up to today, the rule falls on. */
+
   due: number;
-  /** Of those, the days whose check is ticked in the day plan. */
+
   done: number;
-  /** Due days before today that were not ticked; today is not missed yet. */
+
   missed: number;
-  /** Due days in a row, back from today, that were ticked; an unticked today does not break it. */
+
   streak: number;
 }
 
 export interface PeriodReview {
   period: Period;
   today: string;
-  /** True once the period has ended; an open goal is then missed. */
+
   closed: boolean;
   plan: string | null;
   effort: { total: Effort; projects: ProjectEffort[]; areas: (Effort & { name: string })[]; unlinked: Effort };
-  /** Done tasks without a size tag, counted as S. */
+
   untaggedDone: number;
-  /** Each habit: how many of its due days were ticked, and its current streak (ADR-KI-0065). */
+
   habits: HabitReview[];
   goals: GoalReview[];
   goalCounts: Record<GoalStatus, number>;
-  /** Items that slipped out of this period (tagged #slipped/<period>). */
+
   slipped: { text: string; note: string; owner: Owner; goal: boolean; slips: number }[];
-  /** Open items that have slipped twice or more, whichever periods. */
+
   slippedRepeatedly: { text: string; note: string; owner: Owner; slipped: string[] }[];
-  /** Planning warnings about this period's plan: unlinked items, goals without a parent. */
+
   warnings: string[];
 }
 
@@ -122,7 +115,7 @@ export function reviewPeriod(root: string, notes: VaultNote[], periodName: strin
     }
     return e;
   };
-  // Goals by the address their children link: `<period>#<block id>`.
+
   const children = new Map<string, OwnedTask[]>();
   for (const g of p.tasks) {
     if (g.goal && g.parent) {
@@ -158,7 +151,6 @@ export function reviewPeriod(root: string, notes: VaultNote[], periodName: strin
   };
 }
 
-/** Each habit's due and ticked days in the period up to today, and its streak back from today. */
 function reviewHabits(p: Planning, notes: VaultNote[], period: Period, today: string): HabitReview[] {
   const resolver = noteResolver(notes);
   const ticked = new Set<string>();

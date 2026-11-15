@@ -4,7 +4,6 @@ import { NgDiagramModelService, NgDiagramPortComponent, type GroupNode, type NgD
 export interface ConceptData { path: string; title: string }
 export interface LayerData { name: string }
 
-/** A concept note: dragged into a layer to put it in that group. */
 @Component({
   selector: "cb-concept-node",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -14,10 +13,6 @@ export class ConceptNodeComponent implements NgDiagramNodeTemplate<ConceptData> 
   readonly node = input.required<SimpleNode<ConceptData>>();
 }
 
-/**
- * A group the learner names. Its bottom port starts a "builds on" arrow and its top port
- * ends one, so a layer drawn above another points down at the layer it builds on.
- */
 @Component({
   selector: "cb-layer-node",
   imports: [NgDiagramPortComponent],

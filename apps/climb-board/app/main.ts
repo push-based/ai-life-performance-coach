@@ -4,7 +4,7 @@ import { BoardComponent, type BoardInput, type Drawing } from "./board";
 
 declare global {
   interface Window {
-    /** The bridge the climb page drives the board through (ADR-KI-0069). */
+
     climbBoard?: { load(input: BoardInput): void; addGroup(): void; drawing(): Drawing };
   }
 }

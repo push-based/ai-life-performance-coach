@@ -1,11 +1,3 @@
-/**
- * Editing existing notes for planning (ADR-KI-0064): `update_task`, `add_tasks`,
- * `set_frontmatter`, `edit_note` and `create_workstream`. Each builds a preview of every
- * changed line and writes nothing; `executeWrites` applies a preview that has no errors.
- * Every edit is surgical (ADR-KI-0006 Decision 1): the lines it does not name stay
- * byte-for-byte as they were.
- */
-
 import { readFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import { PARA_FOLDERS, PLANS_ROOT, RAW_FOLDER } from "./para.js";
@@ -17,10 +9,7 @@ import { HABITS_HEADING, HABIT_RULES, habitDays, habitKey, parseHabits } from ".
 import type { VaultNote } from "./scan.js";
 
 export interface EditPlan extends NoteWrites {
-  /**
-   * Changed lines: `line` 0-based in the note body (the address update_task takes), `fileLine`
-   * 1-based in the file; an added line has an empty `before`, a removed one an empty `after`.
-   */
+
   edits: NoteEdit[];
   warnings: string[];
 }
@@ -36,7 +25,6 @@ const empty = (): EditPlan => ({ edits: [], errors: [], warnings: [], originals:
 const byPathOf = (notes: VaultNote[]) => new Map(notes.map(n => [n.path, n]));
 const findNote = (byPath: Map<string, VaultNote>, path: string) => byPath.get(path) ?? byPath.get(`${path}.md`);
 
-/** The project, workstream, area or plan a note belongs to, or why tasks are not planned there. */
 function plannedNoteError(p: Planning, path: string): string | null {
   if (planOf(path)) return null;
   for (const pr of p.projects) {
@@ -49,7 +37,6 @@ function plannedNoteError(p: Planning, path: string): string | null {
   return `${path} is not in a project, workstream, area or plan`;
 }
 
-/** Notes the body and frontmatter tools may edit: the PARA folders and Plans/, never raw text or coach state. */
 function editableError(path: string): string | null {
   const top = path.split("/")[0];
   if (path.startsWith(`${PARA_FOLDERS.resources}/${RAW_FOLDER}/`)) return `${path} is raw text that concept notes are checked against; it is not edited`;
@@ -57,14 +44,8 @@ function editableError(path: string): string | null {
   return `${path} is outside the PARA folders and ${PLANS_ROOT}/`;
 }
 
-/** Where a note's body starts in its file, counted as the task tools count body lines. */
 const bodyStartOf = (original: string, note: VaultNote) => original.split("\n").length - note.body.split("\n").length;
 
-/**
- * One hunk per note: the lines between the common head and tail of before and after, with
- * the heading it falls under and the line above it. `bodyStart` gives its body line; a hunk
- * that starts in the frontmatter has none.
- */
 function hunk(note: string, before: string, after: string, bodyStart: number): NoteEdit[] {
   const a = before.split("\n");
   const b = after.split("\n");
@@ -86,19 +67,15 @@ function hunk(note: string, before: string, after: string, bodyStart: number): N
 
 const read = (root: string, path: string) => readFileSync(join(root, path), "utf-8");
 
-// ---------------------------------------------------------------------------------------
-// Addressing a task
-// ---------------------------------------------------------------------------------------
-
 export interface TaskAddress {
   note: string;
-  /** 0-based line in the note body, as planning_overview reports it. */
+
   line?: number;
-  /** `^id` at the end of the line, or the task's `🆔`. */
+
   blockId?: string;
-  /** Part of the description that matches exactly one open task. */
+
   task?: string;
-  /** With `task`: match done and cancelled tasks too, still exactly one. */
+
   includeClosed?: boolean;
 }
 
@@ -126,7 +103,6 @@ function findTask(byPath: Map<string, VaultNote>, a: TaskAddress, what: string, 
   return { note, task: hits[0] };
 }
 
-/** A parent goal one level up, as `<period>#^<id>`; returns the link text or pushes an error. */
 function parentLink(byPath: Map<string, VaultNote>, of: Task, plan: string, value: string, what: string, errors: string[]): string | null {
   const ref = planOf(plan);
   const levels = ["year", "quarter", "month", "week", "day"] as const;
@@ -144,18 +120,14 @@ function parentLink(byPath: Map<string, VaultNote>, of: Task, plan: string, valu
   return ` ↑ [[${pp.period}#^${m[2]}]]`;
 }
 
-// ---------------------------------------------------------------------------------------
-// update_task
-// ---------------------------------------------------------------------------------------
-
 export interface TaskChanges {
-  /** The new description with its links; the size tag, slip tags and parent link are kept. */
+
   text?: string;
   size?: Size | null;
   priority?: Priority | null;
   scheduled?: string | null;
   state?: "open" | "done" | "cancelled";
-  /** A goal's parent one level up, `<period>#^<id>`; null removes it. */
+
   parent?: string | null;
   id?: string | null;
   blockedBy?: string[] | null;
@@ -166,7 +138,6 @@ export interface TaskUpdate extends TaskAddress {
   set: TaskChanges;
 }
 
-/** Put a size tag in a description, before its parent link when it has one. */
 function withSize(desc: string, size: Size | null): string {
   const plain = desc.replace(SIZE_TAG, "");
   if (!size) return plain;
@@ -245,29 +216,21 @@ export function updateTasks(root: string, notes: VaultNote[], updates: TaskUpdat
   return out;
 }
 
-// ---------------------------------------------------------------------------------------
-// add_tasks
-// ---------------------------------------------------------------------------------------
-
 export interface NewTask extends TaskFields {
   text: string;
   size?: Size;
   scheduled?: string;
-  /** Notes it links after its text; in a plan the first is its project, workstream or area. */
+
   links?: string[];
 }
 
 export interface AddTasksInput {
   note: string;
-  /**
-   * The section the tasks go into, after its own lines and before its first subheading. A
-   * path such as `Robotics: Machinekind/Marketing` picks one of several sections of one name.
-   * A missing last part is created at the end of the section above it, or of the note.
-   */
+
   heading?: string;
-  /** The level (2–6) of a heading that is created; defaults to one below its parent, or 2. */
+
   level?: number;
-  /** An existing task the new ones go under as subtasks. */
+
   parent?: Omit<TaskAddress, "note">;
   tasks: NewTask[];
 }
@@ -287,7 +250,6 @@ function headingsOf(lines: string[]): Heading[] {
   return out;
 }
 
-/** A heading's path from the top, `Parent/Child`, to tell sections of one name apart. */
 function headingPath(hs: Heading[], h: Heading): string {
   const path = [h.name];
   let level = h.level;
@@ -295,17 +257,12 @@ function headingPath(hs: Heading[], h: Heading): string {
   return path.join("/");
 }
 
-/**
- * Put lines into the section a heading or heading path names: after the section's own lines,
- * before its first subheading. A missing last part of the path is created, at `level` or one
- * below its parent, at the end of the parent section (subsections included) or of the body.
- */
 function addUnderHeading(body: string, heading: string, level: number | undefined, add: string[]): { body: string } | { error: string } {
   const all = body.split("\n");
   const hs = headingsOf(all);
   const name = heading.replace(/^#+\s*/, "").trim();
   const same = (h: Heading, n: string) => h.name.toLowerCase() === n.toLowerCase();
-  // A heading whose own text holds a "/" is matched whole before the text is read as a path.
+
   const parts = hs.some(h => same(h, name)) || !name.includes("/") ? [name] : name.split("/").map(x => x.trim()).filter(Boolean);
   let parent: Heading | null = null;
   let from = 0;
@@ -412,14 +369,10 @@ export function addTasks(root: string, notes: VaultNote[], input: AddTasksInput)
   return out;
 }
 
-// ---------------------------------------------------------------------------------------
-// set_frontmatter
-// ---------------------------------------------------------------------------------------
-
 export interface NewHabit {
-  /** What is done, e.g. "Up at 6:00". */
+
   text: string;
-  /** every day, every weekday, every weekend, or every week on <days>. */
+
   rule: string;
 }
 
@@ -428,11 +381,6 @@ export interface AddHabitsInput {
   habits: NewHabit[];
 }
 
-/**
- * `add_habits` (ADR-KI-0065): define habits under the `## Habits` heading of a project,
- * workstream or area note, as plain list items with a `🔁` rule. The day plans check them
- * off; a definition is changed or ended with `edit_note`.
- */
 export function addHabits(root: string, notes: VaultNote[], input: AddHabitsInput): EditPlan {
   const out = empty();
   const note = findNote(byPathOf(notes), input.note);
@@ -463,7 +411,7 @@ export function addHabits(root: string, notes: VaultNote[], input: AddHabitsInpu
 }
 
 export type FrontmatterValue = string | number | boolean | string[] | null;
-/** Keys other tools own: a session's tie to its note, and a converted book's provenance. */
+
 const MACHINE_KEYS = ["coach_id", "converted_from", "raw_role", "pages", "climb", "group", "groups"];
 
 function yamlValue(v: Exclude<FrontmatterValue, null>): string {
@@ -501,7 +449,7 @@ export function setFrontmatter(root: string, notes: VaultNote[], path: string, s
     const v = set[k];
     const i = fm.findIndex(l => new RegExp(`^${k}\\s*:`).test(l));
     let end = i + 1;
-    // A key's value runs on over indented lines and list items below it.
+
     if (i >= 0) while (end < fm.length && /^(\s+\S|-\s|-$)/.test(fm[end])) end++;
     const lines = v === null ? [] : [`${k}: ${yamlValue(v)}`];
     if (i >= 0) fm.splice(i, end - i, ...lines);
@@ -515,15 +463,11 @@ export function setFrontmatter(root: string, notes: VaultNote[], path: string, s
   return out;
 }
 
-// ---------------------------------------------------------------------------------------
-// edit_note
-// ---------------------------------------------------------------------------------------
-
 export interface EditNoteInput {
   note: string;
-  /** Exact replacements in the body, applied in order; each `old` must occur exactly once. */
+
   edits?: { old: string; new: string }[];
-  /** Replace or append to one section by its heading text. */
+
   heading?: string;
   content?: string;
   mode?: "replace" | "append";
@@ -531,7 +475,6 @@ export interface EditNoteInput {
 
 const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 
-/** A body's task lines, sorted, to tell whether an edit adds, removes or changes one. */
 function taskLinesOf(body: string): string {
   const lines = body.split("\n");
   return parseTasks("", body).map(t => lines[t.line].replace(/\r$/, "")).sort().join("\n");
@@ -580,10 +523,10 @@ export function editNote(root: string, notes: VaultNote[], input: EditNoteInput)
       let last = end - 1;
       while (last > i && lines[last].trim() === "") last--;
       if (input.mode === "append" && last > i) {
-        // After the section's last line, keeping the blank lines and headings that follow.
+
         body = [...lines.slice(0, last + 1), text, ...lines.slice(last + 1)].join("\n");
       } else {
-        // A replaced (or empty) section: one blank line, the content, one blank line before the next heading.
+
         const rest = lines.slice(end);
         body = [...lines.slice(0, i + 1), "", text, ...(rest.length ? ["", ...rest] : [""])].join("\n");
       }
@@ -598,18 +541,14 @@ export function editNote(root: string, notes: VaultNote[], input: EditNoteInput)
   return out;
 }
 
-// ---------------------------------------------------------------------------------------
-// create_workstream
-// ---------------------------------------------------------------------------------------
-
 export interface CreateWorkstreamInput {
   project: string;
   name: string;
-  /** A folder `<Name>/<Name>.md` for a workstream that will hold several notes or files. */
+
   folder?: boolean;
   status?: string;
   description?: string;
-  /** The area it serves, linked from its frontmatter. */
+
   area?: string;
 }
 
