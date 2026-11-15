@@ -9,7 +9,7 @@ const SIZE = z.enum(["S", "M", "L"]).optional().describe("Size: S weighs 1, M 3,
 const LINK = z.string().min(1).describe("The project, workstream or area it counts for: a name such as Expo2026, Marketing or Health, or a note path");
 const DAY = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
 const PRIORITY = z.enum(["highest", "high", "medium", "low", "lowest"]);
-/** The Tasks fields a new task can carry (ADR-KI-0064 Decision 5). */
+
 export const TASK_FIELDS = {
   priority: PRIORITY.optional().describe("Written as 🔺 ⏫ 🔼 🔽 ⏬"),
   recurrence: z.string().optional().describe("A Tasks rule written after 🔁, e.g. 'every week on Monday' or 'every day when done', for repeating work that stays open until done; a habit is add_habits'"),

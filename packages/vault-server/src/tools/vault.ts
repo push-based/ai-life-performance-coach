@@ -1,9 +1,3 @@
-/**
- * The vault server's tool registry (ADR-KI-0058 Decision 8): its own factory, so the
- * maintainer and consumer servers never list a vault tool and the vault server never
- * lists a corpus tool.
- */
-
 import type { ToolDef } from "../tool-types.js";
 import type { Vault } from "@ai-coach/vault/vault.js";
 

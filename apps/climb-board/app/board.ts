@@ -2,13 +2,11 @@ import { ChangeDetectionStrategy, Component, Injector, inject, signal } from "@a
 import { NgDiagramComponent, NgDiagramModelService, NgDiagramNodeTemplateMap, initializeModel, provideNgDiagram, type Edge, type ModelAdapter, type Node } from "ng-diagram";
 import { ConceptNodeComponent, LayerNodeComponent, type ConceptData, type LayerData } from "./nodes";
 
-/** What the climb page hands the board: the book's concepts and, to edit it, the structure note. */
 export interface BoardInput {
   concepts: ConceptData[];
   prefill?: { groups: { name: string; concepts: { path: string }[] }[]; buildsOn: { from: string; to: string }[] } | null;
 }
 
-/** What the board hands back: the shape the vault's write_structure and reveal take. */
 export interface Drawing {
   groups: { name: string; concepts: string[] }[];
   builds_on: { from: string; to: string }[];
@@ -48,7 +46,6 @@ export class BoardComponent {
     zoom: { min: 0.4, max: 2 },
   };
 
-  /** Start over with a book's concepts in a tray on the left, and its structure when editing one. */
   load(input: BoardInput): void {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
@@ -78,7 +75,6 @@ export class BoardComponent {
     this.models.set([this.model]);
   }
 
-  /** Add an empty group for the learner to name: above the topmost one, or in a new column when that is full. */
   addGroup(): void {
     const layers = this.model.getNodes().filter(n => n.type === "layer");
     const top = layers.length ? layers.reduce((a, n) => (n.position.y < a.position.y ? n : a)) : null;
@@ -88,7 +84,6 @@ export class BoardComponent {
     void this.service.addNodes([node]);
   }
 
-  /** The drawing as groups of concept paths and "builds on" edges between group names. */
   drawing(): Drawing {
     const nodes = this.model.getNodes();
     const layers = nodes.filter(n => n.type === "layer");

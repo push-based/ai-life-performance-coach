@@ -17,7 +17,6 @@ function put(rel: string, content: string): void {
   writeFileSync(abs, content);
 }
 
-/** A small vault on the fixed PARA folders, plus everything the scanner must skip. */
 function seedVault(): void {
   put("0.Inbox/Quick idea.md", "Ship the ugly prototype.\n");
   put("1.Projects/Expo2026/Talk outline.md", "# Talk outline\n\nSee [[Event loop]] and [judge](../../3.Resources/LLM/LLM%20as%20judge.md) and [again](<../../3.Resources/LLM/LLM as judge.md>).\n");

@@ -23,8 +23,6 @@ const chapter = (title: string, from: number, pages: string[]) => [
   ...pages.flatMap((text, i) => ["", `## Page ${from + i}`, "", text]), "",
 ].join("\n");
 
-// Page 100 as the user marked it in the graph view before marks spanned lines: one
-// bold per PDF line, highlights inside, and a heading line above the paragraph.
 const PAGE_100 = [
   "Chapter 6",
   "Distill—Find the Gist",

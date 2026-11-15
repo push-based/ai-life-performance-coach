@@ -1,15 +1,7 @@
-/**
- * Habits (ADR-KI-0065): a habit is defined once, as a plain list item under a `## Habits`
- * heading in its workstream, area or project note, and checked off day by day in the day
- * plan's own `## Habits` section. A day's check that is left open is a missed day: it is
- * never scheduled, never overdue and never rolled over. Reading only.
- */
-
 export const HABITS_HEADING = "Habits";
 
 const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 
-/** Which days of the week (0 Sunday to 6 Saturday) a rule falls on, or null when it is not one this module reads. */
 export function habitDays(rule: string): Set<number> | null {
   const r = rule.trim().toLowerCase().replace(/\s+/g, " ");
   if (r === "every day") return new Set([0, 1, 2, 3, 4, 5, 6]);
@@ -24,16 +16,14 @@ export function habitDays(rule: string): Set<number> | null {
 
 export const HABIT_RULES = "every day, every weekday, every weekend, or every week on <days>, e.g. every week on Monday, Wednesday and Friday";
 
-/** The day of the week of a YYYY-MM-DD date, 0 Sunday to 6 Saturday. */
 export const weekdayOf = (day: string) => new Date(`${day}T00:00:00Z`).getUTCDay();
 
 export const isHabitDue = (rule: string, day: string) => habitDays(rule)?.has(weekdayOf(day)) ?? false;
 
-/** A habit's identity within its owner: its words without links, case or extra spaces. */
 export const habitKey = (text: string) => text.replace(/\[\[[^\]]*\]\]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 
 export interface HabitDefinition {
-  /** 0-based line in the note body. */
+
   line: number;
   text: string;
   rule: string;
@@ -43,7 +33,6 @@ const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const FENCE_LINE = /^\s*(```|~~~)/;
 const ITEM = /^\s*[-*+]\s+(?!\[.\])(.+?)\s*🔁️?\s*(.+?)\s*$/u;
 
-/** The habit definitions in a note body: plain list items with a `🔁` rule under a `Habits` heading. */
 export function parseHabits(body: string): { habits: HabitDefinition[]; invalid: HabitDefinition[] } {
   const habits: HabitDefinition[] = [];
   const invalid: HabitDefinition[] = [];
@@ -63,7 +52,6 @@ export function parseHabits(body: string): { habits: HabitDefinition[]; invalid:
   return { habits, invalid };
 }
 
-/** Each day from start to end inclusive, as YYYY-MM-DD. */
 export function daysBetween(start: string, end: string): string[] {
   const out: string[] = [];
   const d = new Date(`${start}T00:00:00Z`);

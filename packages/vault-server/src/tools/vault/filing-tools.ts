@@ -6,7 +6,6 @@ import { json, fail } from "./json.js";
 const WRITES = { readOnlyHint: false, destructiveHint: false, idempotentHint: false } as const;
 const EXECUTE = z.boolean().optional().describe("Apply the plan (default: preview only)");
 
-/** A plan with errors is a failed call; collisions are a preview the user must resolve first. */
 function result(r: FilingResult): ToolResult {
   return r.errors.length ? fail(`refused:\n- ${r.errors.join("\n- ")}`) : json(r);
 }

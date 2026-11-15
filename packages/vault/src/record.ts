@@ -1,15 +1,3 @@
-/**
- * `record_session` (ADR-KI-0058 Decisions 5, 6 and 9; ADR-KI-0068): validate a finished
- * session, preview what it would write, and write it only on `execute`. A session is a
- * sparring round, a Generate attempt, an Elaboration or a Teach session; each kind's
- * rules are checked here, against the vault, before anything is written. A note gains a
- * `coach_id` the first time a session covers it, a concept note's `climb:` summary is
- * set from the evidence the session adds, and an Elaboration appends the learner's
- * answers under `## My elaborations`, all in the same preview and the same write. Only
- * notes under `3.Resources` outside `0.Raw` can be sparred (ADR-KI-0060), and no write
- * ever overwrites an existing file.
- */
-
 import { readFileSync } from "node:fs";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
@@ -21,17 +9,17 @@ import { PARA_FOLDERS } from "./para.js";
 import type { VaultNote } from "./scan.js";
 
 export interface SessionItemInput {
-  /** The note, by vault-relative path or by coach_id; exactly one. */
+
   note?: string;
   coach_id?: string;
-  /** Spar: the challenge put. Generate: the prompt shown before the reveal. Built by the vault for Elaborate and Teach. */
+
   challenge?: string;
-  /** Spar: the user's answer. Generate: the attempt. Built by the vault for Elaborate and Teach. */
+
   answer?: string;
-  /** Spar and Teach only. */
+
   verdict?: Verdict;
   gaps?: string[];
-  /** Required for Spar and Teach; optional for Generate and Elaborate. */
+
   next_review?: string;
   generate?: { attempted_at: string; revealed_at: string; idk?: boolean; marks: { assertion: string; mark: AssertionMark; correction?: string }[] };
   elaborate?: { answers: { kind: Elaboration["kind"]; question: string; answer: string; links?: string[]; named?: string }[] };
@@ -39,10 +27,10 @@ export interface SessionItemInput {
 }
 
 export interface RecordSessionInput {
-  /** Defaults to "spar". */
+
   kind?: SessionKind;
   tier: Tier;
-  /** YYYY-MM-DD; defaults to the clock's local date. */
+
   date?: string;
   items: SessionItemInput[];
 }
@@ -55,18 +43,18 @@ export interface NoteChange {
 
 export interface RecordPlan {
   errors: string[];
-  /** What the session records but that does not count, e.g. a reveal before the attempt. */
+
   warnings: string[];
   record: SessionRecord | null;
-  /** Vault-relative path the session file would be written to. */
+
   sessionFile: string | null;
-  /** Notes that gain a coach_id, with the id each would get. */
+
   newIds: { path: string; coach_id: string }[];
-  /** Concept notes whose `climb:` summary the session changes, with the steps it would hold. */
+
   climbs: { path: string; climb: Record<string, string | null> }[];
-  /** Concept notes that gain a dated block under `## My elaborations`, with its text. */
+
   elaborations: { path: string; text: string }[];
-  /** Every note edit, with the note as planned against. */
+
   changes: NoteChange[];
 }
 
@@ -77,7 +65,7 @@ export interface RecordContext {
   now: Date;
   newSessionId: () => string;
   newCoachId: () => string;
-  /** True when a vault-relative path already exists. */
+
   exists: (rel: string) => boolean;
 }
 
@@ -90,7 +78,6 @@ const CAUSAL = /\b(because|so that|otherwise|therefore|since|which means|that me
 const iso = (s: unknown) => typeof s === "string" && !Number.isNaN(Date.parse(s));
 const strings = (xs: unknown) => Array.isArray(xs) && xs.every(x => typeof x === "string");
 
-/** The text a concept note holds that an answer must not copy: body, assertions and quotes. */
 function noteText(note: VaultNote): string {
   const c = conceptOf(note);
   return [note.body, ...(c?.fields.coreAssertions ?? []), ...(c?.fields.passages.map(p => p.quote) ?? [])].join("\n");
@@ -113,7 +100,6 @@ function renderElaborations(date: string, answers: Elaboration[]): string {
   return lines.join("\n");
 }
 
-/** The note's content with a dated block added at the end of its `## My elaborations` section, created when missing. */
 export function appendElaborations(content: string, block: string): string {
   const nl = content.includes("\r\n") ? "\r\n" : "\n";
   const lines = content.split(/\r?\n/);
@@ -302,7 +288,6 @@ export function planSession(input: RecordSessionInput, ctx: RecordContext): Reco
   if (ctx.exists(sessionFile)) errors.push(`${sessionFile} already exists`);
   if (errors.length) return empty();
 
-  // The notes as they will be once the ids are in, and every concept note the session's evidence reaches.
   const idOf = new Map(newIds.map(x => [x.path, x.coach_id]));
   const after = ctx.notes.map(n => (idOf.has(n.path) ? { ...n, coachId: idOf.get(n.path)! } : n));
   const sessions = [...ctx.sessions, record];
@@ -336,11 +321,6 @@ export function planSession(input: RecordSessionInput, ctx: RecordContext): Reco
 
 export const stepDates = (steps: ClimbSteps) => Object.fromEntries(CLIMB_STEPS.map(s => [s, steps[s]?.date ?? null]));
 
-/**
- * Write a clean plan: the note edits first, then the session file. Each note is re-read
- * just before its edit, so a note changed since the plan is refused rather than
- * overwritten.
- */
 export async function executeSession(root: string, plan: RecordPlan): Promise<void> {
   if (plan.errors.length || !plan.record || !plan.sessionFile) throw new Error("refusing to write a plan with errors");
   for (const { path, original, content } of plan.changes) {

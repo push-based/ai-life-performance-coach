@@ -1,10 +1,3 @@
-/**
- * Filing (ADR-KI-0058 Decisions 4, 8 and 9): bring a vault onto the five PARA folders,
- * capture into the inbox, file a note, archive a project. Every operation is a plan
- * first; `execute` applies a plan that has no errors and no collisions, and nothing is
- * ever moved onto an existing path, and no filing operation edits a note's content.
- */
-
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { link, mkdir, readdir, rename, rmdir, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
@@ -25,28 +18,28 @@ export type FilingAction =
 
 export interface FilingPlan {
   actions: FilingAction[];
-  /** Targets that already exist; any collision blocks execution. */
+
   collisions: string[];
   errors: string[];
-  /** Things the plan leaves alone or cannot fix, worth showing the user. */
+
   warnings: string[];
-  /** Content for `write` actions, by target path. */
+
   contents?: Record<string, string>;
-  /** `archive_project` only: notes in the project that look worth keeping in Resources. */
+
   suggestions?: KeepSuggestion[];
 }
 
 export interface KeepSuggestion {
   path: string;
-  /** Where it would go: 3.Resources/Concepts for a concept note, else 3.Resources/<project>. */
+
   to: string;
   reasons: string[];
 }
 
 export interface ArchiveOptions {
-  /** Notes to move into Resources instead of the archive; `to` defaults to the suggested folder. */
+
   keep?: { note: string; to?: string }[];
-  /** Keep every suggested note at its suggested folder. */
+
   keepSuggested?: boolean;
 }
 
@@ -65,26 +58,18 @@ const dirsIn = (abs: string) => {
 };
 const bucketOfAlias = (name: string) => PARA_BUCKETS.find(b => ALIAS[b].test(name)) ?? null;
 
-/** Where a pre-rename path lands after the plan's renames. */
 function mapThrough(renames: { from: string; to: string }[], p: string): string {
   const r = renames.find(r => p === r.from || p.startsWith(`${r.from}/`));
   return r ? r.to + p.slice(r.from.length) : p;
 }
 
-/** Where a post-rename path is on disk today. */
 function unmap(renames: { from: string; to: string }[], p: string): string {
   const r = renames.find(r => p === r.to || p.startsWith(`${r.to}/`));
   return r ? r.from + p.slice(r.to.length) : p;
 }
 
-/**
- * `init_vault`: rename folders that are PARA folders under another name (including the
- * five nested in a `PARA/` folder), create the missing ones, then move every note
- * outside them into `4.Archive/old notes/`, keeping its relative path. `Coach/` and
- * `Plans/` (ADR-KI-0062) stay where they are.
- */
 export interface InitOptions {
-  /** Areas to create as `2.Areas/<Name>.md` when no area of that name exists (ADR-KI-0062 Decision 4). */
+
   areas?: string[];
 }
 
@@ -122,8 +107,6 @@ export async function planInit(root: string, opts: InitOptions = {}): Promise<Fi
     else plan.actions.push({ op: "move", from: n.after, to });
   }
 
-  // Top-level folders that hold nothing but the notes being moved are removed once empty;
-  // anything else stays where it is and is named.
   const movingSet = new Set(moving.map(n => n.after));
   const stays: string[] = [];
   const walk = (rel: string): boolean => {
@@ -148,13 +131,6 @@ export async function planInit(root: string, opts: InitOptions = {}): Promise<Fi
   return plan;
 }
 
-/**
- * The ADR-KI-0062 Decision 14 part of `init_vault`: `Plans/`, its level folders and the
- * five templates in `Plans/Templates/` when missing, day plans moved into their month's
- * folder (ADR-KI-0067), missing project notes, and the areas
- * asked for. Project notes are written only under a `1.Projects` folder that already
- * exists under its own name.
- */
 function planPlanningLayout(root: string, plan: FilingPlan, renames: { from: string; to: string }[], opts: InitOptions): void {
   const contents = (plan.contents ??= {});
   const planned = new Set(plan.actions.flatMap(a => ("to" in a ? [a.to] : [])));
@@ -201,7 +177,7 @@ function planPlanningLayout(root: string, plan: FilingPlan, renames: { from: str
     const name = safeName(raw);
     if (!name) { plan.errors.push(`area name "${raw}" is empty once characters Obsidian forbids are removed`); continue; }
     const to = posix.join(areasRoot, `${name}.md`);
-    // Seen through the planned renames: an `Areas/` folder about to become `2.Areas` already holds its notes.
+
     if (existsSync(join(root, unmap(renames, to))) || existsSync(join(root, unmap(renames, posix.join(areasRoot, name)))) || planned.has(to)) continue;
     if (!existsSync(join(root, areasRoot)) && !plan.actions.some(a => a.op === "create" && a.to === areasRoot) && !renames.some(r => r.to === areasRoot)) {
       plan.actions.push({ op: "create", to: areasRoot });
@@ -218,13 +194,11 @@ function readdirOrEmpty(abs: string): string[] {
 
 const UNSAFE = /[\\/:*?"<>|#^[\]]/g;
 
-/** A file or folder name Obsidian accepts, or null when nothing usable is left. */
 export function safeName(name: string): string | null {
   const s = name.replace(UNSAFE, "-").replace(/\s+/g, " ").trim().replace(/^\.+/, "");
   return /[^\s-]/.test(s) ? s : null;
 }
 
-/** `capture`: a new note in `0.Inbox`, named from its title. */
 export function planCapture(root: string, title: string, body: string): FilingPlan {
   const plan = empty();
   const name = safeName(title);
@@ -237,7 +211,6 @@ export function planCapture(root: string, title: string, body: string): FilingPl
   return plan;
 }
 
-/** Relative markdown links that a move would break, in the note and pointing at it. */
 function brokenByMove(notes: VaultNote[], from: string, to: string): string[] {
   const before = noteResolver(notes);
   const after = noteResolver(notes, { from, to });
@@ -253,7 +226,6 @@ function brokenByMove(notes: VaultNote[], from: string, to: string): string[] {
   return out;
 }
 
-/** `file_note`: move one note into a folder under one of the five PARA folders. */
 export function planFileNote(root: string, notes: VaultNote[], path: string, toFolder: string): FilingPlan {
   const plan = empty();
   const note = notes.find(n => n.path === path);
@@ -274,15 +246,10 @@ export function planFileNote(root: string, notes: VaultNote[], path: string, toF
   return plan;
 }
 
-/**
- * Notes in a finished project that are knowledge rather than project work (ADR-KI-0058
- * Open Question 3): a concept note, a note with sparring history, one that cites raw
- * material, or one that notes outside the project link to.
- */
 export function keepSuggestions(notes: VaultNote[], project: string): KeepSuggestion[] {
   const folder = posix.join(PARA_FOLDERS.projects, project);
   const inside = (p: string) => p.startsWith(`${folder}/`);
-  // Intermediate Packets move to Resources on their own (ADR-KI-0062 Decision 13).
+
   const packet = (p: string) => p.startsWith(`${posix.join(folder, PACKETS_FOLDER)}/`);
   const resolver = noteResolver(notes);
   const byPath = new Map(notes.map(n => [n.path, n]));
@@ -307,15 +274,8 @@ export function keepSuggestions(notes: VaultNote[], project: string): KeepSugges
   return out;
 }
 
-/** Where an archived project's Intermediate Packets go (ADR-KI-0062 Decision 13). */
 export const RESOURCE_PACKETS = posix.join(PARA_FOLDERS.resources, PACKETS_FOLDER);
 
-/**
- * `archive_project`: move one project folder whole into `4.Archive/`. Its Intermediate
- * Packets move first, to `3.Resources/Intermediate Packets/<project>/`, keeping their
- * links to the archived project. The preview suggests notes worth keeping; any kept note
- * moves into Resources first.
- */
 export function planArchiveProject(root: string, project: string, notes: VaultNote[] = [], opts: ArchiveOptions = {}): FilingPlan {
   const plan = empty();
   if (!project || project.includes("/") || project.includes("\\") || isHidden(project) || project === "..") {
@@ -354,7 +314,7 @@ export function planArchiveProject(root: string, project: string, notes: VaultNo
     const broken = brokenByMove(notes, k.note, target);
     if (broken.length) plan.warnings.push(`relative markdown links that will no longer resolve: ${broken.join("; ")}`);
   }
-  // Every file kept: nothing is left to archive, so the empty project folder goes.
+
   const leaves = (f: string) => kept.has(posix.join(from, f)) || (hasPackets && posix.join(from, f).startsWith(`${packetsFrom}/`));
   if ((kept.size || hasPackets) && filesUnder(abs).every(leaves)) {
     plan.actions.push({ op: "remove_empty", from });
@@ -366,14 +326,12 @@ export function planArchiveProject(root: string, project: string, notes: VaultNo
   return plan;
 }
 
-/** Files under a folder, relative to it, ignoring dot-files. */
 function filesUnder(abs: string, rel = ""): string[] {
   let entries;
   try { entries = readdirSync(join(abs, rel), { withFileTypes: true }); } catch { return []; }
   return entries.filter(e => !isHidden(e.name)).flatMap(e => (e.isDirectory() ? filesUnder(abs, posix.join(rel, e.name)) : [posix.join(rel, e.name)]));
 }
 
-/** Move a file without ever replacing one: link fails if the target exists. */
 async function moveFileNoClobber(src: string, dst: string): Promise<void> {
   await mkdir(dirname(dst), { recursive: true });
   await link(src, dst);
@@ -391,7 +349,7 @@ async function removeIfEmpty(abs: string): Promise<void> {
     if (e.isDirectory()) await removeIfEmpty(join(abs, e.name));
     else if (e.name === ".DS_Store") await unlink(join(abs, e.name));
   }
-  try { await rmdir(abs); } catch { /* not empty: something was added since the preview; leave it */ }
+  await rmdir(abs).catch(() => undefined);
 }
 
 export async function executeFiling(root: string, plan: FilingPlan): Promise<void> {

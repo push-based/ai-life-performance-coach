@@ -1,10 +1,3 @@
-/**
- * Sparring sessions (ADR-KI-0058 Decision 6): one markdown file per session under
- * `Coach/sessions/`. The file is readable in Obsidian, but the record of truth is the
- * single `json coach-session` fence at its end; the prose above it is rendered from
- * that record and never read back.
- */
-
 import { readdir, readFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 import { yamlString } from "./md.js";
@@ -14,23 +7,21 @@ export const SESSIONS_DIR = posix.join(COACH_ROOT, "sessions");
 
 export type Tier = 1 | 2;
 export type Verdict = "pass" | "fail";
-/** Generate and Elaborate are not graded (ADR-KI-0068 Decisions 5 and 7). */
+
 export type ItemVerdict = Verdict | "ungraded";
 
-/** What a session practised (ADR-KI-0068): version 1 files are all sparring. */
 export const SESSION_KINDS = ["spar", "generate", "elaborate", "teach"] as const;
 export type SessionKind = (typeof SESSION_KINDS)[number];
 
 export type AssertionMark = "got it" | "wrong" | "missed";
 
-/** A Generate attempt: the guess, saved before the answer was shown, and its correction. */
 export interface GenerateDetail {
-  /** ISO timestamps; the attempt counts only when it came first. */
+
   attempted_at: string;
   revealed_at: string;
-  /** The learner answered /idk instead of guessing. */
+
   idk: boolean;
-  /** One mark per core assertion (or, on a chapter, per point the learner checked). */
+
   marks: { assertion: string; mark: AssertionMark; correction?: string }[];
 }
 
@@ -41,9 +32,9 @@ export interface Elaboration {
   kind: ElaborationKind;
   question: string;
   answer: string;
-  /** Vault-relative paths of the notes the answer links. */
+
   links: string[];
-  /** A named thing from the learner's own work (connect) or a concrete place to use it (apply). */
+
   named?: string;
 }
 
@@ -54,24 +45,24 @@ export interface TeachTurn {
 
 export interface TeachDetail {
   turns: TeachTurn[];
-  /** The student's one misconception: which core assertion it inverts, and how it was put. */
+
   misconception: { assertion: number; text: string };
   misconception_corrected: boolean;
-  /** Terms the learner used and never defined for the student. */
+
   unresolved_terms: string[];
 }
 
 export interface SessionItem {
-  /** Null only for a Generate attempt on a raw chapter, which carries no coach_id. */
+
   coach_id: string | null;
-  /** Where the note was when the session was recorded; informational, never used to resolve. */
+
   note_path: string;
   title: string;
   challenge: string;
   answer: string;
   verdict: ItemVerdict;
   gaps: string[];
-  /** Consumer-supplied, YYYY-MM-DD; null when the attempt schedules no review. */
+
   next_review: string | null;
   generate?: GenerateDetail;
   elaborate?: { answers: Elaboration[] };
@@ -80,13 +71,13 @@ export interface SessionItem {
 
 export interface SessionRecord {
   version: 1 | 2;
-  /** Version 1 records are read as "spar". */
+
   kind: SessionKind;
   session_id: string;
   tier: Tier;
-  /** YYYY-MM-DD. */
+
   date: string;
-  /** ISO timestamp; orders sessions recorded on the same date. */
+
   recorded_at: string;
   items: SessionItem[];
 }
@@ -176,7 +167,6 @@ function checkRecord(v: unknown): SessionRecord {
   return r;
 }
 
-/** The record in a session file: the last `json coach-session` fence. */
 export function parseSession(content: string): SessionRecord {
   const fences = [...content.replace(/\r\n/g, "\n").matchAll(FENCE)];
   if (!fences.length) throw new Error("no json coach-session block");
@@ -189,17 +179,12 @@ export function parseSession(content: string): SessionRecord {
   return checkRecord(parsed);
 }
 
-/**
- * Sessions in the order they happened for the learner: by their date, which the caller
- * sets and may be another day than the clock's, then by when they were recorded, then by id.
- */
 export function bySessionDate(a: SessionRecord, b: SessionRecord): number {
   if (a.date !== b.date) return a.date < b.date ? -1 : 1;
   if (a.recorded_at !== b.recorded_at) return a.recorded_at < b.recorded_at ? -1 : 1;
   return a.session_id < b.session_id ? -1 : a.session_id > b.session_id ? 1 : 0;
 }
 
-/** Every session in the vault, oldest first by date, plus the files that could not be read as one. */
 export async function loadSessions(root: string): Promise<{ sessions: SessionRecord[]; invalid: InvalidSession[] }> {
   let names: string[];
   try {
