@@ -78,6 +78,8 @@ cp .mcp.example.json .mcp.json
 
 Replace the two placeholders with absolute paths (`~` is not expanded here): the vault server, `packages/vault-server/dist/main.js` in this checkout, and your vault. Keep the server name `life-vault`. The [planning skills guide](../../.claude/skills/README.md#set-it-up) has the details.
 
+The example also has a second server, `ai-coach-kb`, which serves the project's [decision records](glossary.md#decision-record) to agents. It's for contributors and needs the docs-mcp engine (see [Contributing](../../CONTRIBUTING.md#decision-records)). If you only plan, delete that entry, or Claude Code reports a server that fails to start.
+
 ## 6. Check that everything is connected
 
 ```sh
