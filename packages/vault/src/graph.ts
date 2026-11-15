@@ -1,7 +1,7 @@
-import { posix } from "node:path";
-import { LinkResolver } from "./links.js";
-import type { ParaBucket } from "./para.js";
-import type { VaultNote } from "./scan.js";
+import { posix } from 'node:path';
+import { LinkResolver } from './links.js';
+import type { ParaBucket } from './para.js';
+import type { VaultNote } from './scan.js';
 
 export interface VaultGraphNode {
   id: string;
@@ -15,7 +15,7 @@ export interface VaultGraphNode {
 export interface VaultGraphEdge {
   source: string;
   target: string;
-  kind: "wikilink" | "markdown";
+  kind: 'wikilink' | 'markdown';
 }
 
 export interface VaultGraph {
@@ -27,22 +27,35 @@ export interface VaultGraph {
 
 function aliasesOf(n: VaultNote): string[] {
   const a = n.frontmatter.aliases;
-  return (Array.isArray(a) ? a : [a]).filter((x): x is string => typeof x === "string" && x.trim() !== "");
+  return (Array.isArray(a) ? a : [a]).filter(
+    (x): x is string => typeof x === 'string' && x.trim() !== '',
+  );
 }
 
-export function noteResolver(notes: VaultNote[], rename?: { from: string; to: string }): LinkResolver {
+export function noteResolver(
+  notes: VaultNote[],
+  rename?: { from: string; to: string },
+): LinkResolver {
   const at = (p: string) => (rename && p === rename.from ? rename.to : p);
   return new LinkResolver(
-    notes.map(n => at(n.path)),
-    notes.filter(n => n.convertedFrom).map(n => [at(n.path), posix.join(posix.dirname(at(n.path)), n.convertedFrom!), n.pageRange ?? undefined]),
-    notes.flatMap(n => aliasesOf(n).map(a => [at(n.path), a] as [string, string])),
+    notes.map((n) => at(n.path)),
+    notes
+      .filter((n) => n.convertedFrom)
+      .map((n) => [
+        at(n.path),
+        posix.join(posix.dirname(at(n.path)), n.convertedFrom!),
+        n.pageRange ?? undefined,
+      ]),
+    notes.flatMap((n) =>
+      aliasesOf(n).map((a) => [at(n.path), a] as [string, string]),
+    ),
   );
 }
 
 export function buildVaultGraph(notes: VaultNote[]): VaultGraph {
   const resolver = noteResolver(notes);
   const edges: VaultGraphEdge[] = [];
-  const unresolved: VaultGraph["unresolved"] = [];
+  const unresolved: VaultGraph['unresolved'] = [];
   const seen = new Set<string>();
 
   for (const n of notes) {
@@ -60,7 +73,14 @@ export function buildVaultGraph(notes: VaultNote[]): VaultGraph {
   }
 
   return {
-    nodes: notes.map(n => ({ id: n.path, title: n.title, bucket: n.bucket, container: n.container, raw: n.raw, coachId: n.coachId })),
+    nodes: notes.map((n) => ({
+      id: n.path,
+      title: n.title,
+      bucket: n.bucket,
+      container: n.container,
+      raw: n.raw,
+      coachId: n.coachId,
+    })),
     edges,
     unresolved,
   };

@@ -1,20 +1,55 @@
-import type { ToolDef } from "../tool-types.js";
-import type { Vault } from "@ai-coach/vault/vault.js";
+import type { ToolDef } from '../tool-types.js';
+import type { Vault } from '@ai-coach/vault/vault.js';
 
-import { listNotesTool } from "./vault/list-notes.js";
-import { readNoteTool } from "./vault/read-note.js";
-import { searchNotesTool } from "./vault/search-notes.js";
-import { vaultGraphTool } from "./vault/vault-graph.js";
-import { dueForReviewTool } from "./vault/due-for-review.js";
-import { tier2PayloadTool } from "./vault/tier2-payload.js";
-import { recordSessionTool } from "./vault/record-session.js";
-import { initVaultTool, captureTool, fileNoteTool, archiveProjectTool } from "./vault/filing-tools.js";
-import { listRawTool, convertRawTool } from "./vault/raw-tools.js";
-import { findPassagesTool, markedPassagesTool, createConceptTool } from "./vault/concept-tools.js";
-import { readingProgressTool, markReadTool, writeSummaryTool } from "./vault/reading-tools.js";
-import { planningOverviewTool, planPeriodTool, planDaysTool, rollOverTool, reviewPeriodTool, harvestWorkstreamTool } from "./vault/planning-tools.js";
-import { climbTool, rebuildClimbTool, addReadingNotesTool, writeStructureTool, listTopicsTool, saveGuidelineTool, extendConceptTool } from "./vault/climb-tools.js";
-import { updateTaskTool, addTasksTool, addHabitsTool, setFrontmatterTool, editNoteTool, createWorkstreamTool } from "./vault/note-edit-tools.js";
+import { listNotesTool } from './vault/list-notes.js';
+import { readNoteTool } from './vault/read-note.js';
+import { searchNotesTool } from './vault/search-notes.js';
+import { vaultGraphTool } from './vault/vault-graph.js';
+import { dueForReviewTool } from './vault/due-for-review.js';
+import { tier2PayloadTool } from './vault/tier2-payload.js';
+import { recordSessionTool } from './vault/record-session.js';
+import {
+  initVaultTool,
+  captureTool,
+  fileNoteTool,
+  archiveProjectTool,
+} from './vault/filing-tools.js';
+import { listRawTool, convertRawTool } from './vault/raw-tools.js';
+import {
+  findPassagesTool,
+  markedPassagesTool,
+  createConceptTool,
+} from './vault/concept-tools.js';
+import {
+  readingProgressTool,
+  markReadTool,
+  writeSummaryTool,
+} from './vault/reading-tools.js';
+import {
+  planningOverviewTool,
+  planPeriodTool,
+  planDaysTool,
+  rollOverTool,
+  reviewPeriodTool,
+  harvestWorkstreamTool,
+} from './vault/planning-tools.js';
+import {
+  climbTool,
+  rebuildClimbTool,
+  addReadingNotesTool,
+  writeStructureTool,
+  listTopicsTool,
+  saveGuidelineTool,
+  extendConceptTool,
+} from './vault/climb-tools.js';
+import {
+  updateTaskTool,
+  addTasksTool,
+  addHabitsTool,
+  setFrontmatterTool,
+  editNoteTool,
+  createWorkstreamTool,
+} from './vault/note-edit-tools.js';
 
 export function createVaultTools(vault: Vault): ToolDef[] {
   return [

@@ -11,6 +11,9 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false
   },
-  "angularCompilerOptions": { "strictTemplates": true, "strictInjectionParameters": true },
+  "angularCompilerOptions": {
+    "strictTemplates": true,
+    "strictInjectionParameters": true
+  },
   "files": ["app/main.ts"]
 }

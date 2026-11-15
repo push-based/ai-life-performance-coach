@@ -1,4 +1,4 @@
-import type { z, ZodRawShape } from "zod";
+import type { z, ZodRawShape } from 'zod';
 
 export interface ToolAnnotations {
   title?: string;
@@ -10,7 +10,7 @@ export interface ToolAnnotations {
 
 export interface ToolResult {
   [key: string]: unknown;
-  content: Array<{ type: "text"; text: string }>;
+  content: Array<{ type: 'text'; text: string }>;
   isError?: boolean;
 }
 

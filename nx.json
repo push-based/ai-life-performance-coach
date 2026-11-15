@@ -1,10 +1,7 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "namedInputs": {
-    "default": [
-      "{projectRoot}/**/*",
-      "sharedGlobals"
-    ],
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "production": [
       "default",
       "!{projectRoot}/**/?(*.)+(spec|test).[jt]s?(x)?(.snap)",
@@ -28,9 +25,7 @@
           "watchDepsName": "watch-deps"
         }
       },
-      "exclude": [
-        "apps/climb-board/**"
-      ]
+      "exclude": ["apps/climb-board/**"]
     },
     {
       "plugin": "@nx/vitest",
@@ -51,9 +46,7 @@
   "analytics": true,
   "targetDefaults": {
     "test": {
-      "dependsOn": [
-        "^build"
-      ]
+      "dependsOn": ["^build"]
     }
   }
 }
