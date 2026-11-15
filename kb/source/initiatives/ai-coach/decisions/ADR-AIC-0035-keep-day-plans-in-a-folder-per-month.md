@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0035
 title: 'Keep day plans in a folder per month'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0035']

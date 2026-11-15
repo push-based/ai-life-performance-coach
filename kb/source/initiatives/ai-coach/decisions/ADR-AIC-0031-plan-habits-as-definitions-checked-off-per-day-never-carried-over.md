@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0031
 title: 'Plan habits as definitions checked off per day, never carried over'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-02
 aliases: ['ADR-0031']

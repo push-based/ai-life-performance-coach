@@ -9,7 +9,7 @@ What stays on your machine, what leaves it, and how that's enforced.
 ## In detail
 
 - **Sparring, studying and synthesizing stay local.** Gemma runs through Ollama on your machine, and ai-coach refuses any Ollama host that isn't `http` on `127.0.0.1`, `localhost` or `::1`.
-- **Only `coach judge` goes online.** For each question it sends Gemini the question and your answer, plus the idea's [core assertions](glossary.md#core-assertion). To keep the assertions private too, set:
+- **Only `coach judge` goes online.** For each question it sends Gemini the question, your answer and the [coaching style](coaching-styles.md) you sparred in, plus the idea's [core assertions](glossary.md#core-assertion). To keep the assertions private too, set:
 
   ```json
   { "judge": { "includeAssertions": false } }
@@ -23,4 +23,4 @@ What stays on your machine, what leaves it, and how that's enforced.
 
 ## Why it's built this way
 
-[ADR-AIC-0021](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0021-the-judge-may-see-core-assertions.md) records what the judge may see, and [ADR-AIC-0002](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0002-two-tier-coach-offline-gemma-and-zero-knowledge-gemini.md) why the coach has two tiers at all.
+[ADR-AIC-0025](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0025-judge-each-answer-by-the-style-it-was-sparred-in.md) records what the judge may see, and [ADR-AIC-0002](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0002-two-tier-coach-offline-gemma-and-zero-knowledge-gemini.md) why the coach has two tiers at all.

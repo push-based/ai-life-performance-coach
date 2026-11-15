@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0047
 title: 'Count Retrieve only on a pass, and open Teach after spaced passes in two coaching styles'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-11
 aliases: ['ADR-0047']

@@ -2,9 +2,10 @@
 doc_type: adr
 id: ADR-AIC-0016
 title: 'Check each Tier 1 gap against the transcript before it stands'
-status: accepted
+status: superseded
 initiative: ai-coach
 date: 2026-10-24
+succeeded_by: ['ADR-AIC-0024']
 aliases: ['ADR-0016']
 tags: []
 links: ['ADR-AIC-0005', 'ADR-AIC-0014', 'ADR-AIC-0017']

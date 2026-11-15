@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0032
 title: 'Publish the docs with Docusaurus, built from the Markdown where it lives'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-04
 aliases: ['ADR-0032']

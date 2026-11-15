@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0033
 title: 'Write commit messages as Conventional Commits, checked in pull requests'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-04
 aliases: ['ADR-0033']

@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0043
 title: 'Read a chapter page by page in the terminal, and write down what resonates'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0043']

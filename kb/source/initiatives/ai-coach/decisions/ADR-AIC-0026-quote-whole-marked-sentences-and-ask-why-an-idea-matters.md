@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0026
 title: 'Quote whole marked sentences, ask why an idea matters, and never repeat a study quote'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-10-25
 aliases: ['ADR-0026']

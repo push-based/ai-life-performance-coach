@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0038
 title: 'Review a new idea the next day, and mix topics in the due queue'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0038']

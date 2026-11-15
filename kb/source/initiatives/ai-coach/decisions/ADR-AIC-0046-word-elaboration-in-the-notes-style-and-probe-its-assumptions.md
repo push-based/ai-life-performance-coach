@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0046
 title: "Word Elaborate in the note's coaching style, and probe the reasons and assumptions behind each answer"
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-10
 aliases: ['ADR-0046']

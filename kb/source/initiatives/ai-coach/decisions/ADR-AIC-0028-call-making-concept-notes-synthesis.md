@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0028
 title: 'Call making concept notes synthesis, and keep distillation for marking'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-10-27
 aliases: ['ADR-0028']

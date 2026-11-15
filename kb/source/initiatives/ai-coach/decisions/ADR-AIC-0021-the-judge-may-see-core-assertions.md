@@ -2,9 +2,10 @@
 doc_type: adr
 id: ADR-AIC-0021
 title: 'Only the Tier 2 payload leaves the machine, and it may carry core assertions'
-status: accepted
+status: superseded
 initiative: ai-coach
 date: 2026-10-24
+succeeded_by: ['ADR-AIC-0025']
 aliases: ['ADR-0021']
 tags: []
 links: ['ADR-AIC-0002', 'ADR-AIC-0005', 'ADR-AIC-0006', 'ADR-AIC-0010', 'ADR-AIC-0018']

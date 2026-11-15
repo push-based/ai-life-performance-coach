@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0039
 title: 'Open a concept round with free recall, behind an option'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0039']

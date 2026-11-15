@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0037
 title: 'Track the climb of seven learning steps on each concept note'
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0037']

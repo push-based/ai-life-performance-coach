@@ -2,7 +2,7 @@
 doc_type: adr
 id: ADR-AIC-0042
 title: "Group a book's concepts into the learner's own layers, with embedded questions"
-status: draft
+status: accepted
 initiative: ai-coach
 date: 2026-11-09
 aliases: ['ADR-0042']
