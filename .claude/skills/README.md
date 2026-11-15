@@ -90,7 +90,7 @@ To view your plans in a browser, run `npm run coach -- view` and open http://127
 
 ## The planning model
 
-The model was decided while the vault server lived in a branch of kb-template, in ADR-KI-0062, 0064 and 0065, which aren't public (see ADR-0048). In short:
+The model was decided while the vault server lived in a branch of kb-template, in ADR-KI-0062, 0064 and 0065, kept in `kb/` (see ADR-AIC-0049). In short:
 
 | Thing          | Where in the vault                                                                                | Is                                                                         |
 | -------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -163,7 +163,7 @@ To keep your own rules out of a public fork, add `.claude/skills/vault-planning/
 
 Each `SKILL.md` has a frontmatter `description` (when Claude should use it), an `argument-hint`, and `allowed-tools` (the read tools it may call without asking). Each one starts by reading `vault-planning`, then walks through numbered steps with explicit **Ask** points where it stops for you.
 
-The decisions behind them are [ADR-0029](../../docs/adr/0029-plan-the-vault-with-agent-skills-through-the-vault-tools-only.md) (skills, not CLI commands, and the vault only through the server), [ADR-0030](../../docs/adr/0030-plan-the-vault-with-the-full-set-of-vault-planning-tools.md) (the full tool set and passing versions back) and [ADR-0031](../../docs/adr/0031-plan-habits-as-definitions-checked-off-per-day-never-carried-over.md) (habits checked off per day).
+The decisions behind them are [ADR-AIC-0029](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0029-plan-the-vault-with-agent-skills-through-the-vault-tools-only.md) (skills, not CLI commands, and the vault only through the server), [ADR-AIC-0030](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0030-plan-the-vault-with-the-full-set-of-vault-planning-tools.md) (the full tool set and passing versions back) and [ADR-AIC-0031](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0031-plan-habits-as-definitions-checked-off-per-day-never-carried-over.md) (habits checked off per day).
 
 To change a skill, edit its `SKILL.md`. If a change to the vault server changes a tool's arguments, update `vault-planning/tools.md` in the same commit: every skill relies on it.
 

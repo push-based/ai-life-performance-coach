@@ -1,14 +1,17 @@
 ---
-id: ADR-0012
+doc_type: adr
+id: ADR-AIC-0012
 title: 'Spar book chapters, never the book index'
 status: superseded
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: ['ADR-0018']
-links: ['ADR-0003', 'ADR-0005', 'ADR-0013']
+succeeded_by: ['ADR-AIC-0018']
+aliases: ['ADR-0012']
+tags: []
+links: ['ADR-AIC-0003', 'ADR-AIC-0005', 'ADR-AIC-0013']
 ---
 
-# ADR-0012: Spar book chapters, never the book index
+# ADR-AIC-0012: Spar book chapters, never the book index
 
 ## Context
 
@@ -28,5 +31,5 @@ Before this, ai-coach would have offered a whole book as one note and sent all o
 
 - `coach due` lists each chapter on its own; a 27-unit book adds 27 lines.
 - Mastery and the review ladder are per chapter, so a book is learned chapter by chapter.
-- A chapter part can be 20,000 characters, which needs Gemma's context window set explicitly (ADR-0013).
-- On the first real chapter, Gemma asked about a side anecdote rather than the chapter's core idea; the Tier 1 prompts need tuning for chapters (ADR-0005).
+- A chapter part can be 20,000 characters, which needs Gemma's context window set explicitly (ADR-AIC-0013).
+- On the first real chapter, Gemma asked about a side anecdote rather than the chapter's core idea; the Tier 1 prompts need tuning for chapters (ADR-AIC-0005).

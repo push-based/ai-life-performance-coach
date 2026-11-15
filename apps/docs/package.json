@@ -24,7 +24,8 @@
           "{workspaceRoot}/LICENSE",
           "{workspaceRoot}/packages/*/README.md",
           "{workspaceRoot}/.claude/skills/**/*.md",
-          "{workspaceRoot}/docs/adr/*.md",
+          "{workspaceRoot}/kb/README.md",
+          "{workspaceRoot}/kb/source/initiatives/ai-coach/decisions/*.md",
           {
             "externalDependencies": [
               "@docusaurus/core",

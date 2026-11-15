@@ -63,8 +63,8 @@ pre code {
   color: var(--adr-accepted);
 }
 
-.adr-status--proposed > .menu__link::after {
-  content: 'proposed';
+.adr-status--draft > .menu__link::after {
+  content: 'draft';
   color: var(--adr-proposed);
 }
 

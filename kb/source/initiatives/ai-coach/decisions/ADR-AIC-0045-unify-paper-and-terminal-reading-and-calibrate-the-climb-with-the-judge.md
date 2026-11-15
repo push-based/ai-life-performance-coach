@@ -1,33 +1,26 @@
 ---
-id: ADR-0045
+doc_type: adr
+id: ADR-AIC-0045
 title: 'Unify paper and terminal reading in synthesis, and guard the climb with the judge'
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-09
-supersedes: []
-superseded_by: []
-links:
-  [
-    'ADR-0002',
-    'ADR-0006',
-    'ADR-0023',
-    'ADR-0028',
-    'ADR-0037',
-    'ADR-0043',
-    'ADR-0044',
-  ]
+aliases: ['ADR-0045']
+tags: []
+links: ['ADR-AIC-0002', 'ADR-AIC-0006', 'ADR-AIC-0023', 'ADR-AIC-0028', 'ADR-AIC-0037', 'ADR-AIC-0043', 'ADR-AIC-0044']
 ---
 
-# ADR-0045: Unify paper and terminal reading in synthesis, and guard the climb with the judge
+# ADR-AIC-0045: Unify paper and terminal reading in synthesis, and guard the climb with the judge
 
 ## Context
 
-The learner reads a book in one of two ways. On paper: they add the chapter, write a first summary and reading notes, then bold and highlight in Obsidian (ADR-0028). In the terminal: `coach read` (ADR-0043) shows the chapter page by page and writes the learner's notes, kept quotes included, to a reading note through kb-template's `add_reading_notes`. Both should give `coach synthesize` (ADR-0023) the same material.
+The learner reads a book in one of two ways. On paper: they add the chapter, write a first summary and reading notes, then bold and highlight in Obsidian (ADR-AIC-0028). In the terminal: `coach read` (ADR-AIC-0043) shows the chapter page by page and writes the learner's notes, kept quotes included, to a reading note through kb-template's `add_reading_notes`. Both should give `coach synthesize` (ADR-AIC-0023) the same material.
 
 They did not. `Synthesizing.gather` read each of a book's notes as one 800-character block with no page, and `quotesFrom` took quotes only from bolds and highlights. A chapter read in the terminal, with no marks in the chapter file, gave synthesis no quotes, and the vault refuses a concept note without one. `add_reading_notes` writes each note as `- <date> · <text> — [[<chapter>#Page N|p. N]]`, and a kept quote as `“<text>” (quote)`; a kept quote shares six words in a row with the page, so it is not always the page word for word.
 
 Book lookup also differed: `coach synthesize` matched a title, folder or index in any case and named the known books, while `coach read` and `coach group` matched the folder or index only exactly.
 
-In the climb (ADR-0037), `coach spar` and `coach judge` (ADR-0002, ADR-0006) carry Retrieve and Space. `coach climb` did not say when a round waited for the judge, and `coach teach` (ADR-0044) opened on the vault's `climb.teach.ok` even when the judge had since failed the learner's latest round.
+In the climb (ADR-AIC-0037), `coach spar` and `coach judge` (ADR-AIC-0002, ADR-AIC-0006) carry Retrieve and Space. `coach climb` did not say when a round waited for the judge, and `coach teach` (ADR-AIC-0044) opened on the vault's `climb.teach.ok` even when the judge had since failed the learner's latest round.
 
 ## Decision
 

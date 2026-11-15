@@ -1,0 +1,260 @@
+{
+  "$schema": "https://unpkg.com/@docs-mcp/core@3/schema/docs-mcp.config.schema.json",
+  "version": 1,
+  "roots": {
+    "source": "source/initiatives",
+    "wiki": "wiki"
+  },
+  "types": {
+    "adr": {
+      "label": "ADR",
+      "id": {
+        "start": "ADR",
+        "form": "numbered"
+      },
+      "folder": "decisions",
+      "statuses": [
+        {
+          "name": "draft",
+          "live": true
+        },
+        {
+          "name": "accepted",
+          "live": true
+        },
+        {
+          "name": "rejected",
+          "live": false
+        },
+        {
+          "name": "superseded",
+          "live": false
+        }
+      ],
+      "template": {
+        "required": ["Context", "Decision", "Consequences"],
+        "optional": ["Alternatives Considered", "Open Questions", "Links", "Challenge"],
+        "aliases": {
+          "Alternatives": "Alternatives Considered"
+        },
+        "flagUnknown": true,
+        "maxLines": 250,
+        "summaryMaxSentences": 6,
+        "noQuestionsIn": ["Decision"]
+      }
+    },
+    "rfc": {
+      "label": "RFC",
+      "id": {
+        "start": "RFC",
+        "form": "numbered"
+      },
+      "folder": "proposals",
+      "statuses": [
+        {
+          "name": "open",
+          "live": true
+        },
+        {
+          "name": "resolved",
+          "live": false
+        },
+        {
+          "name": "rejected",
+          "live": false
+        }
+      ],
+      "template": {
+        "required": [
+          "Summary",
+          "Problem Statement",
+          "Goals",
+          "Non-Goals",
+          "Proposal",
+          "Tradeoffs",
+          "Rollout Plan",
+          "Risks",
+          "Open Questions"
+        ],
+        "optional": ["Alternatives Considered", "Links", "Rejection rationale"],
+        "aliases": {
+          "Problem / Current State": "Problem Statement",
+          "Rollout / Migration Plan": "Rollout Plan",
+          "Risks & Mitigations": "Risks"
+        },
+        "flagUnknown": true,
+        "maxLines": 250,
+        "summaryMaxSentences": 6,
+        "noQuestionsIn": []
+      }
+    },
+    "evidence": {
+      "label": "Evidence",
+      "id": {
+        "start": "EVID",
+        "form": "numbered"
+      },
+      "folder": "evidence",
+      "statuses": [
+        {
+          "name": "active",
+          "live": true
+        },
+        {
+          "name": "superseded",
+          "live": false
+        }
+      ],
+      "template": {
+        "required": ["What This Evidence Is", "Links"],
+        "optional": [
+          "How to Reproduce",
+          "Result",
+          "Interpretation",
+          "Techniques",
+          "When it applies & caveats",
+          "Source & Provenance"
+        ],
+        "aliases": {
+          "What this is": "What This Evidence Is",
+          "What This Reference Captures": "What This Evidence Is",
+          "What": "What This Evidence Is",
+          "Cross-references": "Links",
+          "Interpretation & Caveats": "Interpretation"
+        },
+        "flagUnknown": false,
+        "maxLines": 250,
+        "summaryMaxSentences": 6,
+        "noQuestionsIn": []
+      }
+    },
+    "charter": {
+      "label": "Charter",
+      "id": {
+        "start": "CHARTER",
+        "form": "fixed"
+      },
+      "folder": "context",
+      "statuses": [
+        {
+          "name": "active",
+          "live": true
+        },
+        {
+          "name": "superseded",
+          "live": false
+        }
+      ]
+    },
+    "context": {
+      "label": "Context",
+      "id": {
+        "start": "CONTEXT",
+        "form": "named"
+      },
+      "folder": "context",
+      "statuses": [
+        {
+          "name": "active",
+          "live": true
+        },
+        {
+          "name": "superseded",
+          "live": false
+        }
+      ]
+    },
+    "plan": {
+      "label": "Plan",
+      "id": {
+        "start": "PLAN",
+        "form": "named"
+      },
+      "folder": "plan",
+      "statuses": [
+        {
+          "name": "active",
+          "live": true
+        },
+        {
+          "name": "superseded",
+          "live": false
+        }
+      ]
+    },
+    "report": {
+      "label": "Report",
+      "id": {
+        "start": "RPT",
+        "form": "numbered"
+      },
+      "statuses": [
+        {
+          "name": "open",
+          "live": true
+        },
+        {
+          "name": "resolved",
+          "live": false
+        }
+      ]
+    }
+  },
+  "wiki": {
+    "types": {
+      "rule": {
+        "folder": "rules",
+        "intent": "enforce"
+      },
+      "guide": {
+        "folder": "guides",
+        "intent": "execute"
+      },
+      "context": {
+        "folder": "context",
+        "intent": "understand"
+      },
+      "initiative": {
+        "file": "overview.md",
+        "intent": "orient"
+      }
+    }
+  },
+  "search": {
+    "fields": [
+      {
+        "field": "title",
+        "tokenize": "forward",
+        "resolution": 9
+      },
+      {
+        "field": "id",
+        "tokenize": "strict",
+        "resolution": 5
+      },
+      {
+        "field": "summary",
+        "tokenize": "forward",
+        "resolution": 7
+      },
+      {
+        "field": "body",
+        "tokenize": "forward",
+        "resolution": 3
+      }
+    ],
+    "tagFields": ["initiative", "doc_type", "status", "provenance"],
+    "storeFields": ["title", "status", "initiative", "tags", "summary"],
+    "encoder": "LatinBalance",
+    "context": {
+      "depth": 2,
+      "resolution": 5,
+      "bidirectional": true
+    },
+    "cache": 100,
+    "suggest": true,
+    "retiredPenalty": 0.1,
+    "minScore": 0.15,
+    "wholeQueryWeight": 0.5
+  }
+}

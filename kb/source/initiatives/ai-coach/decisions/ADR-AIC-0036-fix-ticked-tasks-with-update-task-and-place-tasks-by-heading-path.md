@@ -1,18 +1,20 @@
 ---
-id: ADR-0036
+doc_type: adr
+id: ADR-AIC-0036
 title: 'Fix ticked tasks with update_task, and place tasks by heading path'
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-09
-supersedes: []
-superseded_by: []
-links: ['ADR-0030']
+aliases: ['ADR-0036']
+tags: []
+links: ['ADR-AIC-0030']
 ---
 
-# ADR-0036: Fix ticked tasks with update_task, and place tasks by heading path
+# ADR-AIC-0036: Fix ticked tasks with update_task, and place tasks by heading path
 
 ## Context
 
-The planning skills write the vault only through the life-vault tools (ADR-0030). In the week of 2026-11-02 four gaps turned into hand edits or retries. A ticked task's text could not be fixed, because `update_task` matched open tasks only. A preview's line number was refused when passed back as an address. `add_tasks` could not reach one of several sections with the same heading, and its previews did not show where a line would land. kb-template's ADR-KI-0066 closes these gaps.
+The planning skills write the vault only through the life-vault tools (ADR-AIC-0030). In the week of 2026-11-02 four gaps turned into hand edits or retries. A ticked task's text could not be fixed, because `update_task` matched open tasks only. A preview's line number was refused when passed back as an address. `add_tasks` could not reach one of several sections with the same heading, and its previews did not show where a line would land. kb-template's ADR-KI-0066 closes these gaps.
 
 ## Decision
 

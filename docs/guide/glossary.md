@@ -60,7 +60,7 @@ The online model (Gemini) that gives a second, stricter verdict on your sparring
 
 ## kb-template
 
-A separate, private documentation project by [Kirill](https://github.com/Karnaukhov-kh). The [vault server](#vault-server) was written for ai-coach in a branch of it, then moved into ai-coach in November 2026 (ADR-0048). Only three small files come from kb-template itself: see [Code from kb-template](../../README.md#code-from-kb-template). Decision records numbered ADR-KI, such as ADR-KI-0058, were written there and aren't public.
+A separate, private documentation project by [Kirill](https://github.com/Karnaukhov-kh). The [vault server](#vault-server) was written for ai-coach in a branch of it, then moved into ai-coach in November 2026 (ADR-AIC-0048). Only three small files come from kb-template itself: see [Code from kb-template](../../README.md#code-from-kb-template). Decision records numbered ADR-KI, such as ADR-KI-0058, were written there and moved here too (ADR-AIC-0049).
 
 ## PARA
 

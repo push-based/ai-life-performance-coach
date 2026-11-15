@@ -6,6 +6,8 @@ export const REPOSITORY = 'push-based/ai-performance-coach';
 export const BRANCH = 'main';
 export const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 
+export const ADR_DIR = 'kb/source/initiatives/ai-coach/decisions';
+
 export const INCLUDE = [
   'README.md',
   'ARCHITECTURE.md',
@@ -14,10 +16,11 @@ export const INCLUDE = [
   'packages/*/README.md',
   '.claude/skills/README.md',
   '.claude/skills/vault-planning/conventions.md',
-  'docs/adr/*.md',
+  'kb/README.md',
+  `${ADR_DIR}/*.md`,
 ];
 
-export const EXCLUDE = ['docs/adr/template.md', '**/node_modules/**'];
+export const EXCLUDE = ['**/node_modules/**'];
 
 export const GUIDE = [
   'setup',
@@ -71,20 +74,28 @@ export function packages() {
 }
 
 export function adrFiles() {
-  return readdirSync(join(repoRoot, 'docs/adr'))
-    .filter((name) => /^\d{4}-.+\.md$/.test(name))
+  return readdirSync(join(repoRoot, ADR_DIR))
+    .filter((name) => /^ADR-AIC-\d{4}-.+\.md$/.test(name))
     .sort();
 }
 
 export function adrId(fileName) {
-  const head = readFileSync(join(repoRoot, 'docs/adr', fileName), 'utf8');
+  const head = readFileSync(join(repoRoot, ADR_DIR, fileName), 'utf8');
   const match = head.match(/^id:\s*['"]?([^'"\s]+)/m);
   return match ? match[1] : fileName.replace(/\.md$/, '');
 }
 
 export function adrFileFor(id) {
-  const number = id.replace(/^ADR-/, '');
-  return adrFiles().find((name) => name.startsWith(`${number}-`));
+  return adrFiles().find((name) => name.startsWith(`${id}-`));
+}
+
+export function adrsSucceededBy(id) {
+  return adrFiles()
+    .filter((name) => {
+      const head = readFileSync(join(repoRoot, ADR_DIR, name), 'utf8');
+      return head.match(/^succeeded_by:.*$/m)?.[0].includes(id);
+    })
+    .map(adrId);
 }
 
 export function pageFor(path, frontMatter) {
@@ -118,16 +129,18 @@ export function pageFor(path, frontMatter) {
       sidebar_label: 'The planning model',
     };
   }
-  if (path === 'docs/adr/README.md') {
+  if (path === 'kb/README.md') {
     return {
       slug: '/decisions',
       title: 'Decisions',
       sidebar_label: 'All decisions',
     };
   }
-  const adr = path.match(/^docs\/adr\/((\d{4})-.+)\.md$/);
+  const adr = path.startsWith(`${ADR_DIR}/`)
+    ? path.match(/\/ADR-AIC-((\d{4})-.+)\.md$/)
+    : null;
   if (adr) {
-    const status = String(frontMatter.status ?? 'proposed');
+    const status = String(frontMatter.status ?? 'draft');
     return {
       slug: `/decisions/${adr[1]}`,
       sidebar_label: `${adr[2]} ${frontMatter.title ?? adr[1]}`,

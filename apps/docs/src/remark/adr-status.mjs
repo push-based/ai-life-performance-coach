@@ -1,10 +1,9 @@
-import { adrFileFor } from '../sources.mjs';
+import { adrFileFor, adrsSucceededBy } from '../sources.mjs';
 
 const KIND = {
   accepted: 'tip',
-  proposed: 'info',
+  draft: 'info',
   superseded: 'warning',
-  deprecated: 'warning',
   rejected: 'danger',
 };
 
@@ -37,17 +36,24 @@ function adrLinks(ids) {
 export default function adrStatus() {
   return (tree, file) => {
     const frontMatter = file.data?.frontMatter ?? {};
-    if (!/^ADR-\d+$/.test(String(frontMatter.id ?? ''))) return;
-    const status = String(frontMatter.status ?? 'proposed');
-    const supersededBy = list(frontMatter.superseded_by);
-    const supersedes = list(frontMatter.supersedes);
+    const id = String(frontMatter.id ?? '');
+    if (!/^ADR-AIC-\d+$/.test(id)) return;
+    const status = String(frontMatter.status ?? 'draft');
+    const succeededBy = list(frontMatter.succeeded_by);
+    const supersedes = adrsSucceededBy(id);
 
     const line = [
       { type: 'strong', children: [{ type: 'text', value: 'Status:' }] },
       { type: 'text', value: ` ${status}` },
     ];
-    if (supersededBy.length)
-      line.push({ type: 'text', value: ' by ' }, ...adrLinks(supersededBy));
+    if (succeededBy.length)
+      line.push(
+        {
+          type: 'text',
+          value: status === 'superseded' ? ' by ' : ' · changed by ',
+        },
+        ...adrLinks(succeededBy),
+      );
     if (day(frontMatter.date))
       line.push({ type: 'text', value: ` · ${day(frontMatter.date)}` });
     if (supersedes.length)

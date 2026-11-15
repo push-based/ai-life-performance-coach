@@ -43,7 +43,7 @@ Always set the vault. Without it the server looks for one in `DOCS_MCP_VAULT` an
 
 - **Everything that comes back is checked.** Replies are validated against a schema. If the server changes a reply's shape, you get a clear "unexpected response from the vault server" error rather than odd behaviour.
 - **Refusals come through as they are.** When the server refuses something (a quote not found in the book, a name collision), you see its own explanation as a `VaultRefusedError`.
-- **If something is missing, add it to the server, not this package.** New vault abilities belong in [`vault`](../vault/README.md) and [`vault-server`](../vault-server/README.md) (ADR-0048). This package only wraps what the server offers.
+- **If something is missing, add it to the server, not this package.** New vault abilities belong in [`vault`](../vault/README.md) and [`vault-server`](../vault-server/README.md) (ADR-AIC-0048). This package only wraps what the server offers.
 - **Server problems are easy to see.** If the server won't start, the error includes the end of its log.
 
 ## Classes
@@ -55,4 +55,4 @@ Always set the vault. Without it the server looks for one in `DOCS_MCP_VAULT` an
 
 ## Tests
 
-There are no automated tests here for now. They would need a running vault server (see ADR-0010). Try changes by hand against a **copy** of a vault, never your real one.
+There are no automated tests here for now. They would need a running vault server (see ADR-AIC-0010). Try changes by hand against a **copy** of a vault, never your real one.

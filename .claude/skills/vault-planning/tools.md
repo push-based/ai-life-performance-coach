@@ -4,7 +4,7 @@ The server is registered in Claude Code as `life-vault` (see `.claude/skills/REA
 
 ## Every write: preview, versions, execute
 
-Every write tool previews unless given `execute: true` (kb-template ADR-KI-0064):
+Every write tool previews unless given `execute: true` (ADR-KI-0064):
 
 1. Call it without `execute`. The preview lists each changed line as a before and after, the notes it creates, warnings, and `versions`: a hash of each existing note it would change. Each changed line carries `line` (0-based in the body, the same numbering `planning_overview` reports and `line` addresses accept; absent for a frontmatter change and for a note being created), `fileLine` (1-based in the file, for showing the user only, never passed back), and `under` (the heading above it) and `above` (the line above it) when there is one. Show the user `under` and `above` so they can see where a line lands.
 2. Show the user the preview and wait for their yes.

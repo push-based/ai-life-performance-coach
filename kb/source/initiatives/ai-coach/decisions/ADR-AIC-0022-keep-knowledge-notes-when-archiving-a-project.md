@@ -1,24 +1,26 @@
 ---
-id: ADR-0022
+doc_type: adr
+id: ADR-AIC-0022
 title: 'Ask which knowledge notes to keep before archiving a project'
 status: accepted
+initiative: ai-coach
 date: 2026-10-25
-supersedes: []
-superseded_by: []
-links: ['ADR-0003', 'ADR-0009', 'ADR-0018']
+aliases: ['ADR-0022']
+tags: []
+links: ['ADR-AIC-0003', 'ADR-AIC-0009', 'ADR-AIC-0018']
 ---
 
-# ADR-0022: Ask which knowledge notes to keep before archiving a project
+# ADR-AIC-0022: Ask which knowledge notes to keep before archiving a project
 
 ## Context
 
-`coach archive` moved a project folder whole into `4.Archive`. A concept note or a note with sparring history inside it would then leave `3.Resources` and stop being sparrable (ADR-0018). kb-template's `archive_project` now lists suggestions in its preview: notes that look worth keeping (a concept note, sparring history, a note citing raw material, or one linked from outside the project), each with a target folder under `3.Resources` and the reasons, and it takes `keep` to move those notes there first.
+`coach archive` moved a project folder whole into `4.Archive`. A concept note or a note with sparring history inside it would then leave `3.Resources` and stop being sparrable (ADR-AIC-0018). kb-template's `archive_project` now lists suggestions in its preview: notes that look worth keeping (a concept note, sparring history, a note citing raw material, or one linked from outside the project), each with a target folder under `3.Resources` and the reasons, and it takes `keep` to move those notes there first.
 
 ## Decision
 
 1. Before the archive preview, `coach archive` lists the suggested notes, each with the folder it would go to and why.
 2. The learner chooses which to keep: numbers, Enter for all of them, or `none`. The chosen notes go to their suggested folders.
-3. The preview then shows the full plan, the kept notes moving into Resources and the rest of the project into the archive, and nothing moves until the learner confirms (ADR-0009).
+3. The preview then shows the full plan, the kept notes moving into Resources and the rest of the project into the archive, and nothing moves until the learner confirms (ADR-AIC-0009).
 4. The filing port carries the suggestions and the `keep` list; the MCP adapter passes `keep` to `archive_project`.
 
 ## Alternatives

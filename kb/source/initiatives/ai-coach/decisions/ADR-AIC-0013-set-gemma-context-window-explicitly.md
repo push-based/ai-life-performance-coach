@@ -1,18 +1,20 @@
 ---
-id: ADR-0013
+doc_type: adr
+id: ADR-AIC-0013
 title: "Set Gemma's context window explicitly and refuse prompts that would not fit"
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0002', 'ADR-0012']
+aliases: ['ADR-0013']
+tags: []
+links: ['ADR-AIC-0002', 'ADR-AIC-0012']
 ---
 
-# ADR-0013: Set Gemma's context window explicitly and refuse prompts that would not fit
+# ADR-AIC-0013: Set Gemma's context window explicitly and refuse prompts that would not fit
 
 ## Context
 
-Ollama runs a model with a small default context window unless the request sets `num_ctx`, and it truncates a longer prompt without saying so. A chapter part can be 20,000 characters (ADR-0012), roughly 5,000 to 7,000 tokens, plus the instructions and the transcript. Gemma would see only part of the note and ask about a fragment, and the learner would never know.
+Ollama runs a model with a small default context window unless the request sets `num_ctx`, and it truncates a longer prompt without saying so. A chapter part can be 20,000 characters (ADR-AIC-0012), roughly 5,000 to 7,000 tokens, plus the instructions and the transcript. Gemma would see only part of the note and ask about a fragment, and the learner would never know.
 
 ## Decision
 

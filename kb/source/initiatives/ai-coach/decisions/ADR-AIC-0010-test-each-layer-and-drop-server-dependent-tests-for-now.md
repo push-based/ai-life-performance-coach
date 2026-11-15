@@ -1,18 +1,20 @@
 ---
-id: ADR-0010
+doc_type: adr
+id: ADR-AIC-0010
 title: 'Test each layer on its own, and drop tests that need the kb-template server for now'
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0004', 'ADR-0008']
+aliases: ['ADR-0010']
+tags: []
+links: ['ADR-AIC-0004', 'ADR-AIC-0008']
 ---
 
-# ADR-0010: Test each layer on its own, and drop tests that need the kb-template server for now
+# ADR-AIC-0010: Test each layer on its own, and drop tests that need the kb-template server for now
 
 ## Context
 
-The layers of ADR-0008 can each be tested without the others. Tests that start kb-template's vault server need a sibling checkout and a build, which CI does not have.
+The layers of ADR-AIC-0008 can each be tested without the others. Tests that start kb-template's vault server need a sibling checkout and a build, which CI does not have.
 
 ## Decision
 
@@ -25,4 +27,4 @@ The layers of ADR-0008 can each be tested without the others. Tests that start k
 ## Consequences
 
 - `nx run-many -t test` needs nothing outside the repository.
-- No test exercises `McpVault` or the CLI end to end, and the full-chain privacy test of ADR-0004 is gone. It can return without the server by wiring the real Ollama and Gemini adapters to an in-memory vault.
+- No test exercises `McpVault` or the CLI end to end, and the full-chain privacy test of ADR-AIC-0004 is gone. It can return without the server by wiring the real Ollama and Gemini adapters to an in-memory vault.

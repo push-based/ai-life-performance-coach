@@ -1,20 +1,22 @@
 ---
-id: ADR-0023
+doc_type: adr
+id: ADR-AIC-0023
 title: "Distill concept notes from the learner's own words, with the local model as helper"
 status: accepted
+initiative: ai-coach
 date: 2026-10-25
-supersedes: []
-superseded_by: []
-links: ['ADR-0003', 'ADR-0009', 'ADR-0014', 'ADR-0018', 'ADR-0021']
+aliases: ['ADR-0023']
+tags: []
+links: ['ADR-AIC-0003', 'ADR-AIC-0009', 'ADR-AIC-0014', 'ADR-AIC-0018', 'ADR-AIC-0021']
 ---
 
-# ADR-0023: Distill concept notes from the learner's own words, with the local model as helper
+# ADR-AIC-0023: Distill concept notes from the learner's own words, with the local model as helper
 
 ## Context
 
-Concept notes are the sparred unit (ADR-0018), and kb-template's `create_concept` writes one from a title, a summary, 1-6 core assertions, up to 5 banned buzzwords and 1-12 verbatim passages from a raw note. Writing those by hand in Obsidian is slow, so concept notes were rare. The learner already leaves the material for them while reading: bolds (`**…**`, `__…__`), highlights (`==…==`) and summary callouts in converted chapters, and reading notes that link the book. `reading_progress` lists, per book, its chapters' state and those reading notes; `find_passages` finds where a note's idea sits in the book.
+Concept notes are the sparred unit (ADR-AIC-0018), and kb-template's `create_concept` writes one from a title, a summary, 1-6 core assertions, up to 5 banned buzzwords and 1-12 verbatim passages from a raw note. Writing those by hand in Obsidian is slow, so concept notes were rare. The learner already leaves the material for them while reading: bolds (`**…**`, `__…__`), highlights (`==…==`) and summary callouts in converted chapters, and reading notes that link the book. `reading_progress` lists, per book, its chapters' state and those reading notes; `find_passages` finds where a note's idea sits in the book.
 
-The core assertions are what the judge grades against (ADR-0021), so whoever writes them decides what passing means.
+The core assertions are what the judge grades against (ADR-AIC-0021), so whoever writes them decides what passing means.
 
 ## Decision
 
@@ -25,8 +27,8 @@ The core assertions are what the judge grades against (ADR-0021), so whoever wri
 5. The model drafts at most six core assertions **only from the learner's summary and answers**, never from the book. The learner keeps, drops or rewrites each one and may add more. Without a usable reply, the learner writes them.
 6. The model suggests at most five buzzwords from the material; the learner keeps them, gives a list, or none.
 7. Passages are the idea's highlights first, then bolds of at least 12 characters, verbatim from the chapter. An idea with only notes or summaries is looked up with `find_passages` inside the book's folder, and the longest whole sentence of each snippet is offered. An idea with no passage is not written.
-8. The domain checks the draft against the limits `create_concept` enforces (`conceptDraft`) before calling the vault. The preview shows each passage's check by the vault; nothing is written until the learner confirms (ADR-0009), and a collision writes nothing.
-9. All model calls use the private grader prompt (ADR-0014) with the material fenced as untrusted data; everything stays on the machine.
+8. The domain checks the draft against the limits `create_concept` enforces (`conceptDraft`) before calling the vault. The preview shows each passage's check by the vault; nothing is written until the learner confirms (ADR-AIC-0009), and a collision writes nothing.
+9. All model calls use the private grader prompt (ADR-AIC-0014) with the material fenced as untrusted data; everything stays on the machine.
 
 ## Alternatives
 

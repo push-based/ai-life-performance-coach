@@ -1,20 +1,22 @@
 ---
-id: ADR-0038
+doc_type: adr
+id: ADR-AIC-0038
 title: 'Review a new idea the next day, and mix topics in the due queue'
-status: proposed
+status: draft
+initiative: ai-coach
 date: 2026-11-09
-supersedes: []
-superseded_by: []
-links: ['ADR-0007', 'ADR-0037']
+aliases: ['ADR-0038']
+tags: []
+links: ['ADR-AIC-0007', 'ADR-AIC-0037']
 ---
 
-# ADR-0038: Review a new idea the next day, and mix topics in the due queue
+# ADR-AIC-0038: Review a new idea the next day, and mix topics in the due queue
 
 ## Context
 
-Space is the sixth step of the climb (ADR-0037). _Make It Stick_ says new material "may need to be revisited within a day or so of your first encounter with it", then after several days or a week, then about once a month (p. 204). It also says to shuffle topics rather than practise one at a time (p. 66), and that anything you want to remember must keep coming back (p. 204).
+Space is the sixth step of the climb (ADR-AIC-0037). _Make It Stick_ says new material "may need to be revisited within a day or so of your first encounter with it", then after several days or a week, then about once a month (p. 204). It also says to shuffle topics rather than practise one at a time (p. 66), and that anything you want to remember must keep coming back (p. 204).
 
-The review ladder (ADR-0007) already fits most of this: a fail comes back after 1 day, a Tier 1 pass after 3, and Tier 2 passes after 7, 14, 30, 60, 120, 240 and 365 days, and the top rung repeats. Three gaps remained. A first spar that passed came back in 3 days, not the next day. A concept nobody had sparred was only listed as "never sparred", with no date. And the due queue was ordered by date alone, so ideas from one topic came back one after another.
+The review ladder (ADR-AIC-0007) already fits most of this: a fail comes back after 1 day, a Tier 1 pass after 3, and Tier 2 passes after 7, 14, 30, 60, 120, 240 and 365 days, and the top rung repeats. Three gaps remained. A first spar that passed came back in 3 days, not the next day. A concept nobody had sparred was only listed as "never sparred", with no date. And the due queue was ordered by date alone, so ideas from one topic came back one after another.
 
 kb-template's ADR-KI-0068 now makes a never-reviewed concept due the day after it was created and marks it as a first review. It also interleaves the due queue by group, or by book when there are no groups, the same way for the same day, and never drops a note from it. The next review date it uses is still the one the coach sends with each session.
 

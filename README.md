@@ -154,14 +154,14 @@ npm run coach -- view                            # open your vault in the browse
 | Know what leaves my machine    | [Privacy](docs/guide/privacy.md)                                                  |
 | Fix an error                   | [Troubleshooting](docs/guide/troubleshooting.md)                                  |
 | Understand a term              | [Glossary](docs/guide/glossary.md)                                                |
-| See how it's built, and why    | [Architecture](ARCHITECTURE.md) · [Decisions](docs/adr/README.md)                 |
+| See how it's built, and why    | [Architecture](ARCHITECTURE.md) · [Decisions](kb/README.md)                       |
 | Change the code                | [Contributing](CONTRIBUTING.md)                                                   |
 
 All of these pages are built from the Markdown in this repository and published to the [documentation site](https://push-based.github.io/ai-performance-coach/).
 
 ## Code from kb-template
 
-The vault server (`packages/vault`, `packages/vault-server` and `apps/climb-board`) was first written in [kb-template](docs/guide/glossary.md#kb-template), a separate, private project, and moved here with its history ([ADR-0048](docs/adr/0048-keep-the-vault-server-in-this-repository-behind-the-same-mcp-boundary.md)). It was written for ai-coach. Only these three files hold code that was already in kb-template before that work began:
+The vault server (`packages/vault`, `packages/vault-server` and `apps/climb-board`) was first written in [kb-template](docs/guide/glossary.md#kb-template), a separate, private project, and moved here with its history ([ADR-AIC-0048](kb/source/initiatives/ai-coach/decisions/ADR-AIC-0048-keep-the-vault-server-in-this-repository-behind-the-same-mcp-boundary.md)). It was written for ai-coach. Only these three files hold code that was already in kb-template before that work began:
 
 | File                                                                                 | Comes from kb-template's                       | What it is                                                                                                      |
 | ------------------------------------------------------------------------------------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |

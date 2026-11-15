@@ -1,4 +1,4 @@
-import { GUIDE, adrFiles, adrId, packages } from './src/sources.mjs';
+import { ADR_DIR, GUIDE, adrFiles, adrId, packages } from './src/sources.mjs';
 
 export default {
   docs: [
@@ -28,8 +28,8 @@ export default {
       type: 'category',
       label: 'Decisions',
       collapsed: true,
-      link: { type: 'doc', id: 'docs/adr/README' },
-      items: adrFiles().map((name) => `docs/adr/${adrId(name)}`),
+      link: { type: 'doc', id: 'kb/README' },
+      items: adrFiles().map((name) => `${ADR_DIR}/${adrId(name)}`),
     },
   ],
 };

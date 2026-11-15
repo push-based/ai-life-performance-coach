@@ -1,14 +1,16 @@
 ---
-id: ADR-0007
+doc_type: adr
+id: ADR-AIC-0007
 title: "Schedule reviews on a fixed ladder read from the vault's session history"
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0003', 'ADR-0006']
+aliases: ['ADR-0007']
+tags: []
+links: ['ADR-AIC-0003', 'ADR-AIC-0006']
 ---
 
-# ADR-0007: Schedule reviews on a fixed ladder read from the vault's session history
+# ADR-AIC-0007: Schedule reviews on a fixed ladder read from the vault's session history
 
 ## Context
 

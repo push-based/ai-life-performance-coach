@@ -1,14 +1,16 @@
 ---
-id: ADR-0017
+doc_type: adr
+id: ADR-AIC-0017
 title: "Study the gaps of a failed round with hints and the author's own words"
 status: accepted
+initiative: ai-coach
 date: 2026-10-24
-supersedes: []
-superseded_by: []
-links: ['ADR-0004', 'ADR-0005', 'ADR-0009', 'ADR-0012', 'ADR-0016']
+aliases: ['ADR-0017']
+tags: []
+links: ['ADR-AIC-0004', 'ADR-AIC-0005', 'ADR-AIC-0009', 'ADR-AIC-0012', 'ADR-AIC-0016']
 ---
 
-# ADR-0017: Study the gaps of a failed round with hints and the author's own words
+# ADR-AIC-0017: Study the gaps of a failed round with hints and the author's own words
 
 ## Context
 
@@ -24,7 +26,7 @@ After a failed round the coach only listed gaps; the learner had to work out how
 6. Buzzwords in an explanation send it back, as in sparring.
 7. **At the end, the learner's explanations can be kept as a note in `0.Inbox`**, titled "<chapter> - in my words", linking the chapter, one section per gap, with open gaps marked. It is written with `capture` after a preview and only on the learner's yes.
 8. **Studying records no session and does not change mastery or the review date.** The next `spar` is the test.
-9. Everything runs on local Gemma; nothing from study mode leaves the machine. Showing the learner their own book's text locally is outside the rule of ADR-0004, which governs what reaches the judge.
+9. Everything runs on local Gemma; nothing from study mode leaves the machine. Showing the learner their own book's text locally is outside the rule of ADR-AIC-0004, which governs what reaches the judge.
 
 ## Consequences
 

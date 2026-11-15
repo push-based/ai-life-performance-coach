@@ -2,7 +2,7 @@
 
 **The code that reads and writes your Obsidian vault.** It knows the [PARA](../../docs/guide/glossary.md#para) layout, your plans and your sparring history. It is the only code in ai-coach that touches vault files.
 
-It has no MCP and no terminal. [`vault-server`](../vault-server/README.md) offers it as tools over MCP, and that server is how the coach and Claude Code reach it (ADR-0048). Nothing else in the workspace may import this package. The Nx tag `type:vault` enforces that.
+It has no MCP and no terminal. [`vault-server`](../vault-server/README.md) offers it as tools over MCP, and that server is how the coach and Claude Code reach it (ADR-AIC-0048). Nothing else in the workspace may import this package. The Nx tag `type:vault` enforces that.
 
 ## What it does
 
@@ -33,7 +33,7 @@ Start it with `npm run coach -- view`.
 
 ## Good to know
 
-- **Why it behaves the way it does:** this code was written for ai-coach in a branch of kb-template, and only `md.ts` comes from kb-template itself (see [Code from kb-template](../../README.md#code-from-kb-template)). The reasons for its behaviour are the ADR-KI-0058 to ADR-KI-0071 written there, which aren't public. New decisions go in [`docs/adr/`](../../docs/adr/README.md).
+- **Why it behaves the way it does:** this code was written for ai-coach in a branch of kb-template, and only `md.ts` comes from kb-template itself (see [Code from kb-template](../../README.md#code-from-kb-template)). The reasons for its behaviour are the ADR-KI-0058 to ADR-KI-0071 written there, kept in the `vault` initiative of the [knowledge base](../../kb/README.md). New decisions go in its `ai-coach` initiative.
 - **The names on the vault itself are unchanged:** `DOCS_MCP_VAULT` and `~/.config/docs-mcp/config.json` still pick the vault, and a vault inside a folder with a `docs-mcp.config.json` is refused.
 - **Known gap:** search folds `ż`, `ó`, `ę` and `ś`, but not `ł`.
 
