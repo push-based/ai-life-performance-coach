@@ -1,0 +1,33 @@
+{
+  "name": "@docs-mcp/vault",
+  "version": "2.0.0",
+  "description": "Vault mode for docs-mcp: a personal Obsidian vault on fixed PARA folders, scanned without a schema (ADR-KI-0058)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "exports": {
+    ".": {
+      "@docs-mcp/source": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./*.js": {
+      "@docs-mcp/source": "./src/*.ts",
+      "default": "./dist/*.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "assets",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.lib.json"
+  },
+  "dependencies": {
+    "@docs-mcp/core": "workspace:*",
+    "flexsearch": "^0.8.212",
+    "pdfjs-dist": "6.4.299"
+  }
+}

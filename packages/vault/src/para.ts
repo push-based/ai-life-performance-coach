@@ -1,0 +1,58 @@
+/**
+ * PARA classification by path (ADR-KI-0058 Decision 3). The five folders sit at the
+ * vault root and their names are fixed; there is no map. A note anywhere else is out
+ * of place and carries no bucket.
+ */
+
+export const PARA_FOLDERS = {
+  inbox: "0.Inbox",
+  projects: "1.Projects",
+  areas: "2.Areas",
+  resources: "3.Resources",
+  archive: "4.Archive",
+} as const;
+
+export type ParaBucket = keyof typeof PARA_FOLDERS;
+
+export const PARA_BUCKETS = Object.keys(PARA_FOLDERS) as ParaBucket[];
+
+/**
+ * Raw resources: full books, articles and other source material kept whole, under
+ * `3.Resources/0.Raw/<kind>/` (ADR-KI-0059). They are the reference concept notes quote
+ * and are checked against, and are never sparred themselves (ADR-KI-0060).
+ */
+export const RAW_FOLDER = "0.Raw";
+
+/** The vault-level folder that holds coach state; never a note location. */
+export const COACH_ROOT = "Coach";
+
+/** The plans folder beside `Coach/`, outside the PARA buckets (ADR-KI-0062 Decision 6). */
+export const PLANS_ROOT = "Plans";
+
+export interface ParaLocation {
+  /** Null when the note is out of place. */
+  bucket: ParaBucket | null;
+  /** The project, area, resource or archive folder directly under the bucket, when the note sits in one. */
+  container: string | null;
+  /** True under `3.Resources/0.Raw/`. */
+  raw: boolean;
+  /** The kind folder under `0.Raw` (Books, Articles …), when the item sits in one. */
+  rawKind: string | null;
+  /** The author folder under the kind: `0.Raw/<kind>/<author>/<work>/` (ADR-KI-0059). */
+  rawAuthor: string | null;
+  /** The work folder under the author, one per book or article. */
+  rawWork: string | null;
+}
+
+const BY_FOLDER = new Map<string, ParaBucket>(PARA_BUCKETS.map(b => [PARA_FOLDERS[b], b]));
+
+/** Classify a vault-relative, forward-slash path. */
+export function classify(relPath: string): ParaLocation {
+  const parts = relPath.split("/");
+  const bucket = parts.length > 1 ? BY_FOLDER.get(parts[0]) ?? null : null;
+  if (!bucket) return { bucket: null, container: null, raw: false, rawKind: null, rawAuthor: null, rawWork: null };
+  const container = parts.length > 2 ? parts[1] : null;
+  const raw = bucket === "resources" && container === RAW_FOLDER;
+  const level = (n: number) => (raw && parts.length > n + 1 ? parts[n] : null);
+  return { bucket, container, raw, rawKind: level(2), rawAuthor: level(3), rawWork: level(4) };
+}
