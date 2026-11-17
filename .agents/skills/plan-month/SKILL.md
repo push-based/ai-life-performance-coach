@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__review_perio
 
 # Plan a month
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it.
 
 The month is the current one, or next month in its last week when the user says nothing, or the month given. A month is where projects turn into milestones: the week plans below it should be obvious once the month is set.
 

@@ -1,6 +1,6 @@
 # The life-vault tools for planning
 
-The server is registered in Claude Code as `life-vault` (see `.claude/skills/README.md`), so its tools are named `mcp__life-vault__<tool>`. If they are missing, tell the user to register it as that README shows. If `add_tasks`, `update_task`, `plan_days`, `set_frontmatter`, `edit_note` or `create_workstream` are missing, the server isn't running or runs an old build: tell the user to rebuild the workspace (`npx nx run-many -t build`) and to restart the `life-vault` server (`/mcp`, or restart Claude Code). Don't fall back to editing files.
+The server is registered in the agent as the MCP server `life-vault` (see `.agents/skills/README.md`). This file names its tools by their bare names; your agent may show them with a prefix, such as `mcp__life-vault__<tool>` in Claude Code. If they are missing, tell the user to register the server as that README shows. If `add_tasks`, `update_task`, `plan_days`, `set_frontmatter`, `edit_note` or `create_workstream` are missing, the server isn't running or runs an old build: tell the user to rebuild the workspace (`npx nx run-many -t build`) and to reconnect the `life-vault` server or restart their agent. Don't fall back to editing files.
 
 ## Every write: preview, versions, execute
 

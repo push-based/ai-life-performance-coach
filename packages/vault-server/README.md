@@ -1,6 +1,6 @@
 # @ai-coach/vault-server
 
-**The vault server**: the one program that opens your vault. ai-coach and Claude Code both ask it, over the [Model Context Protocol](https://modelcontextprotocol.io).
+**The vault server**: the one program that opens your vault. ai-coach and your AI agent both ask it, over the [Model Context Protocol](https://modelcontextprotocol.io).
 
 It wraps [`vault`](../vault/README.md) in MCP tools: reading and searching notes, recording sessions, filing, converting books, the climb, and planning. Every tool that writes previews first, and writes only when called again with `execute: true`.
 
@@ -16,7 +16,7 @@ node packages/vault-server/dist/main.js view --vault ~/Documents/my-vault    # g
 You rarely start it yourself:
 
 - **The `coach` CLI** starts `serve` for each command and stops it after. It finds the server in this checkout, unless `docsMcpBin` says otherwise. `coach view` starts `view`.
-- **Claude Code** starts its own copy from `.mcp.json`, registered as `life-vault`. See the [planning skills](../../.claude/skills/README.md#set-it-up).
+- **Your AI agent** starts its own copy from its MCP settings (`.mcp.json` for Claude Code), registered as `life-vault`. See the [planning skills](../../.agents/skills/README.md#set-it-up).
 
 The vault comes from `--vault`, else `DOCS_MCP_VAULT`, else `vault.root` in `~/.config/docs-mcp/config.json`. `view` also takes `--port`.
 
@@ -26,7 +26,7 @@ New vault abilities go here and in `vault`, not in the coach (ADR-AIC-0048):
 
 1. Add the behaviour to `vault`, with tests.
 2. Add a tool in `src/tools/vault/` and register it in `src/tools/vault.ts`.
-3. Wrap it in [`adapter-vault-mcp`](../adapter-vault-mcp/README.md) if the coach needs it. Update [`.claude/skills/vault-planning/tools.md`](../../.claude/skills/vault-planning/tools.md) if a planning skill uses it.
+3. Wrap it in [`adapter-vault-mcp`](../adapter-vault-mcp/README.md) if the coach needs it. Update [`.agents/skills/vault-planning/tools.md`](../../.agents/skills/vault-planning/tools.md) if a planning skill uses it.
 
 This package may import only `vault`, the MCP SDK, `zod` and Node. The Nx tag `type:vault-server` enforces that, and nothing may import this package.
 

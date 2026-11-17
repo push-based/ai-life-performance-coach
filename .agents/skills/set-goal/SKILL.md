@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__review_perio
 
 # Set and connect goals
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it. The period skills (`plan-week` and up) call this one for their goals step; it also runs on its own.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it. The period skills (`plan-week` and up) call this one for their goals step; it also runs on its own.
 
 ## 1. Which period
 

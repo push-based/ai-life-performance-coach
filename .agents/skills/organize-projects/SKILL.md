@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__read_note, m
 
 # Organize projects, workstreams and areas
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it. Every goal and task must link a project, workstream or area, so this skill comes first whenever planning finds work with no home.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it. Every goal and task must link a project, workstream or area, so this skill comes first whenever planning finds work with no home.
 
 ## Decide what it is
 

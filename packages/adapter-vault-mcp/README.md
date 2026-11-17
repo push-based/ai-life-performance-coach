@@ -17,7 +17,7 @@ That keeps one program in charge of your vault: it knows the folder layout, keep
 | find a passage in a book                  | `find_passages`                                         |
 | write a concept note                      | `create_concept`                                        |
 
-`VaultClient` also wraps `search` and `vault_graph`, which the coach doesn't use yet. The server's planning tools are used by the [planning skills](../../.claude/skills/README.md), not by this package.
+`VaultClient` also wraps `search` and `vault_graph`, which the coach doesn't use yet. The server's planning tools are used by the [planning skills](../../.agents/skills/README.md), not by this package.
 
 Every tool that writes **previews first**. ai-coach only executes after you confirm in the terminal.
 

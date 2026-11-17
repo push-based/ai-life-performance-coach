@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__review_perio
 
 # Plan a day
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it. A day plan holds no goals: it lists what is scheduled, the day's habit checks (`## Habits`), ad-hoc tasks, what got done, and a log. It never slips, and neither does a habit: an unticked check is a missed day.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it. A day plan holds no goals: it lists what is scheduled, the day's habit checks (`## Habits`), ad-hoc tasks, what got done, and a log. It never slips, and neither does a habit: an unticked check is a missed day.
 
 Work out the day: today by default, tomorrow when asked, or the date given. If the user says "close" or it is evening and they're wrapping up, go to **Close the day**.
 

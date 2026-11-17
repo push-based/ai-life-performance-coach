@@ -1,10 +1,10 @@
-# Planning skills for Claude Code
+# Planning skills for AI agents
 
-**Plan your year, quarter, month, week and day in your Obsidian vault by talking to [Claude Code](https://claude.com/claude-code).**
+**Plan your year, quarter, month, week and day in your Obsidian vault by talking to an AI coding agent: Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI or OpenCode.**
 
-These skills turn Claude Code into a planning partner that works on the same vault as the `coach` CLI. You say "plan my week". Claude closes last week, shows what slipped, helps you set this week's goals under the month's, spreads the work over the days by your own scheduling rules, and writes it all into your vault after you've seen a preview and said yes.
+These skills turn your agent into a planning partner that works on the same vault as the `coach` CLI. You say "plan my week". The agent closes last week, shows what slipped, helps you set this week's goals under the month's, spreads the work over the days by your own scheduling rules, and writes it all into your vault after you've seen a preview and said yes.
 
-They are instructions, not code. All the bookkeeping (plans, goal links, roll-overs, effort counts, habit streaks) is done by the planning tools of the vault server (`packages/vault-server`). The skills teach Claude when to call which tool, how to read the results, and how to talk you through a plan.
+They are instructions, not code. All the bookkeeping (plans, goal links, roll-overs, effort counts, habit streaks) is done by the planning tools of the vault server (`packages/vault-server`). The skills teach the agent when to call which tool, how to read the results, and how to talk you through a plan.
 
 ---
 
@@ -35,7 +35,7 @@ They are instructions, not code. All the bookkeeping (plans, goal links, roll-ov
 | `review-period`     | "how did my week go", "where did my time go"                   | reads any period back: goals met or missed, effort per project and area, what keeps slipping, habit streaks     |
 | `vault-planning`    | "help me plan", "what should I work on"                        | the shared model, tool reference and your rules; every other skill reads it first                               |
 
-Type the skill as a slash command (`/plan-week`, `/plan-day tomorrow`, `/review-period 2026-10`) or just ask in plain words.
+Just ask in plain words. Agents that run skills as commands also take them by name, such as `/plan-week` or `/plan-day tomorrow` in Claude Code.
 
 When a request spans periods, the skills run from the largest down: a year before its quarter, a quarter before its month, a month before its week.
 
@@ -45,41 +45,14 @@ When a request spans periods, the skills run from the largest down: a year befor
 
 **1. Have the vault server ready.** Build the workspace as in the [setup guide](../../docs/guide/setup.md#1-install-and-build-ai-coach). The planning tools need a recent build. If a skill reports that `add_tasks`, `plan_days` or `add_habits` is missing, pull and rebuild (`npx nx run-many -t build`).
 
-**2. Create your `.mcp.json`.** Claude Code reaches the vault server through a `.mcp.json` file at the repository root. The repository doesn't ship one, because it holds your own paths: it is git-ignored. Copy the example and fill in two absolute paths:
+**2. Register the server in your agent.** Your agent reaches the vault through the vault server, registered as an MCP server named **`life-vault`**. [Connect your AI agent](../../docs/guide/setup.md#5-connect-your-ai-agent-optional) shows how for Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI and OpenCode.
 
-```sh
-cp .mcp.example.json .mcp.json
-```
-
-```json
-{
-  "mcpServers": {
-    "life-vault": {
-      "command": "node",
-      "args": [
-        "/absolute/path/to/ai-coach/packages/vault-server/dist/main.js",
-        "serve",
-        "--vault",
-        "/absolute/path/to/your-vault"
-      ]
-    }
-  }
-}
-```
-
-- Keep the name **`life-vault`**. The skills call its tools as `mcp__life-vault__<tool>`.
-- Use **absolute paths**. `~` is not expanded here.
+- Keep the name **`life-vault`**. The skills name its tools by their bare names (`planning_overview`), and each agent prefixes them its own way.
+- Use **absolute paths**. `~` is not expanded.
 - Use the same vault as `vault` in your `coach.config.json`.
 - Keep `--vault` explicit. Without it the server falls back to `DOCS_MCP_VAULT` or `~/.config/docs-mcp/config.json`, which may name another vault.
-- The example also has `ai-coach-kb`, the server for the project's decision records. The planning skills don't use it, and it needs the docs-mcp engine (see [Contributing](../../CONTRIBUTING.md#decision-records)). Delete it unless you work on ai-coach itself.
 
-Prefer the command line? This registers the same server in your own Claude Code settings instead of a file:
-
-```sh
-claude mcp add life-vault -- node /absolute/path/to/ai-coach/packages/vault-server/dist/main.js serve --vault /absolute/path/to/your-vault
-```
-
-**3. Approve and check it.** Start Claude Code in the ai-coach folder. It asks once whether to trust the `life-vault` server from `.mcp.json`: say yes. Then run `/mcp` (or `claude mcp list` in a shell): `life-vault` should show as connected. Ask "what's on today?" to try it.
+**3. Check it.** Start your agent in the ai-coach folder and approve the `life-vault` server if it asks. Check that the server is connected (in Claude Code, `/mcp`), then ask "what's on today?" to try it.
 
 **4. Set up `Plans/`.** `coach init` (or the server's `init_vault` tool) creates `Plans/` with its templates. Your first `plan-year`, `plan-month` or `plan-week` creates the plans themselves.
 
@@ -130,28 +103,28 @@ The full model, with every task signifier, is in [`vault-planning/conventions.md
 | **Graphic before post**      | A graphic is scheduled on an earlier day than its post.                                          |
 | **Posting cap** (example)    | At most 4 social posts a day in fixed slots. Delete it if you don't post.                        |
 | **Where work belongs**       | One-off effort in a workstream, repeating upkeep in an area, personal habits in a habit project. |
-| **Known projects** (example) | A snapshot of your projects, so Claude uses their exact names.                                   |
+| **Known projects** (example) | A snapshot of your projects, so the agent uses their exact names.                                |
 
-Change them freely. When you tell Claude a new rule during a session, it follows it straight away and offers to add it to the file.
+Change them freely. When you tell the agent a new rule during a session, it follows it straight away and offers to add it to the file.
 
-To keep your own rules out of a public fork, add `.claude/skills/vault-planning/rules.md` to your local `.git/info/exclude` after editing it, or keep the shipped file generic and tell Claude your specifics in the session.
+To keep your own rules out of a public fork, add `.agents/skills/vault-planning/rules.md` to your local `.git/info/exclude` after editing it, or keep the shipped file generic and tell the agent your specifics in the session.
 
 ---
 
 ## Safety
 
-- **Preview, show, confirm, execute.** Every write tool runs once as a preview. Claude shows you which lines change in which notes, and executes only after your yes.
-- **Your edits in Obsidian are never overwritten.** Each preview returns a version hash of every note it would change. The skills pass them back on execute, and the server refuses the write if a note changed in between. Claude then previews again and shows you what's different.
-- **Vault files are never touched directly.** The skills' `allowed-tools` are read-only planning tools. Every write tool asks for Claude Code's permission as well as yours.
-- **What no tool can do becomes a hand edit.** For example, ticking a repeating `🔁` task so that Obsidian Tasks writes its next occurrence. Claude gives you the exact note, place and line, and you make the change in Obsidian.
-- **What Claude reads, its model sees.** Planning runs on whatever model Claude Code uses, so the notes the skills read are sent to it. The coach's offline guarantee covers the `coach` CLI, not these skills.
+- **Preview, show, confirm, execute.** Every write tool runs once as a preview. The agent shows you which lines change in which notes, and executes only after your yes.
+- **Your edits in Obsidian are never overwritten.** Each preview returns a version hash of every note it would change. The skills pass them back on execute, and the server refuses the write if a note changed in between. The agent then previews again and shows you what's different.
+- **Vault files are never touched directly.** The skills reach the vault only through the `life-vault` tools, never through files or the shell. In Claude Code, the skills' `allowed-tools` are read-only planning tools, so every write tool asks for its permission as well as yours.
+- **What no tool can do becomes a hand edit.** For example, ticking a repeating `🔁` task so that Obsidian Tasks writes its next occurrence. The agent gives you the exact note, place and line, and you make the change in Obsidian.
+- **What the agent reads, its model sees.** Planning runs on whatever model your agent uses, so the notes the skills read are sent to it. The coach's offline guarantee covers the `coach` CLI, not these skills.
 
 ---
 
 ## How the skills are built
 
 ```text
-.claude/skills/
+.agents/skills/
 ├── vault-planning/
 │   ├── SKILL.md         shared rules and which skill does what
 │   ├── conventions.md   the planning model: structure, task and goal lines, the chain
@@ -160,11 +133,21 @@ To keep your own rules out of a public fork, add `.claude/skills/vault-planning/
 ├── plan-day/  plan-week/  plan-month/  plan-quarter/  plan-year/
 ├── add-task/  set-goal/  organize-projects/
 └── review-period/
+
+.claude/skills/<skill>  →  ../../.agents/skills/<skill>   links for Claude Code
 ```
 
-Each `SKILL.md` has a frontmatter `description` (when Claude should use it), an `argument-hint`, and `allowed-tools` (the read tools it may call without asking). Each one starts by reading `vault-planning`, then walks through numbered steps with explicit **Ask** points where it stops for you.
+The skills follow the open [Agent Skills](https://agentskills.io) format, so one copy serves every agent. `.agents/skills/` is the shared folder most agents read. Claude Code reads only `.claude/skills/`, so each skill has a relative link there. Add a new skill to `.agents/skills/` and link it the same way:
 
-The decisions behind them are [ADR-AIC-0029](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0029-plan-the-vault-with-agent-skills-through-the-vault-tools-only.md) (skills, not CLI commands, and the vault only through the server), [ADR-AIC-0030](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0030-plan-the-vault-with-the-full-set-of-vault-planning-tools.md) (the full tool set and passing versions back) and [ADR-AIC-0031](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0031-plan-habits-as-definitions-checked-off-per-day-never-carried-over.md) (habits checked off per day).
+```sh
+ln -s ../../.agents/skills/<skill> .claude/skills/<skill>
+```
+
+The `nx-*`, `monitor-ci` and `link-workspace-packages` skills beside them come from Nx and are kept up to date by `nx configure-ai-agents`.
+
+Each `SKILL.md` has a frontmatter `name` and `description` (when the agent should use it). Claude Code also reads `argument-hint` and `allowed-tools` (the read tools it may call without asking); other agents ignore them. Each one starts by reading `vault-planning`, then walks through numbered steps with explicit **Ask** points where it stops for you.
+
+The decisions behind them are [ADR-AIC-0029](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0029-plan-the-vault-with-agent-skills-through-the-vault-tools-only.md) (skills, not CLI commands, and the vault only through the server), [ADR-AIC-0050](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0050-keep-the-planning-skills-in-agentsskills-for-every-agent.md) (one copy for every agent), [ADR-AIC-0030](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0030-plan-the-vault-with-the-full-set-of-vault-planning-tools.md) (the full tool set and passing versions back) and [ADR-AIC-0031](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0031-plan-habits-as-definitions-checked-off-per-day-never-carried-over.md) (habits checked off per day).
 
 To change a skill, edit its `SKILL.md`. If a change to the vault server changes a tool's arguments, update `vault-planning/tools.md` in the same commit: every skill relies on it.
 
@@ -174,9 +157,9 @@ To change a skill, edit its `SKILL.md`. If a change to the vault server changes 
 
 | You see                                              | Try                                                                                                   |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Claude says the `life-vault` tools are missing       | Register the server as above, then `/mcp` to reconnect, or restart Claude Code.                       |
+| The agent says the `life-vault` tools are missing    | Register the server as above, then reconnect it (`/mcp` in Claude Code) or restart your agent.        |
 | `add_tasks`, `plan_days` or `add_habits` is missing  | Your build is older than the skills. Pull, `npx nx run-many -t build`, reconnect the server.          |
-| A write is refused because a note changed            | You edited it in Obsidian after the preview. Let Claude preview again.                                |
+| A write is refused because a note changed            | You edited it in Obsidian after the preview. Let the agent preview again.                             |
 | All slipped tasks land on Monday                     | That's what a roll-over does. `plan-week` spreads them out right after; ask it to if it didn't.       |
 | A goal reports "links no parent goal"                | There's no plan one level up, or no goal there to link. Run `set-goal` to build the chain.            |
 | A task's priority or repeat doesn't show in Obsidian | The signifier order the server writes is untested against your Tasks plugin version. Report the line. |

@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__read_note, m
 
 # Add tasks
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it.
 
 ## 1. Shape each task
 

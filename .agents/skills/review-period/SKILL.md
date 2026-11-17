@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__review_perio
 
 # Review a period
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it. This skill only reads, apart from the optional review text in step 4. Closing a period (rolling it over) belongs to the period's planning skill.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it. This skill only reads, apart from the optional review text in step 4. Closing a period (rolling it over) belongs to the period's planning skill.
 
 ## 1. Read
 

@@ -14,8 +14,8 @@ export const INCLUDE = [
   'CONTRIBUTING.md',
   'docs/guide/*.md',
   'packages/*/README.md',
-  '.claude/skills/README.md',
-  '.claude/skills/vault-planning/conventions.md',
+  '.agents/skills/README.md',
+  '.agents/skills/vault-planning/conventions.md',
   'kb/README.md',
   `${ADR_DIR}/*.md`,
 ];
@@ -120,10 +120,10 @@ export function pageFor(path, frontMatter) {
   if (pkg) {
     return { slug: `/packages/${pkg[1]}`, sidebar_label: pkg[1] };
   }
-  if (path === '.claude/skills/README.md') {
+  if (path === '.agents/skills/README.md') {
     return { slug: '/planning', sidebar_label: 'Planning skills' };
   }
-  if (path === '.claude/skills/vault-planning/conventions.md') {
+  if (path === '.agents/skills/vault-planning/conventions.md') {
     return {
       slug: '/planning/conventions',
       sidebar_label: 'The planning model',
