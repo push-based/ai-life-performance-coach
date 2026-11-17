@@ -18,10 +18,10 @@ export default {
     },
     {
       type: 'category',
-      label: 'Planning with Claude Code',
+      label: 'Planning with an AI agent',
       collapsed: false,
-      link: { type: 'doc', id: '.claude/skills/README' },
-      items: ['.claude/skills/vault-planning/conventions'],
+      link: { type: 'doc', id: '.agents/skills/README' },
+      items: ['.agents/skills/vault-planning/conventions'],
     },
     'CONTRIBUTING',
     {

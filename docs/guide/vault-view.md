@@ -52,7 +52,7 @@ Any other note opens read-only. **Open in Obsidian** takes you to it there. `Esc
 - **Click a goal** to light up the rows that serve it. Click a row to see its goals, its done and planned work and its Intermediate Packets, with links to **Open in Obsidian** and **Show in graph**.
 - `A` shows archived projects too.
 
-The page only shows plans. You make and change them with the [planning skills](planning.md) in Claude Code.
+The page only shows plans. You make and change them with the [planning skills](planning.md) in your AI agent.
 
 ## The climb page
 

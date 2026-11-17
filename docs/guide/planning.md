@@ -1,15 +1,15 @@
 # Planning and habits
 
-This page is for you if you want to plan your work and your days in the same vault as your notes. It explains the planning model (projects, areas, goals, tasks and habits) and what a planning session with Claude Code looks like. When you're done, you can plan a week, keep daily habits and review how a period went.
+This page is for you if you want to plan your work and your days in the same vault as your notes. It explains the planning model (projects, areas, goals, tasks and habits) and what a planning session with an AI agent looks like. When you're done, you can plan a week, keep daily habits and review how a period went.
 
-You plan by talking to [Claude Code](https://claude.com/claude-code). The [planning skills](../../.claude/skills/README.md) teach it how, and the [vault server](glossary.md#vault-server) does the bookkeeping. There is no `coach` command for planning.
+You plan by talking to an AI coding agent, such as Claude Code, Codex, Cursor, GitHub Copilot, Gemini CLI or OpenCode. The [planning skills](../../.agents/skills/README.md) teach it how, and the [vault server](glossary.md#vault-server) does the bookkeeping. There is no `coach` command for planning.
 
 ## Set it up
 
-1. Connect Claude Code to the vault server: see [Setup](setup.md#5-connect-claude-code-optional).
+1. Connect your agent to the vault server: see [Setup](setup.md#5-connect-your-ai-agent-optional).
 2. Install the [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) community plugin in Obsidian. Tasks and habits are written in its syntax, and the lists in your plans are its queries.
 3. Run `npm run coach -- init` once. It creates `Plans/` with a template for each kind of plan.
-4. Read [your planning rules](../../.claude/skills/vault-planning/rules.md) and change them to suit you, for example which work goes early in the week.
+4. Read [your planning rules](../../.agents/skills/vault-planning/rules.md) and change them to suit you, for example which work goes early in the week.
 
 ## The pieces
 
@@ -99,9 +99,9 @@ Ask in plain words, or type the skill as a slash command:
 
 A week plan goes like this:
 
-1. **Close last week.** Claude shows what you did and what slipped, then moves the open tasks into this week. Each is marked `⏫ #slipped/2026-W45`. A task with two slip tags has slipped twice and needs a decision.
+1. **Close last week.** The agent shows what you did and what slipped, then moves the open tasks into this week. Each is marked `⏫ #slipped/2026-W45`. A task with two slip tags has slipped twice and needs a decision.
 2. **Set this week's goals**, each under one of the month's goals.
-3. **Lay out the days.** Claude spreads the tasks over the week by your rules: orders and anything waiting on someone else go early, and dependent work comes after what it waits on.
+3. **Lay out the days.** The agent spreads the tasks over the week by your rules: orders and anything waiting on someone else go early, and dependent work comes after what it waits on.
 4. **Check the preview.** You see every line that will change in every note. Nothing is written until you say yes.
 
 A day never slips: its open tasks stay on your list until the week is closed. A year never rolls over: you decide on each open year goal by hand.
@@ -119,16 +119,16 @@ To see a period at a glance, open [`/plans` in the vault view](vault-view.md#pla
 
 ## When a workstream is done
 
-Say "this workstream is done". Claude lists what in it could be reused: notes, checklists with three or more items, and files. You pick, and each becomes an **Intermediate Packet** in the project's `Intermediate Packets/` folder, with its checklists unticked and ready for next time. When you archive the project with `coach archive`, its Intermediate Packets move to Resources first, so they outlive it.
+Say "this workstream is done". The agent lists what in it could be reused: notes, checklists with three or more items, and files. You pick, and each becomes an **Intermediate Packet** in the project's `Intermediate Packets/` folder, with its checklists unticked and ready for next time. When you archive the project with `coach archive`, its Intermediate Packets move to Resources first, so they outlive it.
 
 ## Safety
 
 - **Preview first.** Every change is previewed, and written only after your yes.
-- **Your edits win.** If you change a note in Obsidian after the preview, the write is refused and Claude previews again.
-- **Claude sees what it reads.** Planning runs on the model Claude Code uses, so the notes it reads go to that model. The coach's offline promise covers sparring, not planning. See [Privacy](privacy.md).
+- **Your edits win.** If you change a note in Obsidian after the preview, the write is refused and the agent previews again.
+- **The agent sees what it reads.** Planning runs on the model your agent uses, so the notes it reads go to that model. The coach's offline promise covers sparring, not planning. See [Privacy](privacy.md).
 
 ## Where to go next
 
-- [Planning skills](../../.claude/skills/README.md): set-up details, every skill, your rules and troubleshooting.
-- [The planning model](../../.claude/skills/vault-planning/conventions.md): every task mark and plan section, in full.
+- [Planning skills](../../.agents/skills/README.md): set-up details, every skill, your rules and troubleshooting.
+- [The planning model](../../.agents/skills/vault-planning/conventions.md): every task mark and plan section, in full.
 - [The vault view](vault-view.md): your plans in the browser.

@@ -13,7 +13,7 @@ Why each part is the way it is lives in the ADRs in [`kb/`](kb/README.md), a kno
                          │        │                                   ▲                    │   (Markdown files)
                          │        └──HTTP, loopback only──► Ollama (Gemma)                  │
                          │                                            │                    │
-  you ── Claude Code ──► .claude/skills (this repo) ──stdio/MCP───────┘                    │
+  you ── AI agent ─────► .agents/skills (this repo) ──stdio/MCP───────┘                    │
                          │                                                                │
                          └────────────────────────────────────────────────────────────────┘
                                   │
@@ -23,7 +23,7 @@ Why each part is the way it is lives in the ADRs in [`kb/`](kb/README.md), a kno
 - **The vault server** (`packages/vault-server`, run as `coach-vault`) owns the vault. It is the only program that reads or writes vault files (ADR-AIC-0048). It was written for ai-coach in a branch of kb-template and moved here with its history; only three small files come from kb-template itself (see [Code from kb-template](README.md#code-from-kb-template)). The reasons for its behaviour are the ADR-KI-0058 to ADR-KI-0071 written there, which moved here too (ADR-AIC-0049). It keeps the PARA layout, converts PDFs into chapter notes, checks quotes against books, keeps the sparring history in `Coach/sessions/`, runs the planning model in `Plans/`, and serves the graph view on port 4747. Every write it offers is a preview until called with `execute`.
 - **The `coach` CLI** holds the learning rules, the conversations with Gemma and Gemini, and the confirm-before-write terminal flow. It starts `node <docsMcpBin> serve --vault <vault>` as a child process for each command, talks to it over MCP on stdio, and stops it when the command ends.
 - **Ollama** runs Gemma locally. The CLI refuses any Ollama host that is not on loopback.
-- **The planning skills** in `.claude/skills/` are instructions for Claude Code, not code. They reach the same server through the MCP registration Claude Code loads (Claude Code starts its own copy), and never touch vault files directly (ADR-AIC-0029, ADR-AIC-0030).
+- **The planning skills** in `.agents/skills/` are instructions for any AI coding agent that reads [Agent Skills](https://agentskills.io), not code; `.claude/skills/` links to them for Claude Code. They reach the same server through the agent's MCP registration (the agent starts its own copy), and never touch vault files directly (ADR-AIC-0029, ADR-AIC-0030, ADR-AIC-0050).
 
 ## Projects
 
@@ -78,7 +78,7 @@ Adapters never import each other, and nothing imports the `cli`. Nothing in the 
 | [`adapter-local-state`](packages/adapter-local-state/README.md) | Remembers which sessions are waiting for the judge, and what day it is.         |
 | [`cli`](packages/cli/README.md)                                 | The `coach` command you type.                                                   |
 | [`vault`](packages/vault/README.md)                             | Reads and writes your vault, and serves the graph view.                         |
-| [`vault-server`](packages/vault-server/README.md)               | Offers the vault as MCP tools to the coach and to Claude Code.                  |
+| [`vault-server`](packages/vault-server/README.md)               | Offers the vault as MCP tools to the coach and to AI agents.                    |
 | [`climb-board`](apps/climb-board/README.md)                     | The drawing board on the climb page.                                            |
 
 ## Ports and who provides them

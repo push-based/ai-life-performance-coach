@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__review_perio
 
 # Plan a year
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it.
 
 The year is the top of the goal chain: every quarter goal links one of its goals. Keep it short. A year plan with 3–7 goals the user remembers beats twenty they don't.
 

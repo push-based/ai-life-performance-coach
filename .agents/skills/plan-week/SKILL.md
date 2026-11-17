@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__review_perio
 
 # Plan a week
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it.
 
 The week to plan is the current ISO week, or next week when it is Friday to Sunday and the user says nothing, or the week given. Say which week and its dates before starting. Run the steps in order and stop for the user at each **Ask**.
 

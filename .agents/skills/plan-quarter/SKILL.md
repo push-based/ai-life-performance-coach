@@ -7,7 +7,7 @@ allowed-tools: mcp__life-vault__planning_overview, mcp__life-vault__review_perio
 
 # Plan a quarter
 
-First read `.claude/skills/vault-planning/SKILL.md` and the three files beside it.
+First read the `vault-planning` skill (`../vault-planning/SKILL.md`) and the three files beside it.
 
 A quarter is long enough to finish a project and short enough to stay concrete. Its job is choosing: which projects move these 13 weeks, which wait, and what "done" means for each.
 

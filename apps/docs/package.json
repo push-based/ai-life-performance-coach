@@ -23,7 +23,8 @@
           "{workspaceRoot}/docs/guide/*.md",
           "{workspaceRoot}/LICENSE",
           "{workspaceRoot}/packages/*/README.md",
-          "{workspaceRoot}/.claude/skills/**/*.md",
+          "{workspaceRoot}/.agents/skills/README.md",
+          "{workspaceRoot}/.agents/skills/vault-planning/conventions.md",
           "{workspaceRoot}/kb/README.md",
           "{workspaceRoot}/kb/source/initiatives/ai-coach/decisions/*.md",
           {

@@ -36,7 +36,7 @@ npx nx build docs                 # build it and check every link
 | How to work on it              | this file                                                      |
 | How it's built                 | [`ARCHITECTURE.md`](ARCHITECTURE.md) and each package's README |
 | Why it's built that way        | [`kb/`](kb/README.md)                                          |
-| Planning with Claude Code      | [`.claude/skills/README.md`](.claude/skills/README.md)         |
+| Planning with an AI agent      | [`.agents/skills/README.md`](.agents/skills/README.md)         |
 
 Write for someone new: say who a page is for and what they'll be able to do, use short sentences and "you", and link a term to the [glossary](docs/guide/glossary.md) instead of explaining it twice ([ADR-AIC-0034](kb/source/initiatives/ai-coach/decisions/ADR-AIC-0034-split-the-docs-into-a-short-readme-a-guide-and-contributing.md)).
 
