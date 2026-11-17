@@ -1,5 +1,5 @@
 import { globSync, readdirSync, readFileSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const REPOSITORY = 'push-based/ai-performance-coach';
@@ -52,6 +52,13 @@ export function siteFiles() {
   return new Set(
     globSync(INCLUDE, { cwd: repoRoot, exclude: EXCLUDE }).map(toPosix),
   );
+}
+
+export function searchDirs() {
+  return [...new Set([...siteFiles()].map((file) => dirname(file)))]
+    .filter((dir) => dir !== '.')
+    .sort()
+    .map((dir) => join(repoRoot, dir));
 }
 
 export function toPosix(path) {

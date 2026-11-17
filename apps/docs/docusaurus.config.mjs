@@ -10,6 +10,7 @@ import {
   pageFor,
   repoRelative,
   repoRoot,
+  searchDirs,
 } from './src/sources.mjs';
 
 const [owner, project] = REPOSITORY.split('/');
@@ -65,7 +66,7 @@ export default {
         indexBlog: false,
         indexPages: false,
         docsRouteBasePath: '/',
-        docsDir: repoRoot,
+        docsDir: searchDirs(),
         language: ['en'],
         highlightSearchTermsOnTargetPage: true,
         explicitSearchResultPath: true,
