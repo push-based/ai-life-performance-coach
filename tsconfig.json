@@ -4,6 +4,9 @@
   "files": [],
   "references": [
     {
+      "path": "./libs/shared/util-path"
+    },
+    {
       "path": "./libs/coach/domain"
     },
     {
