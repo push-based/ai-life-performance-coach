@@ -115,6 +115,16 @@ import {
   type ConceptClimb,
 } from './climb.js';
 import {
+  listInterviewProblems,
+  getInterviewProblem,
+  saveInterviewProblem,
+  logInterviewAttempt,
+  type VaultInterviewProblem,
+  type SaveVaultInterviewProblemInput,
+  type LogVaultInterviewAttemptInput,
+  type VaultInterviewWriteResult,
+} from './interview.js';
+import {
   climbView,
   revealStructure,
   planSketch,
@@ -382,6 +392,17 @@ export interface Vault {
   ): Promise<HarvestResult>;
 
   plansView(span?: string, by?: string): Promise<PlansView | { error: string }>;
+
+  listInterviewProblems(): Promise<VaultInterviewProblem[]>;
+  getInterviewProblem(slug: string): Promise<VaultInterviewProblem | null>;
+  saveInterviewProblem(
+    input: SaveVaultInterviewProblemInput,
+    execute: boolean,
+  ): Promise<VaultInterviewWriteResult>;
+  logInterviewAttempt(
+    input: LogVaultInterviewAttemptInput,
+    execute: boolean,
+  ): Promise<VaultInterviewWriteResult>;
 }
 
 export type HarvestResult = Omit<HarvestPlan, 'writes'> & {
@@ -986,5 +1007,11 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       await executeConcept(root, plan);
       return { ...shown, executed: true };
     },
+    listInterviewProblems: () => listInterviewProblems(root),
+    getInterviewProblem: (slug) => getInterviewProblem(root, slug),
+    saveInterviewProblem: (input, execute) =>
+      saveInterviewProblem(root, input, execute),
+    logInterviewAttempt: (input, execute) =>
+      logInterviewAttempt(root, input, execute),
   };
 }

@@ -342,3 +342,19 @@ export {
   type GuidelinePlan,
   type ClimbWritePlan,
 } from './climb-writes.js';
+export {
+  INTERVIEW_ROOT,
+  INTERVIEW_PROBLEMS_ROOT,
+  listInterviewProblems,
+  getInterviewProblem,
+  saveInterviewProblem,
+  logInterviewAttempt,
+  type VaultIndependenceLevel,
+  type VaultInterviewDifficulty,
+  type VaultInterviewMode,
+  type VaultInterviewAttempt,
+  type VaultInterviewProblem,
+  type SaveVaultInterviewProblemInput,
+  type LogVaultInterviewAttemptInput,
+  type VaultInterviewWriteResult,
+} from './interview.js';

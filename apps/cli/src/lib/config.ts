@@ -25,6 +25,7 @@ function defaultVaultServerBin(): string {
 
 const ConfigFile = z.strictObject({
   vault: z.string().min(1).optional(),
+  practiceRepo: z.string().min(1).optional(),
   docsMcpBin: z.string().min(1).optional(),
   stateDir: z.string().min(1).optional(),
   ollama: z
@@ -69,6 +70,7 @@ type ConfigFile = z.infer<typeof ConfigFile>;
 export interface CoachConfig {
   configFile: string | null;
   vault: string | undefined;
+  practiceRepo: string | undefined;
   docsMcpBin: string;
   stateDir: string;
   ollama: {
@@ -174,6 +176,9 @@ export function loadConfig(options: LoadConfigOptions = {}): CoachConfig {
     vault: fromEnv('DOCS_MCP_VAULT')
       ? expand(env['DOCS_MCP_VAULT']!, home, cwd)
       : path(file.vault),
+    practiceRepo: fromEnv('COACH_PRACTICE_REPO')
+      ? expand(env['COACH_PRACTICE_REPO']!, home, cwd)
+      : path(file.practiceRepo),
     docsMcpBin: fromEnv('DOCS_MCP_BIN')
       ? expand(env['DOCS_MCP_BIN']!, home, cwd)
       : (path(file.docsMcpBin) ?? defaultVaultServerBin()),
