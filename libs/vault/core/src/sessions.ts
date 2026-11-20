@@ -1,5 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
-import { join, posix } from 'node:path';
+import { posix } from '@ai-coach/util-path';
 import {
   SESSIONS_DIR,
   bySessionDate,
@@ -7,25 +6,21 @@ import {
   type InvalidSession,
   type SessionRecord,
 } from '@ai-coach/vault-domain';
+import type { NoteStore } from './note-store.js';
 
 export async function loadSessions(
-  root: string,
+  store: NoteStore,
 ): Promise<{ sessions: SessionRecord[]; invalid: InvalidSession[] }> {
-  let names: string[];
-  try {
-    names = (await readdir(join(root, SESSIONS_DIR), { withFileTypes: true }))
-      .filter((e) => e.isFile() && e.name.endsWith('.md'))
-      .map((e) => e.name)
-      .sort();
-  } catch {
-    return { sessions: [], invalid: [] };
-  }
+  const names = (await store.list(SESSIONS_DIR))
+    .filter((e) => e.kind === 'file' && e.name.endsWith('.md'))
+    .map((e) => e.name)
+    .sort();
   const sessions: SessionRecord[] = [];
   const invalid: InvalidSession[] = [];
   for (const name of names) {
     const file = posix.join(SESSIONS_DIR, name);
     try {
-      sessions.push(parseSession(await readFile(join(root, file), 'utf-8')));
+      sessions.push(parseSession(await store.readText(file)));
     } catch (err) {
       invalid.push({
         file,

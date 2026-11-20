@@ -1,6 +1,5 @@
-import { constants } from 'node:fs';
-import { copyFile, mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join, posix } from 'node:path';
+import type { NoteStore } from './note-store.js';
+import { posix } from 'node:path';
 import { safeName } from './filing.js';
 import {
   noteResolver,
@@ -269,23 +268,14 @@ export function harvestWorkstream(
 }
 
 export async function executeHarvest(
-  root: string,
+  store: NoteStore,
   plan: HarvestPlan,
 ): Promise<void> {
   if (plan.errors.length || plan.collisions.length)
     throw new Error('refusing to apply a plan with errors or collisions');
-  for (const c of plan.copies) {
-    await mkdir(dirname(join(root, c.to)), { recursive: true });
-    await copyFile(
-      join(root, c.from),
-      join(root, c.to),
-      constants.COPYFILE_EXCL,
-    );
-  }
-  for (const [path, text] of Object.entries(plan.writes)) {
-    await mkdir(dirname(join(root, path)), { recursive: true });
-    await writeFile(join(root, path), text, { flag: 'wx' });
-  }
+  for (const c of plan.copies) await store.copyFile(c.from, c.to);
+  for (const [path, text] of Object.entries(plan.writes))
+    await store.writeText(path, text, { create: true });
 }
 
 export const isPacket = (n: VaultNote) => n.frontmatter.type === PACKET_TYPE;

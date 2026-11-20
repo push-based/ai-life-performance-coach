@@ -1,16 +1,19 @@
 import { VaultTree } from './tree.js';
 
-const tree = new VaultTree([
-  { path: '1.Projects', kind: 'dir' },
-  { path: '1.Projects/Expo', kind: 'dir' },
-  { path: '1.Projects/Expo/Expo.md', kind: 'file', text: '# Expo\n' },
-  { path: '1.Projects/Expo/poster.png', kind: 'file' },
-  { path: '.obsidian', kind: 'dir' },
-  { path: 'Coach', kind: 'dir' },
-  { path: 'Coach/sessions', kind: 'dir' },
-  { path: 'Coach/sessions/s-1.md', kind: 'file', text: 'session' },
-  { path: 'Loose.md', kind: 'file', text: 'loose' },
-]);
+const tree = new VaultTree(
+  [
+    { path: '1.Projects', kind: 'dir' },
+    { path: '1.Projects/Expo', kind: 'dir' },
+    { path: '1.Projects/Expo/Expo.md', kind: 'file', text: '# Expo\n' },
+    { path: '1.Projects/Expo/poster.png', kind: 'file' },
+    { path: '.obsidian', kind: 'dir' },
+    { path: 'Coach', kind: 'dir' },
+    { path: 'Coach/sessions', kind: 'dir' },
+    { path: 'Coach/sessions/s-1.md', kind: 'file', text: 'session' },
+    { path: 'Loose.md', kind: 'file', text: 'loose' },
+  ],
+  (content) => ({ data: {}, content }),
+);
 
 describe('VaultTree', () => {
   it('answers what exists, and of which kind', () => {
@@ -42,5 +45,6 @@ describe('VaultTree', () => {
 
   it('finds the notes, skipping Coach and hidden folders', () => {
     expect(tree.notePaths()).toEqual(['1.Projects/Expo/Expo.md', 'Loose.md']);
+    expect(tree.notes().map((n) => n.title)).toEqual(['Expo', 'Loose']);
   });
 });

@@ -1,7 +1,6 @@
+import type { NoteStore } from './note-store.js';
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, posix } from 'node:path';
+import { posix } from 'node:path';
 import {
   PLANS_ROOT,
   noteResolver,
@@ -777,29 +776,23 @@ export interface NoteWrites {
 }
 
 export async function executeWrites(
-  root: string,
+  store: NoteStore,
   w: NoteWrites,
 ): Promise<void> {
   if (w.errors.length) throw new Error('refusing to apply a plan with errors');
   for (const [note, text] of Object.entries(w.originals)) {
-    if ((await readFile(join(root, note), 'utf-8')) !== text)
+    if ((await store.readText(note)) !== text)
       throw new Error(`${note} changed since the preview`);
   }
   for (const note of w.created)
-    if (existsSync(join(root, note)))
+    if (await store.exists(note))
       throw new Error(`${note} appeared since the preview`);
-  for (const [note, text] of Object.entries(w.writes)) {
-    await mkdir(dirname(join(root, note)), { recursive: true });
-    await writeFile(
-      join(root, note),
-      text,
-      w.created.includes(note) ? { flag: 'wx' } : {},
-    );
-  }
+  for (const [note, text] of Object.entries(w.writes))
+    await store.writeText(note, text, { create: w.created.includes(note) });
 }
 
-export const executePlanPeriod = (root: string, plan: PlanPeriodPlan) =>
-  executeWrites(root, { ...plan, created: plan.creates ? [plan.plan] : [] });
+export const executePlanPeriod = (store: NoteStore, plan: PlanPeriodPlan) =>
+  executeWrites(store, { ...plan, created: plan.creates ? [plan.plan] : [] });
 
 export interface DayInput {
   adHoc?: AdHocInput[];

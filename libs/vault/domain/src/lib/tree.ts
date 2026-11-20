@@ -30,7 +30,10 @@ export class VaultTree implements VaultListing {
   private readonly texts = new Map<string, string>();
   private readonly children = new Map<string, string[]>();
 
-  constructor(entries: TreeEntry[]) {
+  constructor(
+    entries: TreeEntry[],
+    private readonly parse: FrontmatterParser,
+  ) {
     for (const e of entries) {
       const path = key(e.path);
       this.kinds.set(path, e.kind);
@@ -101,7 +104,11 @@ export class VaultTree implements VaultListing {
     return out;
   }
 
-  notes(parse: FrontmatterParser): VaultNote[] {
-    return this.notePaths().map((p) => noteFromContent(p, this.text(p), parse));
+  noteOf(path: string, content: string): VaultNote {
+    return noteFromContent(path, content, this.parse);
+  }
+
+  notes(): VaultNote[] {
+    return this.notePaths().map((p) => this.noteOf(p, this.text(p)));
   }
 }

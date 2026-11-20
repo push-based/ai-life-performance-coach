@@ -14,7 +14,6 @@ import {
   type Passage,
   type PassageCheck,
 } from './concept.js';
-import { noteOf } from './scan.js';
 import type { NoteWrites } from './plans.js';
 import {
   bookOf,
@@ -93,11 +92,15 @@ function put(
   plan.writes[path] = content;
 }
 
-function afterPlan(notes: VaultNote[], plan: ClimbWritePlan): VaultNote[] {
+function afterPlan(
+  tree: VaultTree,
+  notes: VaultNote[],
+  plan: ClimbWritePlan,
+): VaultNote[] {
   const out = notes.map((n) =>
-    n.path in plan.writes ? noteOf(n.path, plan.writes[n.path]) : n,
+    n.path in plan.writes ? tree.noteOf(n.path, plan.writes[n.path]) : n,
   );
-  for (const p of plan.created) out.push(noteOf(p, plan.writes[p]));
+  for (const p of plan.created) out.push(tree.noteOf(p, plan.writes[p]));
   return out;
 }
 
@@ -108,7 +111,7 @@ function refreshClimbs(
   plan: ClimbWritePlan,
   paths: string[],
 ): void {
-  const after = afterPlan(notes, plan);
+  const after = afterPlan(tree, notes, plan);
   for (const path of paths) {
     const note = after.find((n) => n.path === path);
     if (!note || !isConceptNote(note)) continue;
@@ -230,7 +233,7 @@ export function addReadingNotes(
   const content = insertUnder(original, heading, lines);
   put(tree, plan, path, content, !existing);
 
-  const written = readingEntries(noteOf(path, content), chapter).filter(
+  const written = readingEntries(tree.noteOf(path, content), chapter).filter(
     (e) => e.page === page,
   );
   const share =
@@ -657,12 +660,13 @@ export function rebuildClimbs(
 }
 
 export function conceptWithClimb(
+  tree: VaultTree,
   path: string,
   content: string,
   notes: VaultNote[],
   sessions: SessionRecord[],
 ): string {
-  const note = noteOf(path, content);
+  const note = tree.noteOf(path, content);
   const c = climbOf(note, [...notes, note], sessions);
   return CLIMB_STEPS.some((s) => c.steps[s])
     ? withClimb(content, c.steps)
@@ -671,7 +675,7 @@ export function conceptWithClimb(
 
 export const SKETCHES_FOLDER = posix.join(CONCEPTS_FOLDER, 'Sketches');
 export const MAX_SKETCH_BYTES = 4 * 1024 * 1024;
-const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 export interface ClimbView {
   concepts: (ConceptClimb & { book: string | null; group: string | null })[];
@@ -761,7 +765,7 @@ export function planSketch(
   tree: VaultTree,
   notes: VaultNote[],
   target: string,
-  png: Buffer,
+  png: Uint8Array,
   date: string,
 ): SketchPlan {
   const plan: SketchPlan = { errors: [], path: null, bytes: png.length };
@@ -778,7 +782,7 @@ export function planSketch(
     plan.errors.push(
       `${target} is neither a concept note nor a book with concept notes`,
     );
-  if (!png.subarray(0, 8).equals(PNG))
+  if (png.length < PNG.length || PNG.some((b, i) => png[i] !== b))
     plan.errors.push('a sketch is a PNG image');
   if (png.length > MAX_SKETCH_BYTES)
     plan.errors.push(

@@ -294,7 +294,7 @@ export function createVaultViewServer(
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
     const path = url.pathname;
-    const send = (status: number, type: string, body: string | Buffer) => {
+    const send = (status: number, type: string, body: string | Uint8Array) => {
       res.writeHead(status, { ...HEADERS, 'Content-Type': type });
       res.end(body);
     };

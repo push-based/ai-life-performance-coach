@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join, posix } from 'node:path';
+import type { NoteStore } from './note-store.js';
+import { posix } from 'node:path';
 import { safeName } from './filing.js';
 import { withoutSummaries } from './distill.js';
 import {
@@ -511,7 +511,7 @@ export function conceptWarnings(
 }
 
 export async function executeConcept(
-  root: string,
+  store: NoteStore,
   plan: ConceptPlan,
 ): Promise<void> {
   if (
@@ -521,7 +521,5 @@ export async function executeConcept(
     !plan.content
   )
     throw new Error('refusing to write a plan with errors or collisions');
-  const abs = join(root, plan.path);
-  await mkdir(dirname(abs), { recursive: true });
-  await writeFile(abs, plan.content, { flag: 'wx' });
+  await store.writeText(plan.path, plan.content, { create: true });
 }

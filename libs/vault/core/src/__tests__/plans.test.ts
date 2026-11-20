@@ -1,3 +1,4 @@
+import { scanVault, loadTree, snapshot, storeAt } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -15,7 +16,7 @@ import {
   executePlanPeriod,
   TEMPLATES,
 } from '../plans.js';
-import { scanVault, loadTree, snapshot } from '../scan.js';
+
 import { createVault } from '../vault.js';
 import { planning } from '@ai-coach/vault-domain';
 
@@ -176,7 +177,7 @@ describe('plan_period', () => {
       '## Ad-hoc\n\n- [ ] Call the venue [[Expo2026]] #S ⏳ 2026-11-04\n\n## Done',
     );
 
-    await executePlanPeriod(dir, plan);
+    await executePlanPeriod(storeAt(dir), plan);
     const p = planning(await loadTree(dir), await scanVault(dir));
     const goals = p.tasks.filter(
       (t) => t.plan?.period === '2026-W45' && t.goal,
@@ -273,7 +274,7 @@ describe('plan_period', () => {
         after: '- [ ] Panel posters #M ⏳ 2026-11-02 ^pp',
       },
     ]);
-    await executePlanPeriod(dir, plan);
+    await executePlanPeriod(storeAt(dir), plan);
     expect(read('1.Projects/Expo2026/Workstreams/Marketing/Items.md')).toBe(
       '---\nstatus: in-progress\n---\n## Posters\n\n- [ ] Workshop posters #S ⏳ 2026-11-03\n- [ ] Panel posters #M ⏳ 2026-11-02 ^pp\n- [x] Badge design ✅ 2026-10-01\n',
     );
@@ -339,7 +340,7 @@ describe('plan_period', () => {
       '1.Projects/Expo2026/Workstreams/Workshops.md',
       '- [ ] Confirm rooms\n',
     );
-    await expect(executePlanPeriod(dir, plan)).rejects.toThrow(
+    await expect(executePlanPeriod(storeAt(dir), plan)).rejects.toThrow(
       /Workshops\.md changed since the preview/,
     );
     expect(existsSync(join(dir, 'Plans/Weekly/2026-W45.md'))).toBe(false);

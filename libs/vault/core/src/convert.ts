@@ -1,5 +1,5 @@
-import { link, mkdir, unlink, writeFile } from 'node:fs/promises';
-import { dirname, join, posix } from 'node:path';
+import type { NoteStore } from './note-store.js';
+import { posix } from 'node:path';
 import { safeName } from './filing.js';
 import {
   yamlString,
@@ -553,7 +553,7 @@ export async function planConvert(
 }
 
 export async function executeConvert(
-  root: string,
+  store: NoteStore,
   plan: ConvertPlan,
 ): Promise<void> {
   if (
@@ -563,16 +563,9 @@ export async function executeConvert(
     !plan.writes.length
   )
     throw new Error('refusing to write a conversion with errors or collisions');
-  if (plan.move) {
-    const dst = join(root, plan.move.to);
-    await mkdir(dirname(dst), { recursive: true });
-    await link(join(root, plan.move.from), dst);
-    await unlink(join(root, plan.move.from));
-  }
-  for (const w of plan.writes) {
-    await mkdir(dirname(join(root, w.path)), { recursive: true });
-    await writeFile(join(root, w.path), w.content, { flag: 'wx' });
-  }
+  if (plan.move) await store.moveFile(plan.move.from, plan.move.to);
+  for (const w of plan.writes)
+    await store.writeText(w.path, w.content, { create: true });
 }
 
 export function pagesOf(body: string, range: string): string | null {

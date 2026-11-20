@@ -5,7 +5,7 @@ export {
   type VaultRootSources,
   type ResolvedVaultRoot,
 } from './root.js';
-export { scanVault, readNote, listNotePaths } from './scan.js';
+export { scanVault, readNote } from './scan.js';
 export {
   searchNotes,
   searchPassages,

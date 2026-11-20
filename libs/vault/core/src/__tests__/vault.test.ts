@@ -1,3 +1,4 @@
+import { scanVault } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -10,7 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { resolveVaultRoot, defaultVaultConfigFile } from '../root.js';
-import { scanVault, listNotePaths } from '../scan.js';
+import { loadTree } from './fixtures.js';
 import { createVault, notePathOf } from '../vault.js';
 import { searchNotes } from '../search.js';
 import {
@@ -289,7 +290,7 @@ describe('scanVault', () => {
       writeFileSync(join(outside, 'Secret.md'), 'secret');
       mkdirSync(join(dir, '3.Resources'), { recursive: true });
       symlinkSync(outside, join(dir, '3.Resources', 'link'));
-      expect(await listNotePaths(dir)).toEqual([]);
+      expect((await loadTree(dir)).notePaths()).toEqual([]);
     } finally {
       rmSync(outside, { recursive: true, force: true });
     }
@@ -322,8 +323,8 @@ describe('scanVault', () => {
 
 describe('notePathOf and vault.note', () => {
   it('accepts vault-relative markdown paths and refuses escapes, dot-folders and Coach/', () => {
-    expect(notePathOf(dir, '0.Inbox/x.md')).toBe('0.Inbox/x.md');
-    expect(notePathOf(dir, '/0.Inbox/x.md')).toBe('0.Inbox/x.md');
+    expect(notePathOf('0.Inbox/x.md')).toBe('0.Inbox/x.md');
+    expect(notePathOf('/0.Inbox/x.md')).toBe('0.Inbox/x.md');
     for (const bad of [
       '../x.md',
       '../../x.md',
@@ -331,7 +332,7 @@ describe('notePathOf and vault.note', () => {
       'Coach/sessions/s.md',
       'x.png',
     ]) {
-      expect(notePathOf(dir, bad), bad).toBeNull();
+      expect(notePathOf(bad), bad).toBeNull();
     }
   });
 

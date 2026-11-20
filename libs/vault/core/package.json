@@ -30,6 +30,7 @@
     ]
   },
   "dependencies": {
+    "@ai-coach/util-path": "*",
     "@ai-coach/vault-domain": "*",
     "flexsearch": "^0.8.212",
     "gray-matter": "^4.0.3",

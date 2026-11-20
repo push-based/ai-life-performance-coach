@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { join, posix, resolve, sep } from 'node:path';
-import { isInside } from './root.js';
+import { posix } from 'node:path';
+import { createFsNoteStore } from './fs-store.js';
+import { parseMatter } from './markdown.js';
+import type { NoteStore } from './note-store.js';
 import {
-  listNotePaths,
   loadTree,
   readNote,
   scanVault,
@@ -60,7 +61,6 @@ import {
   type MarkOp,
   type EditResult,
 } from './distill.js';
-import { readFile, writeFile } from 'node:fs/promises';
 import {
   searchPassages,
   type PassageHit,
@@ -126,8 +126,6 @@ import {
   type SketchPlan,
   type TopicListing,
 } from './climb-writes.js';
-import { readdir, mkdir as mkdirp } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import {
   addReadingNotes,
   writeStructure,
@@ -192,6 +190,8 @@ export interface DueReport {
 
 export interface Vault {
   readonly root: string;
+
+  pathOf(path: string): string | null;
   notes(): Promise<VaultNote[]>;
 
   note(path: string): Promise<VaultNote | null>;
@@ -381,11 +381,11 @@ export interface Vault {
 
   saveSketch(
     target: string,
-    png: Buffer,
+    png: Uint8Array,
     execute: boolean,
   ): Promise<SketchPlan & { executed: boolean }>;
 
-  sketch(path: string): Promise<Buffer | null>;
+  sketch(path: string): Promise<Uint8Array | null>;
   harvestWorkstream(
     project: string,
     workstream: string,
@@ -409,7 +409,7 @@ export type WriteOutcome<T> = Omit<T, 'originals' | 'writes' | 'created'> & {
 };
 
 async function applyNoteWrites<T extends NoteWrites & { warnings: string[] }>(
-  root: string,
+  store: NoteStore,
   plan: T,
   execute: boolean,
   versions?: Versions,
@@ -435,7 +435,7 @@ async function applyNoteWrites<T extends NoteWrites & { warnings: string[] }>(
       'written without versions: a change made since the preview was not checked',
     ];
   }
-  await executeWrites(root, plan);
+  await executeWrites(store, plan);
   return { ...shown, executed: true };
 }
 
@@ -448,13 +448,13 @@ export type WriteResult = Omit<WritePlan, 'content' | 'before'> & {
 };
 
 async function applyWrite(
-  root: string,
+  store: NoteStore,
   plan: WritePlan,
   execute: boolean,
 ): Promise<WriteResult> {
   const { content: _content, before: _before, ...shown } = plan;
   if (!execute || plan.errors.length) return { ...shown, executed: false };
-  await executeWrite(root, plan);
+  await executeWrite(store, plan);
   return { ...shown, executed: true };
 }
 
@@ -466,21 +466,25 @@ export interface RawListing extends RawItem {
 }
 
 async function apply(
-  root: string,
+  store: NoteStore,
   plan: FilingPlan,
   execute: boolean,
 ): Promise<FilingResult> {
   const { contents: _contents, ...shown } = plan;
   if (!execute || plan.errors.length || plan.collisions.length)
     return { ...shown, executed: false };
-  await executeFiling(root, plan);
+  await executeFiling(store, plan);
   return { ...shown, executed: true };
 }
 
-export function notePathOf(root: string, path: string): string | null {
-  const rel = posix.normalize(path.split(sep).join('/').replace(/^\/+/, ''));
-  if (!rel.endsWith('.md') || rel.startsWith('..')) return null;
-  if (!isInside(resolve(root, rel), root)) return null;
+export function vaultPathOf(path: string, separator = '/'): string {
+  return posix.normalize(path.split(separator).join('/').replace(/^\/+/, ''));
+}
+
+export function notePathOf(path: string, separator = '/'): string | null {
+  const rel = vaultPathOf(path, separator);
+  if (!rel.endsWith('.md') || rel.startsWith('..') || /^[A-Za-z]:/.test(rel))
+    return null;
   const parts = rel.split('/');
   if (parts.some((p) => p.startsWith('.')) || parts[0] === COACH_ROOT)
     return null;
@@ -492,19 +496,22 @@ const defaultSessionId = (now: Date) =>
 const defaultCoachId = () => `c-${randomBytes(5).toString('hex')}`;
 
 export function createVault(root: string, opts: VaultOptions = {}): Vault {
+  const store = createFsNoteStore(root);
+  const parse = parseMatter;
+  const pathOf = (path: string) => notePathOf(path, store.separator);
   const now = opts.now ?? (() => new Date());
   const newSessionId = opts.newSessionId ?? defaultSessionId;
   const newCoachId = opts.newCoachId ?? defaultCoachId;
 
-  const snapshot = () => loadSnapshot(root);
+  const snapshot = () => loadSnapshot(store, parse);
 
   const loadPdf: PdfLoader = async (path) =>
-    extractPdf(new Uint8Array(await readFile(join(root, path))));
+    extractPdf(await store.readBytes(path));
 
   async function notesWithHistory() {
     const [notes, { sessions, invalid }] = await Promise.all([
-      scanVault(root),
-      loadSessions(root),
+      scanVault(store, parse),
+      loadSessions(store),
     ]);
     const map = histories(sessions);
     return {
@@ -515,14 +522,13 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
   }
 
   async function chapterAt(path: string) {
-    const rel = notePathOf(root, path);
-    if (!rel || !(await listNotePaths(root)).includes(rel)) return null;
-    const note = await readNote(root, rel);
-    if (note.rawRole !== 'chapter') return null;
+    const rel = pathOf(path);
+    const note = rel ? await readNote(store, parse, rel) : null;
+    if (!rel || !note || note.rawRole !== 'chapter') return null;
     return {
       path: rel,
       title: note.title,
-      content: await readFile(join(root, rel), 'utf-8'),
+      content: await store.readText(rel),
     };
   }
 
@@ -539,45 +545,44 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       };
     const r = change(at.content);
     if (!r.ok) return r;
-    const abs = join(root, at.path);
-    if ((await readFile(abs, 'utf-8')) !== at.content)
+    if ((await store.readText(at.path)) !== at.content)
       return {
         ok: false,
         status: 409,
         error: 'the note changed while saving; try again',
       };
-    await writeFile(abs, r.content);
+    await store.writeText(at.path, r.content);
     return { ok: true, text: r.text };
   }
 
   return {
     root,
-    notes: () => scanVault(root),
+    pathOf,
+    notes: () => scanVault(store, parse),
     async note(path) {
-      const rel = notePathOf(root, path);
+      const rel = pathOf(path);
       if (!rel) return null;
-      const all = await listNotePaths(root);
-      return all.includes(rel) ? readNote(root, rel) : null;
+      return readNote(store, parse, rel);
     },
     async notesWithHistory() {
       const { notes, invalidSessions } = await notesWithHistory();
       return { notes, invalidSessions };
     },
-    sessions: () => loadSessions(root),
+    sessions: () => loadSessions(store),
     async recordSession(input, execute) {
       const at = now();
       const [tree, notes] = await snapshot();
       const plan = planSession(input, {
         tree,
         notes,
-        sessions: (await loadSessions(root)).sessions,
+        sessions: (await loadSessions(store)).sessions,
         now: at,
         newSessionId: () => newSessionId(at),
         newCoachId,
         exists: (rel) => tree.exists(rel),
       });
       if (!execute || plan.errors.length) return { ...plan, executed: false };
-      await executeSession(root, plan);
+      await executeSession(store, plan);
       return { ...plan, executed: true };
     },
     async dueForReview(today) {
@@ -652,25 +657,29 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       };
     },
     async tier2Payload(sessionId, opts) {
-      const { sessions } = await loadSessions(root);
+      const { sessions } = await loadSessions(store);
       const session = sessions.find((s) => s.session_id === sessionId);
       if (!session) return null;
       if (!opts?.includeAssertions) return tier2Payload(session);
       const assertions = new Map<string, string[]>();
-      for (const n of await scanVault(root)) {
+      for (const n of await scanVault(store, parse)) {
         const concept = n.coachId ? conceptOf(n) : null;
         if (concept) assertions.set(n.coachId!, concept.fields.coreAssertions);
       }
       return tier2Payload(session, assertions);
     },
     initVault: async (execute, opts) =>
-      apply(root, planInit(await loadTree(root), opts), execute),
+      apply(store, planInit(await loadTree(store, parse), opts), execute),
     capture: async (title, body, execute) =>
-      apply(root, planCapture(await loadTree(root), title, body), execute),
+      apply(
+        store,
+        planCapture(await loadTree(store, parse), title, body),
+        execute,
+      ),
     async fileNote(path, toFolder, execute) {
-      const rel = notePathOf(root, path) ?? path;
+      const rel = pathOf(path) ?? path;
       return apply(
-        root,
+        store,
         planFileNote(...(await snapshot()), rel, toFolder),
         execute,
       );
@@ -678,7 +687,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     async archiveProject(project, execute, opts) {
       const [tree, notes] = await snapshot();
       return apply(
-        root,
+        store,
         planArchiveProject(tree, project, notes, opts),
         execute,
       );
@@ -693,24 +702,24 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     },
     async convertRaw(path, execute, opts) {
       const plan = await planConvert(
-        await loadTree(root),
+        await loadTree(store, parse),
         loadPdf,
-        posix.normalize(path.split(sep).join('/').replace(/^\/+/, '')),
+        vaultPathOf(path, store.separator),
         localDate(now()),
         opts,
       );
       const { writes: _writes, ...shown } = plan;
       if (!execute || plan.errors.length || plan.collisions.length)
         return { ...shown, executed: false };
-      await executeConvert(root, plan);
+      await executeConvert(store, plan);
       return { ...shown, executed: true };
     },
-    readingProgress: async () => bookProgress(await scanVault(root)),
+    readingProgress: async () => bookProgress(await scanVault(store, parse)),
     markedPassages: async (target) =>
-      markedPassages(await scanVault(root), notePathOf(root, target) ?? target),
+      markedPassages(await scanVault(store, parse), pathOf(target) ?? target),
     markRead: async (book, date, execute) =>
       applyWrite(
-        root,
+        store,
         await planMarkRead(
           ...(await snapshot()),
           book,
@@ -719,9 +728,9 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
         execute,
       ),
     async writeSummary(path, text, page, execute) {
-      const rel = notePathOf(root, path) ?? path;
+      const rel = pathOf(path) ?? path;
       return applyWrite(
-        root,
+        store,
         await planSummary(...(await snapshot()), rel, text, page),
         execute,
       );
@@ -769,7 +778,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     async planPeriod(input, execute, versions) {
       const plan = planPeriod(...(await snapshot()), input);
       return applyNoteWrites(
-        root,
+        store,
         { ...plan, created: plan.creates ? [plan.plan] : [] },
         execute,
         versions,
@@ -777,7 +786,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     },
     planDays: async (days, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         planDays(...(await snapshot()), days),
         execute,
         versions,
@@ -793,39 +802,39 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
           'a task addressed by line is updated only with the versions its preview returned, so a line that moved is not changed',
         );
       }
-      return applyNoteWrites(root, plan, execute, versions);
+      return applyNoteWrites(store, plan, execute, versions);
     },
     addTasks: async (input, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         addTasks(...(await snapshot()), input),
         execute,
         versions,
       ),
     addHabits: async (input, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         addHabits(...(await snapshot()), input),
         execute,
         versions,
       ),
     setFrontmatter: async (note, set, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         setFrontmatter(...(await snapshot()), note, set),
         execute,
         versions,
       ),
     editNote: async (input, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         editNote(...(await snapshot()), input),
         execute,
         versions,
       ),
     createWorkstream: async (input, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         createWorkstream(...(await snapshot()), input),
         execute,
         versions,
@@ -853,43 +862,43 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
         !plan.errors.length &&
         !plan.collisions.length &&
         plan.packets.length > 0;
-      if (ok) await executeHarvest(root, plan);
+      if (ok) await executeHarvest(store, plan);
       return { ...shown, contents: writes, executed: ok };
     },
     reviewPeriod: async (period, today) =>
       reviewPeriod(...(await snapshot()), period, today ?? localDate(now())),
     rollOver: async (period, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         rollOver(...(await snapshot()), period),
         execute,
         versions,
       ),
     findPassages: async (query, opts) =>
-      searchPassages(await scanVault(root), query, opts),
+      searchPassages(await scanVault(store, parse), query, opts),
     async climb(note) {
       return climbs(
-        await scanVault(root),
-        (await loadSessions(root)).sessions,
+        await scanVault(store, parse),
+        (await loadSessions(store)).sessions,
         note,
       );
     },
     rebuildClimb: async (execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         rebuildClimbs(
           ...(await snapshot()),
-          (await loadSessions(root)).sessions,
+          (await loadSessions(store)).sessions,
         ),
         execute,
         versions,
       ),
     addReadingNotes: async (input, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         addReadingNotes(
           ...(await snapshot()),
-          (await loadSessions(root)).sessions,
+          (await loadSessions(store)).sessions,
           input,
           localDate(now()),
         ),
@@ -898,10 +907,10 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       ),
     writeStructure: async (input, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         writeStructure(
           ...(await snapshot()),
-          (await loadSessions(root)).sessions,
+          (await loadSessions(store)).sessions,
           input,
           localDate(now()),
         ),
@@ -910,39 +919,35 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       ),
     saveGuideline: async (input, execute) =>
       applyNoteWrites(
-        root,
+        store,
         saveGuideline(
           ...(await snapshot()),
-          (await loadSessions(root)).sessions,
+          (await loadSessions(store)).sessions,
           input,
         ),
         execute,
       ),
     async climbView() {
-      let files: string[] = [];
-      try {
-        files = (await readdir(join(root, SKETCHES_FOLDER)))
-          .filter((f) => f.endsWith('.png'))
-          .sort()
-          .map((f) => posix.join(SKETCHES_FOLDER, f));
-      } catch {
-        files = [];
-      }
+      const files = (await store.list(SKETCHES_FOLDER))
+        .map((e) => e.name)
+        .filter((f) => f.endsWith('.png'))
+        .sort()
+        .map((f) => posix.join(SKETCHES_FOLDER, f));
       return climbView(
-        await scanVault(root),
-        (await loadSessions(root)).sessions,
+        await scanVault(store, parse),
+        (await loadSessions(store)).sessions,
         files,
       );
     },
     revealStructure: async (book) =>
-      revealStructure(await scanVault(root), book),
-    listTopics: async () => listTopics(await scanVault(root)),
+      revealStructure(await scanVault(store, parse), book),
+    listTopics: async () => listTopics(await scanVault(store, parse)),
     extendConcept: async (input, execute, versions) =>
       applyNoteWrites(
-        root,
+        store,
         extendConcept(
           ...(await snapshot()),
-          (await loadSessions(root)).sessions,
+          (await loadSessions(store)).sessions,
           input,
         ),
         execute,
@@ -957,8 +962,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       );
       if (!execute || plan.errors.length || !plan.path)
         return { ...plan, executed: false };
-      await mkdirp(dirname(join(root, plan.path)), { recursive: true });
-      await writeFile(join(root, plan.path), png, { flag: 'wx' });
+      await store.writeBytes(plan.path, png, { create: true });
       return { ...plan, executed: true };
     },
     async sketch(path) {
@@ -971,7 +975,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       )
         return null;
       try {
-        return await readFile(join(root, rel));
+        return await store.readBytes(rel);
       } catch {
         return null;
       }
@@ -981,15 +985,16 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       const plan = planConcept(tree, notes, input, localDate(now()));
       if (plan.content && plan.path)
         plan.content = conceptWithClimb(
+          tree,
           plan.path,
           plan.content,
           notes,
-          (await loadSessions(root)).sessions,
+          (await loadSessions(store)).sessions,
         );
       const { content: _content, ...shown } = plan;
       if (!execute || plan.errors.length || plan.collisions.length)
         return { ...shown, executed: false };
-      await executeConcept(root, plan);
+      await executeConcept(store, plan);
       return { ...shown, executed: true };
     },
   };

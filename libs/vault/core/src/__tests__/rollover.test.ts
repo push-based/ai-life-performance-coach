@@ -1,3 +1,4 @@
+import { scanVault, loadTree, snapshot, storeAt } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -10,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { rollOver } from '../rollover.js';
 import { nextPeriod, periodOf, executeWrites } from '../plans.js';
-import { scanVault, loadTree, snapshot } from '../scan.js';
+
 import { createVault } from '../vault.js';
 import { planning } from '@ai-coach/vault-domain';
 
@@ -115,7 +116,7 @@ describe('roll_over', () => {
       '"Water the plants [[Health]]" in Plans/Weekly/2026-W45.md is not scheduled, so it stays where it is',
     ]);
 
-    await executeWrites(dir, plan);
+    await executeWrites(storeAt(dir), plan);
     const week = read('Plans/Weekly/2026-W46.md');
     expect(week).toContain(
       '## Goals\n\n- [ ] All posters out [[Marketing]] #M #slipped/2026-W45 ↑ [[2026-11#^posters-printed]] ⏫ ^all-posters-out\n- [ ] Run twice [[Health]] #slipped/2026-W44 #slipped/2026-W45 ⏫ ^run-twice\n',
@@ -256,7 +257,7 @@ describe('roll_over edge cases', () => {
       planning(await loadTree(dir), notes).tasks.map((t) => t.text),
     ).toEqual(['Print badges', 'Done']);
     const plan = rollOver(tree, notes, '2026-W45');
-    await executeWrites(dir, plan);
+    await executeWrites(storeAt(dir), plan);
     expect(read('1.Projects/Expo2026/Workstreams/Marketing.md')).toBe(
       '---\r\nstatus: todo\r\n---\r\n- [ ] Print badges #slipped/2026-W45 ⏳ 2026-11-09 ⏫\r\n- [x] Done ✅ 2026-11-03\r\n',
     );

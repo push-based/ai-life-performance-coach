@@ -1,5 +1,5 @@
-import { readFile, writeFile } from 'node:fs/promises';
-import { join, posix } from 'node:path';
+import type { NoteStore } from './note-store.js';
+import { posix } from 'node:path';
 import { RAW_TEXT } from './convert.js';
 import {
   noteResolver,
@@ -341,15 +341,14 @@ export function planSummary(
 }
 
 export async function executeWrite(
-  root: string,
+  store: NoteStore,
   plan: WritePlan,
 ): Promise<void> {
   if (plan.errors.length || !plan.path || plan.content === null)
     throw new Error('refusing to write a plan with errors');
-  const abs = join(root, plan.path);
-  if ((await readFile(abs, 'utf-8')) !== plan.before)
+  if ((await store.readText(plan.path)) !== plan.before)
     throw new Error(`${plan.path} changed since the preview; run it again`);
-  await writeFile(abs, plan.content);
+  await store.writeText(plan.path, plan.content);
 }
 
 export interface Section {

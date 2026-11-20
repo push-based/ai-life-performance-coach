@@ -1,3 +1,4 @@
+import { scanVault, loadTree, snapshot } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -11,7 +12,7 @@ import { planDays, planPeriod, TEMPLATES } from '../plans.js';
 import { reviewPeriod, type PeriodReview } from '../review.js';
 import { rollOver } from '../rollover.js';
 import { addHabits } from '../note-edits.js';
-import { scanVault, loadTree, snapshot } from '../scan.js';
+
 import { createVault } from '../vault.js';
 import {
   habitDays,

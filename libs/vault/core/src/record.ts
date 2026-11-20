@@ -1,5 +1,5 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname, join, posix } from 'node:path';
+import type { NoteStore } from './note-store.js';
+import { posix } from 'node:path';
 import { conceptOf } from './concept.js';
 import {
   climbOf,
@@ -668,14 +668,13 @@ export const stepDates = (steps: ClimbSteps) =>
   Object.fromEntries(CLIMB_STEPS.map((s) => [s, steps[s]?.date ?? null]));
 
 export async function executeSession(
-  root: string,
+  store: NoteStore,
   plan: RecordPlan,
 ): Promise<void> {
   if (plan.errors.length || !plan.record || !plan.sessionFile)
     throw new Error('refusing to write a plan with errors');
   for (const { path, original, content } of plan.changes) {
-    const abs = join(root, path);
-    const now = await readFile(abs, 'utf-8');
+    const now = await store.readText(path);
     if (now !== original) {
       if (plan.newIds.some((x) => x.path === path) && declaresCoachId(now))
         throw new Error(
@@ -685,9 +684,9 @@ export async function executeSession(
         `${path} changed since the preview; re-run record_session`,
       );
     }
-    await writeFile(abs, content);
+    await store.writeText(path, content);
   }
-  const abs = join(root, plan.sessionFile);
-  await mkdir(dirname(abs), { recursive: true });
-  await writeFile(abs, renderSession(plan.record), { flag: 'wx' });
+  await store.writeText(plan.sessionFile, renderSession(plan.record), {
+    create: true,
+  });
 }

@@ -1,14 +1,5 @@
-import { existsSync, statSync } from 'node:fs';
-import {
-  link,
-  mkdir,
-  readdir,
-  rename,
-  rmdir,
-  unlink,
-  writeFile,
-} from 'node:fs/promises';
-import { dirname, join, posix } from 'node:path';
+import type { NoteStore } from './note-store.js';
+import { posix } from 'node:path';
 import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from './plans.js';
 import {
   classify,
@@ -556,28 +547,8 @@ function filesUnder(tree: VaultTree, dir: string, rel = ''): string[] {
     );
 }
 
-async function moveFileNoClobber(src: string, dst: string): Promise<void> {
-  await mkdir(dirname(dst), { recursive: true });
-  await link(src, dst);
-  await unlink(src);
-}
-
-async function moveDirNoClobber(src: string, dst: string): Promise<void> {
-  if (existsSync(dst)) throw new Error(`${dst} appeared since the preview`);
-  await mkdir(dirname(dst), { recursive: true });
-  await rename(src, dst);
-}
-
-async function removeIfEmpty(abs: string): Promise<void> {
-  for (const e of await readdir(abs, { withFileTypes: true })) {
-    if (e.isDirectory()) await removeIfEmpty(join(abs, e.name));
-    else if (e.name === '.DS_Store') await unlink(join(abs, e.name));
-  }
-  await rmdir(abs).catch(() => undefined);
-}
-
 export async function executeFiling(
-  root: string,
+  store: NoteStore,
   plan: FilingPlan,
 ): Promise<void> {
   if (plan.errors.length || plan.collisions.length)
@@ -585,23 +556,20 @@ export async function executeFiling(
   for (const a of plan.actions) {
     switch (a.op) {
       case 'rename':
-        await moveDirNoClobber(join(root, a.from), join(root, a.to));
+        await store.moveDir(a.from, a.to);
         break;
       case 'create':
-        await mkdir(join(root, a.to), { recursive: true });
+        await store.makeDir(a.to);
         break;
-      case 'move': {
-        const src = join(root, a.from);
-        if (statSync(src).isDirectory())
-          await moveDirNoClobber(src, join(root, a.to));
-        else await moveFileNoClobber(src, join(root, a.to));
+      case 'move':
+        if (await store.isDir(a.from)) await store.moveDir(a.from, a.to);
+        else await store.moveFile(a.from, a.to);
         break;
-      }
       case 'write':
-        await writeFile(join(root, a.to), plan.contents![a.to], { flag: 'wx' });
+        await store.writeText(a.to, plan.contents![a.to], { create: true });
         break;
       case 'remove_empty':
-        await removeIfEmpty(join(root, a.from));
+        await store.removeEmptyDirs(a.from);
         break;
     }
   }

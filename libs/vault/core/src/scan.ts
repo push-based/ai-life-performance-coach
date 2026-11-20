@@ -1,91 +1,59 @@
-import { readdir, readFile } from 'node:fs/promises';
-import { join, posix } from 'node:path';
-import matter from 'gray-matter';
+import { posix } from '@ai-coach/util-path';
 import {
-  COACH_ROOT,
-  noteFromContent,
-  type FrontmatterParser,
   VaultTree,
+  type FrontmatterParser,
   type TreeEntry,
   type VaultNote,
 } from '@ai-coach/vault-domain';
+import type { NoteStore } from './note-store.js';
 
-export const parseMatter: FrontmatterParser = (content) => {
-  const { data, content: body } = matter(content);
-  return { data, content: body };
-};
-
-export const noteOf = (path: string, content: string): VaultNote =>
-  noteFromContent(path, content, parseMatter);
-
-export async function loadTree(root: string): Promise<VaultTree> {
+export async function loadTree(
+  store: NoteStore,
+  parse: FrontmatterParser,
+  texts = true,
+): Promise<VaultTree> {
   const entries: TreeEntry[] = [];
   async function walk(rel: string): Promise<void> {
-    let dirents;
-    try {
-      dirents = await readdir(join(root, rel), { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of dirents) {
+    for (const e of await store.list(rel)) {
       const child = rel ? posix.join(rel, e.name) : e.name;
-      if (e.isDirectory()) {
+      if (e.kind === 'dir') {
         entries.push({ path: child, kind: 'dir' });
         if (!e.name.startsWith('.')) await walk(child);
-      } else if (e.isFile()) {
+      } else if (e.kind === 'file') {
         entries.push(
-          e.name.endsWith('.md') && !e.name.startsWith('.')
-            ? {
-                path: child,
-                kind: 'file',
-                text: await readFile(join(root, child), 'utf-8'),
-              }
+          texts && e.name.endsWith('.md') && !e.name.startsWith('.')
+            ? { path: child, kind: 'file', text: await store.readText(child) }
             : { path: child, kind: 'file' },
         );
       }
     }
   }
   await walk('');
-  return new VaultTree(entries);
+  return new VaultTree(entries, parse);
 }
 
 export async function snapshot(
-  root: string,
+  store: NoteStore,
+  parse: FrontmatterParser,
 ): Promise<[VaultTree, VaultNote[]]> {
-  const tree = await loadTree(root);
-  return [tree, tree.notes(parseMatter)];
+  const tree = await loadTree(store, parse);
+  return [tree, tree.notes()];
 }
 
-export async function listNotePaths(root: string): Promise<string[]> {
-  const out: string[] = [];
-  async function walk(rel: string): Promise<void> {
-    let entries;
-    try {
-      entries = await readdir(join(root, rel), { withFileTypes: true });
-    } catch {
-      return;
-    }
-    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-    for (const e of entries) {
-      if (e.name.startsWith('.')) continue;
-      const child = rel ? posix.join(rel, e.name) : e.name;
-      if (e.isDirectory()) {
-        if (child === COACH_ROOT) continue;
-        await walk(child);
-      } else if (e.isFile() && e.name.endsWith('.md')) {
-        out.push(child);
-      }
-    }
-  }
-  await walk('');
-  return out;
+export async function scanVault(
+  store: NoteStore,
+  parse: FrontmatterParser,
+): Promise<VaultNote[]> {
+  return (await snapshot(store, parse))[1];
 }
 
-export async function readNote(root: string, path: string): Promise<VaultNote> {
-  return noteOf(path, await readFile(join(root, path), 'utf-8'));
-}
-
-export async function scanVault(root: string): Promise<VaultNote[]> {
-  const paths = await listNotePaths(root);
-  return Promise.all(paths.map((p) => readNote(root, p)));
+export async function readNote(
+  store: NoteStore,
+  parse: FrontmatterParser,
+  path: string,
+): Promise<VaultNote | null> {
+  const tree = await loadTree(store, parse, false);
+  return tree.notePaths().includes(path)
+    ? tree.noteOf(path, await store.readText(path))
+    : null;
 }
