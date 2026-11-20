@@ -13,7 +13,8 @@ export const INCLUDE = [
   'ARCHITECTURE.md',
   'CONTRIBUTING.md',
   'docs/guide/*.md',
-  'packages/*/README.md',
+  'apps/*/README.md',
+  'libs/*/*/README.md',
   '.agents/skills/README.md',
   '.agents/skills/vault-planning/conventions.md',
   'kb/README.md',
@@ -37,15 +38,16 @@ export const GUIDE = [
 ];
 
 const PACKAGE_ORDER = [
-  'domain',
-  'application',
-  'adapter-ollama',
-  'adapter-gemini',
-  'adapter-vault-mcp',
-  'adapter-local-state',
-  'cli',
-  'vault',
-  'vault-server',
+  'libs/coach/domain',
+  'libs/coach/application',
+  'libs/coach/adapter-ollama',
+  'libs/coach/adapter-gemini',
+  'libs/coach/adapter-vault-mcp',
+  'libs/coach/adapter-local-state',
+  'apps/cli',
+  'libs/vault/core',
+  'apps/vault-server',
+  'apps/climb-board',
 ];
 
 export function siteFiles() {
@@ -70,9 +72,11 @@ export function repoRelative(absolutePath) {
 }
 
 export function packages() {
-  const found = readdirSync(join(repoRoot, 'packages')).filter((name) =>
-    siteFiles().has(`packages/${name}/README.md`),
-  );
+  const found = [...siteFiles()]
+    .filter((file) =>
+      /^(apps\/[^/]+|libs\/[^/]+\/[^/]+)\/README\.md$/.test(file),
+    )
+    .map((file) => file.replace(/\/README\.md$/, ''));
   const rank = (name) => {
     const index = PACKAGE_ORDER.indexOf(name);
     return index === -1 ? PACKAGE_ORDER.length : index;
@@ -123,9 +127,16 @@ export function pageFor(path, frontMatter) {
   if (path === 'ARCHITECTURE.md') {
     return { slug: '/architecture', sidebar_label: 'Architecture' };
   }
-  const pkg = path.match(/^packages\/([^/]+)\/README\.md$/);
-  if (pkg) {
-    return { slug: `/packages/${pkg[1]}`, sidebar_label: pkg[1] };
+  const app = path.match(/^apps\/([^/]+)\/README\.md$/);
+  if (app) {
+    return { slug: `/apps/${app[1]}`, sidebar_label: app[1] };
+  }
+  const lib = path.match(/^libs\/([^/]+)\/([^/]+)\/README\.md$/);
+  if (lib) {
+    return {
+      slug: `/libs/${lib[1]}/${lib[2]}`,
+      sidebar_label: `${lib[1]}/${lib[2]}`,
+    };
   }
   if (path === '.agents/skills/README.md') {
     return { slug: '/planning', sidebar_label: 'Planning skills' };

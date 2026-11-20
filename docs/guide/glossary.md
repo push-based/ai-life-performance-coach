@@ -132,7 +132,7 @@ A structure of concepts from several sources on one subject, such as everything 
 
 ## Vault server
 
-The only program that reads or writes your vault files: `packages/vault-server`, run as `coach-vault`. ai-coach starts it for each command and talks to it over the [Model Context Protocol](https://modelcontextprotocol.io); the planning skills reach it through your AI agent. `coach view` starts its graph view.
+The only program that reads or writes your vault files: `apps/vault-server`, run as `coach-vault`. ai-coach starts it for each command and talks to it over the [Model Context Protocol](https://modelcontextprotocol.io); the planning skills reach it through your AI agent. `coach view` starts its graph view.
 
 ## Vault view
 

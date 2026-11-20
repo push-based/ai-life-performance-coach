@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "coach": "node --env-file-if-exists=.env packages/cli/dist/main.js"
+    "coach": "node --env-file-if-exists=.env apps/cli/dist/main.js"
   },
   "private": true,
   "devDependencies": {
@@ -31,8 +31,8 @@
     "vitest": "~5.0.1"
   },
   "workspaces": [
-    "packages/*",
-    "apps/*"
+    "apps/*",
+    "libs/*/*"
   ],
   "packageManager": "npm@11.20.0"
 }

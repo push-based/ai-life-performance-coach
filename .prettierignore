@@ -6,5 +6,5 @@
 .nx/self-healing
 /apps/docs/build
 /apps/docs/.docusaurus
-/packages/vault/assets/climb-board
+/libs/vault/core/assets/climb-board
 /kb
