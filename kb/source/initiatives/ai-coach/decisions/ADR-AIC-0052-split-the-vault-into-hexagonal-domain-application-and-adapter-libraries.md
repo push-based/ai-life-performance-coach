@@ -3,7 +3,7 @@ doc_type: adr
 id: ADR-AIC-0052
 title: "Split the vault into hexagonal domain, application and adapter libraries"
 summary: "Stage 2 of ADR-AIC-0051: libs/vault/core is split into libs/vault/domain, libs/vault/application and one adapter library per outside dependency (file system, frontmatter, full-text search, PDF, view server), with apps/vault-server as the composition root. Planners read a VaultTree snapshot loaded through an async-only NoteStore port, frontmatter parsing sits behind a port, and posix path helpers move to a pure libs/shared/util-path."
-status: draft
+status: accepted
 initiative: "ai-coach"
 owners: []
 reviewers: []
