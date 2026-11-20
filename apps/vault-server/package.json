@@ -1,0 +1,35 @@
+{
+  "name": "@ai-coach/vault-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/main.js",
+  "module": "./dist/main.js",
+  "types": "./dist/main.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@org/source": "./src/main.ts",
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js",
+      "default": "./dist/main.js"
+    }
+  },
+  "nx": {
+    "tags": [
+      "scope:vault",
+      "architecture:hexagonal",
+      "type:app",
+      "app:vault-server"
+    ]
+  },
+  "dependencies": {
+    "@ai-coach/vault": "*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "tslib": "^2.3.0",
+    "zod": "^4.6.7"
+  },
+  "bin": {
+    "coach-vault": "./dist/main.js"
+  }
+}

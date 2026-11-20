@@ -3,7 +3,7 @@
     "life-vault": {
       "command": "node",
       "args": [
-        "/absolute/path/to/ai-coach/packages/vault-server/dist/main.js",
+        "/absolute/path/to/ai-coach/apps/vault-server/dist/main.js",
         "serve",
         "--vault",
         "/absolute/path/to/your-vault"

@@ -12,9 +12,9 @@ export default {
     'ARCHITECTURE',
     {
       type: 'category',
-      label: 'Packages',
+      label: 'Apps & libs',
       collapsed: false,
-      items: packages().map((name) => `packages/${name}/README`),
+      items: packages().map((dir) => `${dir}/README`),
     },
     {
       type: 'category',

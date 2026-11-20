@@ -1,0 +1,38 @@
+{
+  "name": "@ai-coach/vault",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@org/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./*.js": {
+      "@org/source": "./src/*.ts",
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js",
+      "default": "./dist/*.js"
+    }
+  },
+  "files": [
+    "assets",
+    "dist"
+  ],
+  "nx": {
+    "tags": [
+      "scope:vault",
+      "architecture:hexagonal",
+      "type:vault"
+    ]
+  },
+  "dependencies": {
+    "flexsearch": "^0.8.212",
+    "gray-matter": "^4.0.3",
+    "pdfjs-dist": "6.4.299",
+    "tslib": "^2.3.0"
+  }
+}

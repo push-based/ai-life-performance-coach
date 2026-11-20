@@ -24,7 +24,10 @@
   },
   "nx": {
     "tags": [
-      "type:vault-asset"
+      "scope:climb-board",
+      "architecture:layered",
+      "type:app",
+      "app:climb-board"
     ]
   }
 }

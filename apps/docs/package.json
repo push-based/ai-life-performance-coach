@@ -5,7 +5,10 @@
   "nx": {
     "name": "docs",
     "tags": [
-      "type:docs"
+      "scope:docs",
+      "architecture:layered",
+      "type:app",
+      "app:docs"
     ],
     "targets": {
       "build": {
@@ -22,7 +25,8 @@
           "{workspaceRoot}/CONTRIBUTING.md",
           "{workspaceRoot}/docs/guide/*.md",
           "{workspaceRoot}/LICENSE",
-          "{workspaceRoot}/packages/*/README.md",
+          "{workspaceRoot}/apps/*/README.md",
+          "{workspaceRoot}/libs/*/*/README.md",
           "{workspaceRoot}/.agents/skills/README.md",
           "{workspaceRoot}/.agents/skills/vault-planning/conventions.md",
           "{workspaceRoot}/kb/README.md",

@@ -29,7 +29,7 @@ npm install
 npx nx run-many -t build
 ```
 
-This also builds the [vault server](glossary.md#vault-server), `packages/vault-server/dist/main.js`, the only program that reads or changes your vault.
+This also builds the [vault server](glossary.md#vault-server), `apps/vault-server/dist/main.js`, the only program that reads or changes your vault.
 
 ## 2. Pull a Gemma model
 
@@ -72,7 +72,7 @@ Without a key, sparring still works. Each session waits for the judge, and `coac
 
 For the planning skills only. You plan by talking to an AI coding agent. The skills live in `.agents/skills/`, and the agent finds them when you start it in this folder. Claude Code reads them through the links in `.claude/skills/`.
 
-The agent reaches your vault through the same vault server, registered as an MCP server named `life-vault`. Every agent needs the same two absolute paths (`~` is not expanded): the vault server, `packages/vault-server/dist/main.js` in this checkout, and your vault. Keep the server name `life-vault`. Register it in a git-ignored file or in your user settings, so your paths stay out of git.
+The agent reaches your vault through the same vault server, registered as an MCP server named `life-vault`. Every agent needs the same two absolute paths (`~` is not expanded): the vault server, `apps/vault-server/dist/main.js` in this checkout, and your vault. Keep the server name `life-vault`. Register it in a git-ignored file or in your user settings, so your paths stay out of git.
 
 | Agent                     | Register `life-vault` in                                   |
 | ------------------------- | ---------------------------------------------------------- |
@@ -95,7 +95,7 @@ cp .mcp.example.json .mcp.json
     "life-vault": {
       "command": "node",
       "args": [
-        "/absolute/path/to/ai-coach/packages/vault-server/dist/main.js",
+        "/absolute/path/to/ai-coach/apps/vault-server/dist/main.js",
         "serve",
         "--vault",
         "/absolute/path/to/your-vault"
@@ -114,7 +114,7 @@ cp .mcp.example.json .mcp.json
       "type": "stdio",
       "command": "node",
       "args": [
-        "/absolute/path/to/ai-coach/packages/vault-server/dist/main.js",
+        "/absolute/path/to/ai-coach/apps/vault-server/dist/main.js",
         "serve",
         "--vault",
         "/absolute/path/to/your-vault"
@@ -127,7 +127,7 @@ cp .mcp.example.json .mcp.json
 **Codex** registers it from the command line:
 
 ```sh
-codex mcp add life-vault -- node /absolute/path/to/ai-coach/packages/vault-server/dist/main.js serve --vault /absolute/path/to/your-vault
+codex mcp add life-vault -- node /absolute/path/to/ai-coach/apps/vault-server/dist/main.js serve --vault /absolute/path/to/your-vault
 ```
 
 **OpenCode** takes the command as one list:
@@ -139,7 +139,7 @@ codex mcp add life-vault -- node /absolute/path/to/ai-coach/packages/vault-serve
       "type": "local",
       "command": [
         "node",
-        "/absolute/path/to/ai-coach/packages/vault-server/dist/main.js",
+        "/absolute/path/to/ai-coach/apps/vault-server/dist/main.js",
         "serve",
         "--vault",
         "/absolute/path/to/your-vault"

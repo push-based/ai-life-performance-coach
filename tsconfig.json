@@ -4,31 +4,31 @@
   "files": [],
   "references": [
     {
-      "path": "./packages/domain"
+      "path": "./libs/coach/domain"
     },
     {
-      "path": "./packages/application"
+      "path": "./libs/coach/application"
     },
     {
-      "path": "./packages/adapter-vault-mcp"
+      "path": "./libs/coach/adapter-vault-mcp"
     },
     {
-      "path": "./packages/adapter-ollama"
+      "path": "./libs/coach/adapter-ollama"
     },
     {
-      "path": "./packages/adapter-gemini"
+      "path": "./libs/coach/adapter-gemini"
     },
     {
-      "path": "./packages/adapter-local-state"
+      "path": "./libs/coach/adapter-local-state"
     },
     {
-      "path": "./packages/cli"
+      "path": "./apps/cli"
     },
     {
-      "path": "./packages/vault"
+      "path": "./libs/vault/core"
     },
     {
-      "path": "./packages/vault-server"
+      "path": "./apps/vault-server"
     }
   ],
   "compilerOptions": {}
