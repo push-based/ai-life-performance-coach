@@ -31,7 +31,22 @@
       "path": "./libs/vault/domain"
     },
     {
-      "path": "./libs/vault/core"
+      "path": "./libs/vault/application"
+    },
+    {
+      "path": "./libs/vault/adapter-fs"
+    },
+    {
+      "path": "./libs/vault/adapter-markdown"
+    },
+    {
+      "path": "./libs/vault/adapter-search"
+    },
+    {
+      "path": "./libs/vault/adapter-pdf"
+    },
+    {
+      "path": "./libs/vault/adapter-view"
     },
     {
       "path": "./apps/vault-server"

@@ -1,11 +1,11 @@
 import { parseArgs } from 'node:util';
 import type { CliIo } from '../main.js';
-import { composeVault } from '@ai-coach/vault/compose.js';
+import { composeVault } from '../compose.js';
 import {
   createVaultViewServer,
   listenOnLoopback,
-} from '@ai-coach/vault/view.js';
-import { GRAPH_FILE } from '@ai-coach/vault/view-graph.js';
+} from '@ai-coach/vault-adapter-view';
+import { GRAPH_FILE } from '@ai-coach/vault-application';
 import { resolveVaultForProcess } from '../serve-vault.js';
 
 export async function run(args: string[], io: CliIo): Promise<number> {

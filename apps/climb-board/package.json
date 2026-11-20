@@ -2,7 +2,7 @@
   "name": "@ai-coach/climb-board",
   "version": "0.0.0",
   "private": true,
-  "description": "The drawing board of the vault view's climb page, built with ng-diagram and bundled into @ai-coach/vault's assets",
+  "description": "The drawing board of the vault view's climb page, built with ng-diagram and bundled into @ai-coach/vault-adapter-view's assets",
   "license": "MIT",
   "type": "module",
   "scripts": {

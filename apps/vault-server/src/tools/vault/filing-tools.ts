@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool, type ToolDef, type ToolResult } from '../../tool-types.js';
-import type { Vault, FilingResult } from '@ai-coach/vault/vault.js';
+import type { Vault, FilingResult } from '@ai-coach/vault-application';
 import { json, fail } from './json.js';
 
 const WRITES = {

@@ -24,7 +24,12 @@
     ]
   },
   "dependencies": {
-    "@ai-coach/vault": "*",
+    "@ai-coach/vault-adapter-fs": "*",
+    "@ai-coach/vault-adapter-markdown": "*",
+    "@ai-coach/vault-adapter-pdf": "*",
+    "@ai-coach/vault-adapter-search": "*",
+    "@ai-coach/vault-adapter-view": "*",
+    "@ai-coach/vault-application": "*",
     "@ai-coach/vault-domain": "*",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "tslib": "^2.3.0",

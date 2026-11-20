@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 const from = new URL('../dist/browser/', import.meta.url).pathname;
 const to = new URL(
-  '../../../libs/vault/core/assets/climb-board/',
+  '../../../libs/vault/adapter-view/assets/climb-board/',
   import.meta.url,
 ).pathname;
 mkdirSync(to, { recursive: true });

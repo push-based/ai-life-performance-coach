@@ -1,5 +1,5 @@
 import type { ToolDef } from '../tool-types.js';
-import type { Vault } from '@ai-coach/vault/vault.js';
+import type { Vault } from '@ai-coach/vault-application';
 
 import { listNotesTool } from './vault/list-notes.js';
 import { readNoteTool } from './vault/read-note.js';

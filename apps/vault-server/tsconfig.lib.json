@@ -14,7 +14,22 @@
       "path": "../../libs/vault/domain/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/vault/core/tsconfig.lib.json"
+      "path": "../../libs/vault/application/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/vault/adapter-view/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/vault/adapter-search/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/vault/adapter-pdf/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/vault/adapter-markdown/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/vault/adapter-fs/tsconfig.lib.json"
     }
   ],
   "exclude": [

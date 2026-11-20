@@ -3,12 +3,12 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
-import { composeVault } from '@ai-coach/vault/compose.js';
+import { composeVault } from './compose.js';
 import {
   defaultVaultConfigFile,
   resolveVaultRoot,
   type ResolvedVaultRoot,
-} from '@ai-coach/vault/root.js';
+} from '@ai-coach/vault-adapter-fs';
 import { createVaultServer } from './server/vault.js';
 
 export interface ServeVaultOptions {
@@ -65,9 +65,9 @@ export function resolveVaultForProcess({
 export async function serveVault(opts: ServeVaultOptions): Promise<void> {
   const { root, source } = resolveVaultForProcess(opts);
 
-  const { version } = createRequire(import.meta.url)(
-    '@ai-coach/vault/package.json',
-  ) as { version: string };
+  const { version } = createRequire(import.meta.url)('../package.json') as {
+    version: string;
+  };
   const pkg = { name: 'ai-coach', version };
 
   console.error(`[coach-vault] Vault: ${root} (from ${source})`);
