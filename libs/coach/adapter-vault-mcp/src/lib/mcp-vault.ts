@@ -29,6 +29,11 @@ import {
   type StructureInput,
   type SummaryCheck,
   type VaultFiling,
+  type InterviewStore,
+  type InterviewWritePlan,
+  type LogInterviewAttemptInput,
+  type SaveInterviewProblemInput,
+  type StoredInterviewProblem,
 } from '@ai-coach/application';
 import {
   isCoachingStyle,
@@ -122,7 +127,7 @@ function details(note: ReadNoteResult): NoteDetails {
 }
 
 export class McpVault
-  implements NotesRepository, SessionLog, VaultFiling, Library
+  implements NotesRepository, SessionLog, VaultFiling, Library, InterviewStore
 {
   private constructor(private readonly client: VaultClient) {}
 
@@ -475,5 +480,44 @@ export class McpVault
       })),
       executed: result.executed,
     };
+  }
+
+  async listInterviewProblems(): Promise<StoredInterviewProblem[]> {
+    const result = await this.client.interviewListProblems().catch(translate);
+    return result.problems;
+  }
+
+  async getInterviewProblem(
+    slug: string,
+  ): Promise<StoredInterviewProblem | null> {
+    try {
+      return await this.client.interviewGetProblem(slug);
+    } catch (err) {
+      if (
+        err instanceof VaultToolError &&
+        err.message.includes('not found')
+      ) {
+        return null;
+      }
+      translate(err);
+    }
+  }
+
+  async saveInterviewProblem(
+    input: SaveInterviewProblemInput,
+    execute: boolean,
+  ): Promise<InterviewWritePlan> {
+    return this.client
+      .interviewSaveProblem({ ...input, execute })
+      .catch(translate);
+  }
+
+  async logInterviewAttempt(
+    input: LogInterviewAttemptInput,
+    execute: boolean,
+  ): Promise<InterviewWritePlan> {
+    return this.client
+      .interviewLogAttempt({ ...input, execute })
+      .catch(translate);
   }
 }

@@ -50,6 +50,12 @@ import {
   editNoteTool,
   createWorkstreamTool,
 } from './vault/note-edit-tools.js';
+import {
+  interviewListProblemsTool,
+  interviewGetProblemTool,
+  interviewSaveProblemTool,
+  interviewLogAttemptTool,
+} from './vault/interview-tools.js';
 
 export function createVaultTools(vault: Vault): ToolDef[] {
   return [
@@ -91,5 +97,9 @@ export function createVaultTools(vault: Vault): ToolDef[] {
     rollOverTool(vault),
     reviewPeriodTool(vault),
     harvestWorkstreamTool(vault),
+    interviewListProblemsTool(vault),
+    interviewGetProblemTool(vault),
+    interviewSaveProblemTool(vault),
+    interviewLogAttemptTool(vault),
   ];
 }

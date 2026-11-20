@@ -84,6 +84,10 @@ describe('vault tool registry', () => {
       'roll_over',
       'review_period',
       'harvest_workstream',
+      'interview_list_problems',
+      'interview_get_problem',
+      'interview_save_problem',
+      'interview_log_attempt',
     ]);
     expect(
       tools.filter((t) => !t.annotations?.readOnlyHint).map((t) => t.name),
@@ -112,6 +116,8 @@ describe('vault tool registry', () => {
       'create_workstream',
       'roll_over',
       'harvest_workstream',
+      'interview_save_problem',
+      'interview_log_attempt',
     ]);
   });
 });
@@ -250,6 +256,10 @@ describe('vault server over MCP', () => {
         'find_passages',
         'harvest_workstream',
         'init_vault',
+        'interview_get_problem',
+        'interview_list_problems',
+        'interview_log_attempt',
+        'interview_save_problem',
         'list_notes',
         'list_raw',
         'list_topics',

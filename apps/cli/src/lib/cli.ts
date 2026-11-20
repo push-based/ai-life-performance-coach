@@ -32,6 +32,7 @@ import { elaborate } from './elaborate.js';
 import { group } from './group.js';
 import { read } from './read.js';
 import { teach } from './teach.js';
+import { interview } from './interview.js';
 import { ConfigError, loadConfig } from './config.js';
 import { paint, type Terminal } from './terminal.js';
 
@@ -54,6 +55,7 @@ export const USAGE = `coach: a Socratic sparring partner for your notes
   coach capture <title>       write a new note into 0.Inbox
   coach archive <project>     move a project from 1.Projects into 4.Archive
   coach init                  bring the vault onto the five PARA folders
+  coach interview <subcmd>    technical interview practice (init, add, start, test, log, due, list)
   coach view                  open the vault graph in the browser
 
 Options: --style feynman|socratic|cornell|devil, --free-recall, --config <file>, --today YYYY-MM-DD, --help
@@ -94,6 +96,7 @@ const COMMANDS: Record<
   capture,
   archive,
   init: (coach, term) => init(coach, term),
+  interview: (coach, term, args) => interview(coach, term, args),
 };
 
 function isKnown(err: unknown): err is Error {

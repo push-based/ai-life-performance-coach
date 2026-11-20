@@ -1,6 +1,8 @@
 import { GeminiJudge } from '@ai-coach/adapter-gemini';
 import {
   FilePendingJudgements,
+  HttpProblemFetcher,
+  PracticeWorkspace,
   SystemClock,
 } from '@ai-coach/adapter-local-state';
 import {
@@ -22,12 +24,15 @@ import {
   Teaching,
   Synthesizing,
   Filing,
+  Interview,
   Judging,
   Review,
   Sparring,
   Studying,
   type Clock,
+  type CodeWorkspace,
   type ElaborationPartner,
+  type ProblemFetcher,
   type StructurePartner,
   type TeachPartner,
   type SynthesisPartner,
@@ -52,6 +57,7 @@ export interface Coach {
   grouping(): Grouping;
   reading(): Reading;
   teaching(): Teaching;
+  interview(): Interview;
   close(): Promise<void>;
 }
 
@@ -64,6 +70,8 @@ export interface AdapterOverrides {
   elaborationPartner?: (config: CoachConfig) => ElaborationPartner;
   structurePartner?: (config: CoachConfig) => StructurePartner;
   teachPartner?: (config: CoachConfig) => TeachPartner;
+  problemFetcher?: (config: CoachConfig) => ProblemFetcher;
+  codeWorkspace?: (config: CoachConfig) => CodeWorkspace;
 }
 
 export async function composeCoach(
@@ -175,6 +183,16 @@ export async function composeCoach(
         partner: partner(),
         rules: config.sparring,
         ladder: config.ladder,
+        clock,
+      }),
+    interview: () =>
+      new Interview({
+        store: vault,
+        fetcher:
+          overrides.problemFetcher?.(config) ?? new HttpProblemFetcher(),
+        workspace:
+          overrides.codeWorkspace?.(config) ??
+          new PracticeWorkspace(config.practiceRepo),
         clock,
       }),
     close: () => vault.close(),

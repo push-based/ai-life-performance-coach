@@ -367,3 +367,48 @@ export const SaveGuidelineResult = z.object({
   executed: z.boolean(),
 });
 export type SaveGuidelineResult = z.infer<typeof SaveGuidelineResult>;
+
+export const InterviewAttemptSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  mode: z.enum(['cli', 'web']),
+  durationSec: z.number(),
+  independence: z.enum(['failed', 'editorial', 'assisted', 'nudge', 'solo']),
+  hintsUsed: z.number(),
+  passedTests: z.number(),
+  totalTests: z.number(),
+  timeComplexity: z.string(),
+  spaceComplexity: z.string(),
+  mistakes: z.array(z.string()),
+  codeSnapshot: z.string(),
+});
+
+export const InterviewProblemSchema = z.object({
+  slug: z.string(),
+  title: z.string(),
+  source: z.string(),
+  difficulty: z.enum(['easy', 'medium', 'hard']),
+  patterns: z.array(z.string()),
+  lists: z.array(z.string()),
+  status: z.enum(['active', 'mastered', 'archived']),
+  nextReview: z.string().nullable(),
+  rung: z.number(),
+  solutionPath: z.string(),
+  notePath: z.string(),
+  body: z.string(),
+  attempts: z.array(InterviewAttemptSchema),
+});
+export type InterviewProblemResult = z.infer<typeof InterviewProblemSchema>;
+
+export const InterviewListResult = z.object({
+  problems: z.array(InterviewProblemSchema),
+});
+export type InterviewListResult = z.infer<typeof InterviewListResult>;
+
+export const InterviewWriteResult = z.object({
+  executed: z.boolean(),
+  paths: z.array(z.string()),
+  preview: z.string(),
+  errors: z.array(z.string()),
+});
+export type InterviewWriteResult = z.infer<typeof InterviewWriteResult>;

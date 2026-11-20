@@ -22,6 +22,10 @@ import {
   VaultGraphResult,
   WriteStructureResult,
   WriteSummaryResult,
+  InterviewListResult,
+  InterviewProblemSchema,
+  InterviewWriteResult,
+  type InterviewProblemResult,
   type BucketFilter,
   type ParaBucket,
   type Tier,
@@ -301,6 +305,22 @@ export class VaultClient {
     execute?: boolean;
   }): Promise<CreateConceptResult> {
     return this.call('create_concept', args, CreateConceptResult);
+  }
+
+  interviewListProblems(): Promise<InterviewListResult> {
+    return this.call('interview_list_problems', {}, InterviewListResult);
+  }
+
+  interviewGetProblem(slug: string): Promise<InterviewProblemResult> {
+    return this.call('interview_get_problem', { slug }, InterviewProblemSchema);
+  }
+
+  interviewSaveProblem(args: object): Promise<InterviewWriteResult> {
+    return this.call('interview_save_problem', args, InterviewWriteResult);
+  }
+
+  interviewLogAttempt(args: object): Promise<InterviewWriteResult> {
+    return this.call('interview_log_attempt', args, InterviewWriteResult);
   }
 
   private async call<T>(

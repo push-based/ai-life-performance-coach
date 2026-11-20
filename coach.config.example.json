@@ -1,5 +1,6 @@
 {
   "vault": "~/Documents/my-vault",
+  "practiceRepo": "~/projects/practice-monorepo",
   "ollama": {
     "model": "<a Gemma model from `ollama list`>",
     "host": "http://127.0.0.1:11434",
