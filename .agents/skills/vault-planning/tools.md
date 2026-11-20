@@ -26,7 +26,8 @@ A batch of previews shown together may be confirmed once; each call still gets i
 Reading `planning_overview`:
 
 - **Use `scope: "period"` for a day or a week.** The full result holds every open task in the vault (about 81,000 characters for one day). Ask for the full result only when you need the projects, areas, plans or unscheduled work: planning a month or more, or finding a task's owner.
-- `project` and `area` narrow `openTasks`, `scheduled` and `overdue` alike. To see a day across all owners, leave them out.
+- **Use `scope: "tasks"` with `project`, `area`, or `workstream`** when listing or querying tasks for a specific owner. It omits unrelated projects, areas, plans, and null/empty task fields so the response stays compact and fits inline.
+- `project`, `workstream`, and `area` narrow `openTasks`, `scheduled`, and `overdue` alike. To see a day across all owners, leave them out.
 - Each task carries `note` and `line`, its address; `blockId` (`^id`, goals and some tasks); `id` (`🆔`) and `blockedBy` (`⛔`); `recurrence` (the `🔁` rule of repeating work); `owner` `{project, workstream, area}`; `size`, `scheduled`, `priority`, `slipped`, `state`.
 - `line` is 0-based in the note's body, frontmatter excluded. Pass it to `update_task` exactly as returned; never count lines yourself.
 - `text` keeps links but drops dates, priority, size, slip tags, `🔁`, `🆔` and `⛔`.

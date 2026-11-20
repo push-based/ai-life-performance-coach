@@ -98,12 +98,16 @@ export function planningOverviewTool(vault: Vault): ToolDef {
         .optional()
         .describe('A period: YYYY, YYYY-Qn, YYYY-MM, YYYY-Www or YYYY-MM-DD'),
       project: z.string().optional().describe('Only tasks of this project'),
+      workstream: z
+        .string()
+        .optional()
+        .describe('Only tasks of this workstream'),
       area: z.string().optional().describe('Only tasks of this area'),
       scope: z
-        .enum(['all', 'period'])
+        .enum(['all', 'period', 'tasks'])
         .optional()
         .describe(
-          "'period' (needs 'period'): only the period, its goals, scheduled and overdue tasks and the parent goals, without the projects, areas, plans and every open task",
+          "'period' (needs 'period'): only the period, its goals, scheduled and overdue tasks and the parent goals, without the projects, areas, plans and every open task. 'tasks' (needs 'project', 'area' or 'workstream'): only matching projects/areas, openTasks (empty fields omitted), habits and warnings",
         ),
     },
     handler: async (args) => {
@@ -114,6 +118,13 @@ export function planningOverviewTool(vault: Vault): ToolDef {
         );
       if (args.scope === 'period' && !period)
         return fail("scope 'period' needs a period");
+      if (
+        args.scope === 'tasks' &&
+        !args.project &&
+        !args.area &&
+        !args.workstream
+      )
+        return fail("scope 'tasks' needs 'project', 'area', or 'workstream'");
       const p = await vault.planning();
       const habit = (h: (typeof p.habits)[number]) => ({
         text: h.text,
@@ -149,6 +160,7 @@ export function planningOverviewTool(vault: Vault): ToolDef {
       const want = (t: Pick<(typeof p.tasks)[number], 'owner'>) =>
         !archived.has(t.owner.project ?? '') &&
         (!args.project || t.owner.project === args.project) &&
+        (!args.workstream || t.owner.workstream === args.workstream) &&
         (!args.area || t.owner.area === args.area);
       const levels = ['year', 'quarter', 'month', 'week', 'day'] as const;
       const up = period ? levels[levels.indexOf(period.level) - 1] : undefined;
@@ -156,62 +168,88 @@ export function planningOverviewTool(vault: Vault): ToolDef {
         !!period && q.start <= period.end && q.end >= period.start;
       const ofPeriod = period
         ? {
-            period,
-            goals: p.tasks
-              .filter((t) => t.goal && t.plan?.period === period.period)
-              .map(task),
-            ...(period.level === 'day'
-              ? {
-                  habitsDue: p.habits
-                    .filter((h) => isHabitDue(h.rule, period.start) && want(h))
-                    .map(habit),
-                  habitChecks: dayChecks.filter(want).map(task),
-                }
-              : {}),
-            scheduled: p.tasks
+          period,
+          goals: p.tasks
+            .filter((t) => t.goal && t.plan?.period === period.period)
+            .map(task),
+          ...(period.level === 'day'
+            ? {
+              habitsDue: p.habits
+                .filter((h) => isHabitDue(h.rule, period.start) && want(h))
+                .map(habit),
+              habitChecks: dayChecks.filter(want).map(task),
+            }
+            : {}),
+          scheduled: p.tasks
+            .filter(
+              (t) =>
+                !t.goal &&
+                !t.habit &&
+                t.scheduled &&
+                t.scheduled >= period.start &&
+                t.scheduled <= period.end &&
+                want(t),
+            )
+            .map(task),
+          overdue: p.tasks
+            .filter(
+              (t) =>
+                !t.goal &&
+                !t.habit &&
+                t.state === 'open' &&
+                t.scheduled &&
+                t.scheduled < period.start &&
+                want(t),
+            )
+            .map(task),
+          parentGoals: up
+            ? p.tasks
               .filter(
                 (t) =>
-                  !t.goal &&
-                  !t.habit &&
-                  t.scheduled &&
-                  t.scheduled >= period.start &&
-                  t.scheduled <= period.end &&
-                  want(t),
+                  t.goal &&
+                  t.plan?.level === up &&
+                  overlaps(periodOf(t.plan.period)!),
               )
-              .map(task),
-            overdue: p.tasks
-              .filter(
-                (t) =>
-                  !t.goal &&
-                  !t.habit &&
-                  t.state === 'open' &&
-                  t.scheduled &&
-                  t.scheduled < period.start &&
-                  want(t),
-              )
-              .map(task),
-            parentGoals: up
-              ? p.tasks
-                  .filter(
-                    (t) =>
-                      t.goal &&
-                      t.plan?.level === up &&
-                      overlaps(periodOf(t.plan.period)!),
-                  )
-                  .map(task)
-              : [],
-          }
+              .map(task)
+            : [],
+        }
         : {};
       if (args.scope === 'period')
         return json({ ...ofPeriod, warnings: p.warnings });
+      const projects = p.projects
+        .filter((pr) => !pr.archived)
+        .map(({ packets: _p, archived: _a, ...pr }) => ({
+          ...pr,
+          workstreams: pr.workstreams.map(({ notes: _n, ...w }) => w),
+        }));
+      const areas = p.areas.map(({ notes: _n, ...a }) => a);
+      const compactTask = (t: (typeof p.tasks)[number]) =>
+        Object.fromEntries(
+          Object.entries(task(t)).filter(
+            ([, v]) => v !== null && (!Array.isArray(v) || v.length > 0),
+          ),
+        );
+      if (args.scope === 'tasks')
+        return json({
+          projects: projects.filter(
+            (pr) =>
+              (!args.project || pr.name === args.project) &&
+              (!args.workstream ||
+                pr.workstreams.some((w) => w.name === args.workstream)),
+          ),
+          ...(args.area
+            ? { areas: areas.filter((a) => a.name === args.area) }
+            : {}),
+          openTasks: p.tasks
+            .filter((t) => t.state === 'open' && !t.goal && !t.habit && want(t))
+            .map(compactTask),
+          habits: p.habits.filter((h) => want(h)).map(habit),
+          ...ofPeriod,
+          warnings: p.warnings,
+        });
       return json({
-        projects: p.projects
-          .filter((pr) => !pr.archived)
-          .map(({ packets: _p, archived: _a, ...pr }) => ({
-            ...pr,
-            workstreams: pr.workstreams.map(({ notes: _n, ...w }) => w),
-          })),
-        areas: p.areas.map(({ notes: _n, ...a }) => a),
+        projects,
+        areas,
         plans: p.plans.map((x) => `${x.level}:${x.period}`).sort(),
         openTasks: p.tasks
           .filter((t) => t.state === 'open' && !t.goal && !t.habit && want(t))
@@ -435,8 +473,8 @@ export function harvestWorkstreamTool(vault: Vault): ToolDef {
       );
       return r.errors.length
         ? fail(
-            `harvest_workstream refused:\n- ${r.errors.join('\n- ')}${r.candidates.length ? `\ncandidates: ${JSON.stringify(r.candidates)}` : ''}`,
-          )
+          `harvest_workstream refused:\n- ${r.errors.join('\n- ')}${r.candidates.length ? `\ncandidates: ${JSON.stringify(r.candidates)}` : ''}`,
+        )
         : json(r);
     },
   });
