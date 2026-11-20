@@ -1,3 +1,4 @@
+import { createVault } from './fixtures.js';
 import {
   existsSync,
   mkdtempSync,
@@ -10,7 +11,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createVault, type Vault } from '../vault.js';
+import { type Vault } from '../vault.js';
 import type { RecordSessionInput } from '../record.js';
 import {
   insertCoachId,

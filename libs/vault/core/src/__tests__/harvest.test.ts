@@ -1,4 +1,4 @@
-import { scanVault, loadTree, snapshot } from './fixtures.js';
+import { scanVault, loadTree, snapshot, createVault } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -11,7 +11,6 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { harvestWorkstream, resetChecklist } from '../harvest.js';
 
-import { createVault } from '../vault.js';
 import { buildVaultGraph, planning } from '@ai-coach/vault-domain';
 
 let dir: string;

@@ -1,3 +1,4 @@
+import { createVault } from './fixtures.js';
 import {
   existsSync,
   mkdtempSync,
@@ -10,7 +11,7 @@ import { request } from 'node:http';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createVault, type Vault } from '../vault.js';
+import { type Vault } from '../vault.js';
 import { createVaultViewServer, listenOnLoopback } from '../view.js';
 import { compareStructure } from '../climb.js';
 import { parseSession } from '@ai-coach/vault-domain';

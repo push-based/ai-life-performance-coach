@@ -1,3 +1,4 @@
+import { createVault } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -7,7 +8,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createVault, type Vault } from '../vault.js';
+import { type Vault } from '../vault.js';
 import {
   chapterProgress,
   summaryOf,
@@ -16,7 +17,6 @@ import {
   pageSection,
 } from '../distill.js';
 import { checkPassages } from '../concept.js';
-import { writeViewGraph } from '../view.js';
 
 let dir: string;
 let vault: Vault;
@@ -315,7 +315,7 @@ describe('the graph view', () => {
   it("carries each book's stage and each chapter's pages", async () => {
     put(CH1, read(CH1).replace('Capture ideas', '==Capture ideas=='));
     await vault.writeSummary(CH2, 'Done.', undefined, true);
-    const graph = await writeViewGraph(vault);
+    const graph = await vault.viewGraph();
     const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
     expect(node(INDEX)).toMatchObject({
       stage: 'distilling',

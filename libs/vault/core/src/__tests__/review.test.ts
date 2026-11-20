@@ -1,10 +1,8 @@
-import { snapshot } from './fixtures.js';
+import { snapshot, createVault } from './fixtures.js';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { reviewPeriod, type PeriodReview } from '../review.js';
-
-import { createVault } from '../vault.js';
 
 let dir: string;
 

@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createVault, type Vault } from '@ai-coach/vault/vault.js';
+import type { Vault } from '@ai-coach/vault/vault.js';
+import { composeVault } from '@ai-coach/vault/compose.js';
 import { createVaultTools } from '../vault.js';
 import { createVaultServer } from '../../server/vault.js';
 import { parseVaultFlags, workspaceRootsAbove } from '../../serve-vault.js';
@@ -36,7 +37,7 @@ beforeEach(() => {
     'Promises resolve as microtasks, see [[Event loop]].\n',
   );
   put('Stray.md', 'Outside PARA.\n');
-  vault = createVault(dir);
+  vault = composeVault(dir);
 });
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });

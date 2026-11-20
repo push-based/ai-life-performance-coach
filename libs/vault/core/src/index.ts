@@ -102,7 +102,6 @@ export {
   listRaw,
   planConvert,
   planUnits,
-  extractPdf,
   renderChapter,
   renderIndex,
   chapterFile,

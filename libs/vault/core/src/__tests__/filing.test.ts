@@ -1,3 +1,4 @@
+import { createVault } from './fixtures.js';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -11,7 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
-import { createVault, type Vault } from '../vault.js';
+import { type Vault } from '../vault.js';
 
 let dir: string;
 let vault: Vault;

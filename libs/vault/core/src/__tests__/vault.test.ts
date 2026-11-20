@@ -1,4 +1,4 @@
-import { scanVault } from './fixtures.js';
+import { scanVault, createVault, searchNotes } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -12,8 +12,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { resolveVaultRoot, defaultVaultConfigFile } from '../root.js';
 import { loadTree } from './fixtures.js';
-import { createVault, notePathOf } from '../vault.js';
-import { searchNotes } from '../search.js';
+import { notePathOf } from '../vault.js';
+
 import {
   classify,
   extractLinks,

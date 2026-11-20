@@ -1,5 +1,4 @@
 import type { NoteStore } from './note-store.js';
-import { createHash } from 'node:crypto';
 import { posix } from 'node:path';
 import {
   PLANS_ROOT,
@@ -400,16 +399,19 @@ export const scheduleLine = (line: string, day: string) =>
     ? line.replace(SCHEDULED_DATE, `⏳ ${day}`)
     : insertBeforeBlockId(line, ` ⏳ ${day}`);
 
-export const versionOf = (text: string) =>
-  createHash('sha256').update(text).digest('hex').slice(0, 12);
-export const versionsOf = (originals: Record<string, string>) =>
+export type Digest = (text: string) => string;
+
+export const versionOf = (text: string, digest: Digest) =>
+  digest(text).slice(0, 12);
+export const versionsOf = (originals: Record<string, string>, digest: Digest) =>
   Object.fromEntries(
-    Object.entries(originals).map(([k, v]) => [k, versionOf(v)]),
+    Object.entries(originals).map(([k, v]) => [k, versionOf(v, digest)]),
   );
 
 export function staleNotes(
   w: Pick<NoteWrites, 'originals' | 'writes'>,
   expected: Record<string, string>,
+  digest: Digest,
 ): string[] {
   const out: string[] = [];
   for (const note of Object.keys(w.writes)) {
@@ -417,7 +419,7 @@ export function staleNotes(
     if (was === undefined) continue;
     if (!(note in expected))
       out.push(`${note} was not in the preview; preview again`);
-    else if (expected[note] !== versionOf(was))
+    else if (expected[note] !== versionOf(was, digest))
       out.push(`${note} changed since the preview; preview again`);
   }
   return out;

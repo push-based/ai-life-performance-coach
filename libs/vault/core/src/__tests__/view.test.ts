@@ -1,3 +1,4 @@
+import { createVault } from './fixtures.js';
 import {
   existsSync,
   mkdtempSync,
@@ -11,14 +12,9 @@ import { request } from 'node:http';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createVault, type Vault } from '../vault.js';
-import {
-  createVaultViewServer,
-  listenOnLoopback,
-  writeViewGraph,
-  shortLabel,
-  GRAPH_FILE,
-} from '../view.js';
+import { type Vault } from '../vault.js';
+import { createVaultViewServer, listenOnLoopback } from '../view.js';
+import { shortLabel, GRAPH_FILE } from '../view-graph.js';
 
 let dir: string;
 let vault: Vault;
@@ -405,9 +401,11 @@ describe('view assets', () => {
     }
   });
 
-  it('writeViewGraph replaces the previous file', async () => {
+  it('viewGraph replaces the previous file', async () => {
     put(GRAPH_FILE, 'stale');
-    await writeViewGraph(vault, new Date('2026-10-24T00:00:00Z'));
+    await createVault(dir, {
+      now: () => new Date('2026-10-24T00:00:00Z'),
+    }).viewGraph();
     expect(
       JSON.parse(readFileSync(join(dir, GRAPH_FILE), 'utf-8')).generatedAt,
     ).toBe('2026-10-24T00:00:00.000Z');
@@ -456,7 +454,7 @@ describe('graph labels and book folding', () => {
       '---\ntitle: "Idea"\ntype: "concept"\n---\n',
     );
     expect(
-      (await writeViewGraph(vault)).nodes.find(
+      (await vault.viewGraph()).nodes.find(
         (n) => n.id === '3.Resources/Concepts/Idea.md',
       ),
     ).toMatchObject({ concept: true, label: 'Idea' });
@@ -477,7 +475,7 @@ describe('graph labels and book folding', () => {
       '3.Resources/Concepts/Idea.md',
       `---\ntype: "concept"\n---\nFrom [[${home}/chapters/01 One|ch 1]].\n`,
     );
-    const graph = await writeViewGraph(vault);
+    const graph = await vault.viewGraph();
     const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
     expect(node(`${home}/text.md`)).toMatchObject({
       notesFrom: ['0.Inbox/Reading B.md'],
@@ -504,7 +502,7 @@ describe('graph labels and book folding', () => {
       `${home}/chapters/02 Two.md`,
       '---\ntitle: "Chapter 2: Two (1 of 2)"\nraw_role: "chapter"\nsection: "1 of 2"\npages: "3-4"\n---\n',
     );
-    const graph = await writeViewGraph(vault);
+    const graph = await vault.viewGraph();
     const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
     expect(node(`${home}/text.md`)).toMatchObject({
       rawRole: 'index',

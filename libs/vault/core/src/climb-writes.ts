@@ -1,4 +1,4 @@
-import { posix } from 'node:path';
+import { posix } from '@ai-coach/util-path';
 import { safeName } from './filing.js';
 import {
   CONCEPTS_FOLDER,

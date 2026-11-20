@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
-import { createVault } from '@ai-coach/vault/vault.js';
+import { composeVault } from '@ai-coach/vault/compose.js';
 import {
   defaultVaultConfigFile,
   resolveVaultRoot,
@@ -71,7 +71,7 @@ export async function serveVault(opts: ServeVaultOptions): Promise<void> {
   const pkg = { name: 'ai-coach', version };
 
   console.error(`[coach-vault] Vault: ${root} (from ${source})`);
-  const server = createVaultServer({ vault: createVault(root), pkg });
+  const server = createVaultServer({ vault: composeVault(root), pkg });
   await server.connect(new StdioServerTransport());
   console.error(`coach-vault server started (${pkg.name} v${pkg.version})`);
 }

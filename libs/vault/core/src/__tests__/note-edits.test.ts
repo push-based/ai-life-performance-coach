@@ -1,3 +1,4 @@
+import { createVault } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -8,7 +9,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createVault, type Vault } from '../vault.js';
+import { type Vault } from '../vault.js';
 import { parseTasks, TaskLine } from '@ai-coach/vault-domain';
 
 let dir: string;

@@ -1,5 +1,5 @@
 import type { NoteStore } from './note-store.js';
-import { posix } from 'node:path';
+import { posix } from '@ai-coach/util-path';
 import { RAW_TEXT } from './convert.js';
 import {
   noteResolver,

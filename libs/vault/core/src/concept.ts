@@ -1,5 +1,5 @@
 import type { NoteStore } from './note-store.js';
-import { posix } from 'node:path';
+import { posix } from '@ai-coach/util-path';
 import { safeName } from './filing.js';
 import { withoutSummaries } from './distill.js';
 import {

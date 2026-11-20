@@ -1,4 +1,4 @@
-import { posix } from 'node:path';
+import { posix } from '@ai-coach/util-path';
 import { fold, conceptOf } from './concept.js';
 import { chapterSummaryOf, withoutSummaries } from './distill.js';
 import {

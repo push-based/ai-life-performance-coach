@@ -1,8 +1,6 @@
-import { randomBytes } from 'node:crypto';
-import { posix } from 'node:path';
-import { createFsNoteStore } from './fs-store.js';
-import { parseMatter } from './markdown.js';
+import { posix } from '@ai-coach/util-path';
 import type { NoteStore } from './note-store.js';
+import { writeViewGraph, type VaultViewGraph } from './view-graph.js';
 import {
   loadTree,
   readNote,
@@ -34,7 +32,7 @@ import {
   type RawItem,
   type ConvertPlan,
   type ConvertOptions,
-  extractPdf,
+  type PdfReader,
   type PdfLoader,
 } from './convert.js';
 import {
@@ -63,6 +61,10 @@ import {
 } from './distill.js';
 import {
   searchPassages,
+  searchNotes,
+  type NoteHit,
+  type NoteSearchOptions,
+  type SearchRanker,
   type PassageHit,
   type PassageSearchOptions,
 } from './search.js';
@@ -72,6 +74,7 @@ import {
   planDays,
   executeWrites,
   staleNotes,
+  type Digest,
   versionsOf,
   type DayInput,
   type NoteWrites,
@@ -153,7 +156,17 @@ import {
   type Tier2Payload,
   planning,
   type Planning,
+  type FrontmatterParser,
 } from '@ai-coach/vault-domain';
+
+export interface VaultDeps {
+  store: NoteStore;
+  frontmatter: FrontmatterParser;
+  readPdf: PdfReader;
+  rank: SearchRanker;
+  digest: Digest;
+  randomHex: (bytes: number) => string;
+}
 
 export interface VaultOptions {
   now?: () => Date;
@@ -192,6 +205,10 @@ export interface Vault {
   readonly root: string;
 
   pathOf(path: string): string | null;
+
+  searchNotes(query: string, opts?: NoteSearchOptions): Promise<NoteHit[]>;
+
+  viewGraph(): Promise<VaultViewGraph>;
   notes(): Promise<VaultNote[]>;
 
   note(path: string): Promise<VaultNote | null>;
@@ -409,7 +426,7 @@ export type WriteOutcome<T> = Omit<T, 'originals' | 'writes' | 'created'> & {
 };
 
 async function applyNoteWrites<T extends NoteWrites & { warnings: string[] }>(
-  store: NoteStore,
+  { store, digest }: Pick<VaultDeps, 'store' | 'digest'>,
   plan: T,
   execute: boolean,
   versions?: Versions,
@@ -423,11 +440,12 @@ async function applyNoteWrites<T extends NoteWrites & { warnings: string[] }>(
           .filter((k) => k in plan.originals)
           .map((k) => [k, plan.originals[k]]),
       ),
+      digest,
     ),
   };
   if (!execute || plan.errors.length) return { ...shown, executed: false };
   if (versions) {
-    const stale = staleNotes(plan, versions);
+    const stale = staleNotes(plan, versions, digest);
     if (stale.length) return { ...shown, errors: stale, executed: false };
   } else {
     shown.warnings = [
@@ -491,22 +509,21 @@ export function notePathOf(path: string, separator = '/'): string | null {
   return rel;
 }
 
-const defaultSessionId = (now: Date) =>
-  `s-${now.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')}-${randomBytes(2).toString('hex')}`;
-const defaultCoachId = () => `c-${randomBytes(5).toString('hex')}`;
-
-export function createVault(root: string, opts: VaultOptions = {}): Vault {
-  const store = createFsNoteStore(root);
-  const parse = parseMatter;
+export function createVault(deps: VaultDeps, opts: VaultOptions = {}): Vault {
+  const { store, frontmatter: parse, randomHex } = deps;
+  const root = store.root;
   const pathOf = (path: string) => notePathOf(path, store.separator);
   const now = opts.now ?? (() => new Date());
-  const newSessionId = opts.newSessionId ?? defaultSessionId;
-  const newCoachId = opts.newCoachId ?? defaultCoachId;
+  const newSessionId =
+    opts.newSessionId ??
+    ((at: Date) =>
+      `s-${at.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-')}-${randomHex(2)}`);
+  const newCoachId = opts.newCoachId ?? (() => `c-${randomHex(5)}`);
 
   const snapshot = () => loadSnapshot(store, parse);
 
   const loadPdf: PdfLoader = async (path) =>
-    extractPdf(await store.readBytes(path));
+    deps.readPdf(await store.readBytes(path));
 
   async function notesWithHistory() {
     const [notes, { sessions, invalid }] = await Promise.all([
@@ -555,9 +572,12 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     return { ok: true, text: r.text };
   }
 
-  return {
+  const vault: Vault = {
     root,
     pathOf,
+    viewGraph: () => writeViewGraph(vault, store, now()),
+    searchNotes: async (query, opts) =>
+      searchNotes(deps.rank, await scanVault(store, parse), query, opts),
     notes: () => scanVault(store, parse),
     async note(path) {
       const rel = pathOf(path);
@@ -778,7 +798,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     async planPeriod(input, execute, versions) {
       const plan = planPeriod(...(await snapshot()), input);
       return applyNoteWrites(
-        store,
+        deps,
         { ...plan, created: plan.creates ? [plan.plan] : [] },
         execute,
         versions,
@@ -786,7 +806,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     },
     planDays: async (days, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         planDays(...(await snapshot()), days),
         execute,
         versions,
@@ -802,39 +822,39 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
           'a task addressed by line is updated only with the versions its preview returned, so a line that moved is not changed',
         );
       }
-      return applyNoteWrites(store, plan, execute, versions);
+      return applyNoteWrites(deps, plan, execute, versions);
     },
     addTasks: async (input, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         addTasks(...(await snapshot()), input),
         execute,
         versions,
       ),
     addHabits: async (input, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         addHabits(...(await snapshot()), input),
         execute,
         versions,
       ),
     setFrontmatter: async (note, set, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         setFrontmatter(...(await snapshot()), note, set),
         execute,
         versions,
       ),
     editNote: async (input, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         editNote(...(await snapshot()), input),
         execute,
         versions,
       ),
     createWorkstream: async (input, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         createWorkstream(...(await snapshot()), input),
         execute,
         versions,
@@ -869,13 +889,13 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       reviewPeriod(...(await snapshot()), period, today ?? localDate(now())),
     rollOver: async (period, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         rollOver(...(await snapshot()), period),
         execute,
         versions,
       ),
     findPassages: async (query, opts) =>
-      searchPassages(await scanVault(store, parse), query, opts),
+      searchPassages(deps.rank, await scanVault(store, parse), query, opts),
     async climb(note) {
       return climbs(
         await scanVault(store, parse),
@@ -885,7 +905,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     },
     rebuildClimb: async (execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         rebuildClimbs(
           ...(await snapshot()),
           (await loadSessions(store)).sessions,
@@ -895,7 +915,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       ),
     addReadingNotes: async (input, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         addReadingNotes(
           ...(await snapshot()),
           (await loadSessions(store)).sessions,
@@ -907,7 +927,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       ),
     writeStructure: async (input, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         writeStructure(
           ...(await snapshot()),
           (await loadSessions(store)).sessions,
@@ -919,7 +939,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       ),
     saveGuideline: async (input, execute) =>
       applyNoteWrites(
-        store,
+        deps,
         saveGuideline(
           ...(await snapshot()),
           (await loadSessions(store)).sessions,
@@ -944,7 +964,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     listTopics: async () => listTopics(await scanVault(store, parse)),
     extendConcept: async (input, execute, versions) =>
       applyNoteWrites(
-        store,
+        deps,
         extendConcept(
           ...(await snapshot()),
           (await loadSessions(store)).sessions,
@@ -998,4 +1018,5 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       return { ...shown, executed: true };
     },
   };
+  return vault;
 }

@@ -1,4 +1,4 @@
-import { scanVault, loadTree } from './fixtures.js';
+import { scanVault, loadTree, createVault } from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { planInit } from '../filing.js';
-import { createVault } from '../vault.js';
+
 import {
   parseTasks,
   planOf,

@@ -1,11 +1,10 @@
-import { snapshot } from './fixtures.js';
+import { snapshot, createVault } from './fixtures.js';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { request, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { plansView, type PlansView } from '../plansview.js';
 
-import { createVault } from '../vault.js';
 import { createVaultViewServer, listenOnLoopback } from '../view.js';
 
 let dir: string;

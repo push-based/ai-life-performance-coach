@@ -1,4 +1,10 @@
-import { scanVault, loadTree, snapshot, storeAt } from './fixtures.js';
+import {
+  scanVault,
+  loadTree,
+  snapshot,
+  storeAt,
+  createVault,
+} from './fixtures.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -12,7 +18,6 @@ import { dirname, join } from 'node:path';
 import { rollOver } from '../rollover.js';
 import { nextPeriod, periodOf, executeWrites } from '../plans.js';
 
-import { createVault } from '../vault.js';
 import { planning } from '@ai-coach/vault-domain';
 
 let dir: string;

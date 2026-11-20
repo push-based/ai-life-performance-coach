@@ -1,3 +1,4 @@
+import { createVault } from './fixtures.js';
 import {
   existsSync,
   mkdtempSync,
@@ -8,7 +9,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { createVault, type Vault } from '../vault.js';
+import { type Vault } from '../vault.js';
 import { interleave, sharesRun, CLIMB_STEPS } from '../climb.js';
 import type { ConceptClimb } from '../climb.js';
 import type { RecordSessionInput } from '../record.js';
