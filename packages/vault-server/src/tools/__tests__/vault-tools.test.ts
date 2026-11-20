@@ -739,6 +739,62 @@ describe('planning_overview', () => {
       (await call('planning_overview', { scope: 'period' })).res.isError,
     ).toBe(true);
   });
+
+  it("returns only matching project/workstream and compact openTasks with scope 'tasks'", async () => {
+    put(
+      '1.Projects/Expo2026/Expo2026.md',
+      '---\nstatus: in-progress\n---\n# Expo2026\n',
+    );
+    put(
+      '1.Projects/Other2026/Other2026.md',
+      '---\nstatus: in-progress\n---\n# Other2026\n',
+    );
+    put(
+      '1.Projects/Expo2026/Workstreams/Talks.md',
+      '- [ ] Talk task #S\n- [x] Done task\n',
+    );
+    put(
+      '1.Projects/Expo2026/Workstreams/Marketing.md',
+      '- [ ] Marketing task\n',
+    );
+    put('1.Projects/Other2026/Workstreams/Ops.md', '- [ ] Other task\n');
+    const { data } = await call('planning_overview', {
+      project: 'Expo2026',
+      scope: 'tasks',
+    });
+    expect(data.projects.map((p: { name: string }) => p.name)).toEqual([
+      'Expo2026',
+    ]);
+    expect(data.plans).toBeUndefined();
+    expect(data.openTasks).toEqual([
+      {
+        note: '1.Projects/Expo2026/Workstreams/Marketing.md',
+        line: 0,
+        text: 'Marketing task',
+        state: 'open',
+        owner: { project: 'Expo2026', workstream: 'Marketing', area: null },
+      },
+      {
+        note: '1.Projects/Expo2026/Workstreams/Talks.md',
+        line: 0,
+        text: 'Talk task',
+        state: 'open',
+        owner: { project: 'Expo2026', workstream: 'Talks', area: null },
+        size: 'S',
+      },
+    ]);
+    const ws = await call('planning_overview', {
+      project: 'Expo2026',
+      workstream: 'Talks',
+      scope: 'tasks',
+    });
+    expect(ws.data.openTasks.map((t: { text: string }) => t.text)).toEqual([
+      'Talk task',
+    ]);
+    expect(
+      (await call('planning_overview', { scope: 'tasks' })).res.isError,
+    ).toBe(true);
+  });
 });
 
 describe('habits', () => {
