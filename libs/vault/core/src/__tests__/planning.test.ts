@@ -7,16 +7,16 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { scanVault, fsListing } from '../scan.js';
+import { planInit } from '../filing.js';
+import { createVault } from '../vault.js';
 import {
   parseTasks,
   planOf,
   planPathIn,
   planPathOf,
   planning,
-} from '../planning.js';
-import { scanVault } from '../scan.js';
-import { planInit } from '../filing.js';
-import { createVault } from '../vault.js';
+} from '@ai-coach/vault-domain';
 
 let dir: string;
 
@@ -280,7 +280,7 @@ describe('planning', () => {
 
   it('reads projects with their note, status, deadline, definition of done and workstreams', async () => {
     seed();
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     const expo = p.projects.find((x) => x.name === 'Expo2026')!;
     expect(expo).toMatchObject({
       note: '1.Projects/Expo2026/Expo2026.md',
@@ -321,7 +321,7 @@ describe('planning', () => {
 
   it('warns about a missing project note and reads status only from project, workstream and area notes', async () => {
     seed();
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     expect(p.projects.find((x) => x.name === 'Garden')).toMatchObject({
       note: null,
       workstreams: [],
@@ -336,7 +336,7 @@ describe('planning', () => {
 
   it('reads areas as notes or folders', async () => {
     seed();
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     expect(
       p.areas.map((a) => [a.name, a.note, a.status, a.notes.length]),
     ).toEqual([
@@ -347,7 +347,7 @@ describe('planning', () => {
 
   it('lists plans and warns about a note in Plans/ that is not one', async () => {
     seed();
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     expect(p.plans.map((x) => `${x.level}:${x.period}`).sort()).toEqual([
       'day:2026-11-03',
       'quarter:2026-Q4',
@@ -360,7 +360,7 @@ describe('planning', () => {
 
   it('gives each task its owner: by path in a project or area, by link in a plan', async () => {
     seed();
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     const owner = (text: string) =>
       p.tasks.find((t) => t.text.startsWith(text))!.owner;
     expect(owner('Book the venue')).toEqual({
@@ -418,7 +418,7 @@ describe('planning', () => {
 
   it('warns about unlinked plan items and goals below the year without a parent', async () => {
     seed();
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     expect(p.warnings).toContain(
       'Plans/Weekly/2026-W45.md:6: "Water the plants" links no project, workstream or area',
     );
@@ -433,7 +433,7 @@ describe('planning', () => {
 
   it('reports a status outside the vocabulary', async () => {
     put('1.Projects/X/X.md', '---\nstatus: Done\n---\n');
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     expect(p.warnings).toContain(
       '1.Projects/X/X.md: status "Done" is not one of todo, in-progress, blocked, done',
     );

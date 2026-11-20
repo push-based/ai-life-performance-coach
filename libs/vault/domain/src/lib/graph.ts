@@ -1,7 +1,7 @@
-import { posix } from 'node:path';
+import { posix } from '@ai-coach/util-path';
 import { LinkResolver } from './links.js';
 import type { ParaBucket } from './para.js';
-import type { VaultNote } from './scan.js';
+import type { VaultNote } from './note.js';
 
 export interface VaultGraphNode {
   id: string;

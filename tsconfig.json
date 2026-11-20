@@ -28,6 +28,9 @@
       "path": "./apps/cli"
     },
     {
+      "path": "./libs/vault/domain"
+    },
+    {
       "path": "./libs/vault/core"
     },
     {

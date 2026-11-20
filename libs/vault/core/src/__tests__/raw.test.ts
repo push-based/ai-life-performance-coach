@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createVault, type Vault } from '../vault.js';
 import { pagesOf, planUnits, type PdfText } from '../convert.js';
-import { buildVaultGraph, noteResolver } from '../graph.js';
+import { buildVaultGraph, noteResolver } from '@ai-coach/vault-domain';
 
 interface Entry {
   title: string;

@@ -1,24 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
-import { insertCoachId, declaresCoachId } from './identity.js';
-import {
-  renderSession,
-  sessionPath,
-  isDate,
-  SESSION_KINDS,
-  ELABORATION_KINDS,
-  type SessionRecord,
-  type SessionItem,
-  type SessionKind,
-  type Tier,
-  type Verdict,
-  type GenerateDetail,
-  type Elaboration,
-  type TeachDetail,
-  type TeachTurn,
-  type AssertionMark,
-} from './sessions.js';
 import { conceptOf } from './concept.js';
 import {
   climbOf,
@@ -35,8 +17,27 @@ import {
   CLIMB_STEPS,
   type ClimbSteps,
 } from './climb.js';
-import { PARA_FOLDERS } from './para.js';
-import type { VaultNote } from './scan.js';
+import {
+  insertCoachId,
+  declaresCoachId,
+  renderSession,
+  sessionPath,
+  isDate,
+  SESSION_KINDS,
+  ELABORATION_KINDS,
+  type SessionRecord,
+  type SessionItem,
+  type SessionKind,
+  type Tier,
+  type Verdict,
+  type GenerateDetail,
+  type Elaboration,
+  type TeachDetail,
+  type TeachTurn,
+  type AssertionMark,
+  PARA_FOLDERS,
+  type VaultNote,
+} from '@ai-coach/vault-domain';
 
 export interface SessionItemInput {
   note?: string;

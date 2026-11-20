@@ -137,7 +137,11 @@ export default [
             },
             {
               sourceTag: 'type:vault',
-              onlyDependOnLibsWithTags: ['type:vault', 'type:util'],
+              onlyDependOnLibsWithTags: [
+                'type:vault',
+                'type:domain',
+                'type:util',
+              ],
               allowedExternalImports: [
                 'gray-matter',
                 'flexsearch',

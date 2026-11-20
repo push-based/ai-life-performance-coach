@@ -14,7 +14,7 @@ import {
   fold,
   type ConceptInput,
 } from '../concept.js';
-import { noteResolver } from '../graph.js';
+import { noteResolver } from '@ai-coach/vault-domain';
 
 let dir: string;
 let vault: Vault;

@@ -1,11 +1,4 @@
-import {
-  planning,
-  PLAN_LEVELS,
-  type OwnedTask,
-  type Owner,
-  type PlanLevel,
-  type Status,
-} from './planning.js';
+import { fsListing } from './scan.js';
 import {
   nextPeriod,
   periodAt,
@@ -13,7 +6,15 @@ import {
   previousPeriod,
   type Period,
 } from './plans.js';
-import type { VaultNote } from './scan.js';
+import {
+  planning,
+  PLAN_LEVELS,
+  type OwnedTask,
+  type Owner,
+  type PlanLevel,
+  type Status,
+  type VaultNote,
+} from '@ai-coach/vault-domain';
 
 const ORDER = Object.keys(PLAN_LEVELS) as PlanLevel[];
 
@@ -121,7 +122,7 @@ export function plansView(
   const columnOf = (day: string | null) =>
     day ? columns.findIndex((c) => c.start <= day && day <= c.end) : -1;
 
-  const p = planning(root, notes);
+  const p = planning(fsListing(root), notes);
   const byPath = new Map(notes.map((n) => [n.path, n]));
   const titleOf = (path: string) => byPath.get(path)?.title ?? path;
   const empty = (): Cell[] => columns.map(() => ({ done: 0, planned: 0 }));

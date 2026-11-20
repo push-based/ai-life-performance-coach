@@ -9,10 +9,9 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { harvestWorkstream, resetChecklist } from '../harvest.js';
-import { scanVault } from '../scan.js';
+import { scanVault, fsListing } from '../scan.js';
 import { createVault } from '../vault.js';
-import { buildVaultGraph } from '../graph.js';
-import { planning } from '../planning.js';
+import { buildVaultGraph, planning } from '@ai-coach/vault-domain';
 
 let dir: string;
 
@@ -402,6 +401,6 @@ describe('harvest edge cases', () => {
       '1.Projects/Expo2026/Intermediate Packets/Checklist.md',
       '- [ ] Book the room\n',
     );
-    expect(planning(dir, await scanVault(dir)).tasks).toEqual([]);
+    expect(planning(fsListing(dir), await scanVault(dir)).tasks).toEqual([]);
   });
 });

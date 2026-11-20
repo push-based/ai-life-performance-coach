@@ -1,9 +1,10 @@
+import { fsListing } from './scan.js';
 import { constants, existsSync, readdirSync, statSync } from 'node:fs';
 import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { safeName } from './filing.js';
-import { noteResolver } from './graph.js';
 import {
+  noteResolver,
   DATED_SIGNIFIER,
   parseTasks,
   planning,
@@ -11,8 +12,8 @@ import {
   PRIORITY_SIGNIFIER,
   type Project,
   type Workstream,
-} from './planning.js';
-import type { VaultNote } from './scan.js';
+  type VaultNote,
+} from '@ai-coach/vault-domain';
 
 export const PACKET_TYPE = 'intermediate-packet';
 
@@ -124,7 +125,7 @@ export function harvestWorkstream(
     writes: {},
     copies: [],
   };
-  const p = planning(root, notes);
+  const p = planning(fsListing(root), notes);
   const pr: Project | undefined = p.projects.find(
     (x) => x.name === project && !x.archived,
   );

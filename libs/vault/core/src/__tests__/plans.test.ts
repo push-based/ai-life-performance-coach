@@ -15,9 +15,9 @@ import {
   executePlanPeriod,
   TEMPLATES,
 } from '../plans.js';
-import { scanVault } from '../scan.js';
+import { scanVault, fsListing } from '../scan.js';
 import { createVault } from '../vault.js';
-import { planning } from '../planning.js';
+import { planning } from '@ai-coach/vault-domain';
 
 let dir: string;
 
@@ -177,7 +177,7 @@ describe('plan_period', () => {
     );
 
     await executePlanPeriod(dir, plan);
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     const goals = p.tasks.filter(
       (t) => t.plan?.period === '2026-W45' && t.goal,
     );

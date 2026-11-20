@@ -10,20 +10,19 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { insertCoachId, declaresCoachId } from '../identity.js';
+import { createVault, type Vault } from '../vault.js';
+import type { RecordSessionInput } from '../record.js';
 import {
+  insertCoachId,
+  declaresCoachId,
   renderSession,
   parseSession,
   type SessionRecord,
-} from '../sessions.js';
-import { histories } from '../mastery.js';
-import {
+  histories,
   tier2Payload,
   PAYLOAD_ITEM_KEYS,
   PAYLOAD_OPTIONAL_KEYS,
-} from '../payload.js';
-import { createVault, type Vault } from '../vault.js';
-import type { RecordSessionInput } from '../record.js';
+} from '@ai-coach/vault-domain';
 
 let dir: string;
 let vault: Vault;

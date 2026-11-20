@@ -1,14 +1,14 @@
 import { posix } from 'node:path';
-import { yamlString } from './md.js';
 import { fold, conceptOf } from './concept.js';
 import { chapterSummaryOf, withoutSummaries } from './distill.js';
 import {
+  yamlString,
   bySessionDate,
   type SessionRecord,
   type SessionItem,
   type SessionKind,
-} from './sessions.js';
-import type { VaultNote } from './scan.js';
+  type VaultNote,
+} from '@ai-coach/vault-domain';
 
 export const CLIMB_STEPS = [
   'read',

@@ -10,9 +10,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createVault, type Vault } from '../vault.js';
 import { interleave, sharesRun, CLIMB_STEPS } from '../climb.js';
-import { parseSession } from '../sessions.js';
 import type { ConceptClimb } from '../climb.js';
 import type { RecordSessionInput } from '../record.js';
+import { parseSession } from '@ai-coach/vault-domain';
 
 let dir: string;
 let vault: Vault;

@@ -2,14 +2,8 @@ import { existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join, posix, resolve, sep } from 'node:path';
 import { isInside } from './root.js';
-import { COACH_ROOT } from './para.js';
-import { listNotePaths, readNote, scanVault, type VaultNote } from './scan.js';
-import {
-  loadSessions,
-  type InvalidSession,
-  type SessionRecord,
-} from './sessions.js';
-import { histories, historyOf, type NoteHistory } from './mastery.js';
+import { listNotePaths, readNote, scanVault, fsListing } from './scan.js';
+import { loadSessions } from './sessions.js';
 import {
   planSession,
   executeSession,
@@ -17,7 +11,6 @@ import {
   type RecordPlan,
   type RecordSessionInput,
 } from './record.js';
-import { tier2Payload, type Tier2Payload } from './payload.js';
 import {
   planInit,
   planCapture,
@@ -67,7 +60,6 @@ import {
   type PassageSearchOptions,
 } from './search.js';
 import { markedPassages, type MarkedPassage } from './marks.js';
-import { planning, type Planning } from './planning.js';
 import {
   planPeriod,
   planDays,
@@ -144,6 +136,19 @@ import {
   type StructurePlan,
   type GuidelinePlan,
 } from './climb-writes.js';
+import {
+  COACH_ROOT,
+  type VaultNote,
+  type InvalidSession,
+  type SessionRecord,
+  histories,
+  historyOf,
+  type NoteHistory,
+  tier2Payload,
+  type Tier2Payload,
+  planning,
+  type Planning,
+} from '@ai-coach/vault-domain';
 
 export interface VaultOptions {
   now?: () => Date;
@@ -745,7 +750,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
           : setPageSummary(content, page, text, base),
       );
     },
-    planning: async () => planning(root, await scanVault(root)),
+    planning: async () => planning(fsListing(root), await scanVault(root)),
     async planPeriod(input, execute, versions) {
       const plan = planPeriod(root, await scanVault(root), input);
       return applyNoteWrites(

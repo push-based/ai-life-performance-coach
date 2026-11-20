@@ -1,11 +1,14 @@
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
-import { yamlString } from './md.js';
-import { classify, PARA_FOLDERS } from './para.js';
 import { safeName } from './filing.js';
-import type { VaultNote } from './scan.js';
 import { withoutSummaries } from './distill.js';
+import {
+  yamlString,
+  classify,
+  PARA_FOLDERS,
+  type VaultNote,
+} from '@ai-coach/vault-domain';
 
 export const CONCEPT_TYPE = 'concept';
 export const CONCEPTS_FOLDER = posix.join(PARA_FOLDERS.resources, 'Concepts');

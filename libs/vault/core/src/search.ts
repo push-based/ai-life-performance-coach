@@ -1,7 +1,6 @@
 import { Document, Charset, type DocumentData } from 'flexsearch';
-import type { ParaBucket } from './para.js';
-import type { VaultNote } from './scan.js';
 import { withoutSummaries } from './distill.js';
+import { type ParaBucket, type VaultNote } from '@ai-coach/vault-domain';
 
 export interface NoteHit {
   path: string;

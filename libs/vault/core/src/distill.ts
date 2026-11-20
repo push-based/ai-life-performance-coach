@@ -1,9 +1,12 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, posix } from 'node:path';
-import { noteResolver } from './graph.js';
-import { insertKey, declaresKey } from './identity.js';
 import { RAW_TEXT } from './convert.js';
-import type { VaultNote } from './scan.js';
+import {
+  noteResolver,
+  insertKey,
+  declaresKey,
+  type VaultNote,
+} from '@ai-coach/vault-domain';
 
 export const READ_KEY = 'read_on';
 export const READING_STAGES = [

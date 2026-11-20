@@ -9,8 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createVault, type Vault } from '../vault.js';
-import { parseTasks } from '../planning.js';
-import { TaskLine } from '../task-line.js';
+import { parseTasks, TaskLine } from '@ai-coach/vault-domain';
 
 let dir: string;
 let vault: Vault;

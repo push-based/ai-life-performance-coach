@@ -1,6 +1,11 @@
-import matter from 'gray-matter';
-
 export type Frontmatter = Record<string, unknown>;
+
+export interface ParsedMatter {
+  data: Record<string, unknown>;
+  content: string;
+}
+
+export type FrontmatterParser = (content: string) => ParsedMatter;
 
 function normalizeValue(val: unknown): unknown {
   if (val instanceof Date) return val.toISOString().slice(0, 10);
@@ -42,10 +47,13 @@ function normalizeFrontmatter(data: Record<string, unknown>): Frontmatter {
   return fm;
 }
 
-export function parseFrontmatter(content: string): Frontmatter | null {
+export function parseFrontmatter(
+  content: string,
+  parse: FrontmatterParser,
+): Frontmatter | null {
   if (!content.startsWith('---')) return null;
   try {
-    const result = matter(content);
+    const result = parse(content);
     if (!result.data || Object.keys(result.data).length === 0) return null;
     return normalizeFrontmatter(result.data);
   } catch {
@@ -53,9 +61,9 @@ export function parseFrontmatter(content: string): Frontmatter | null {
   }
 }
 
-export function extractBody(content: string): string {
+export function extractBody(content: string, parse: FrontmatterParser): string {
   try {
-    return matter(content).content;
+    return parse(content).content;
   } catch {
     return content;
   }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool, type ToolDef } from '../../tool-types.js';
 import type { Vault } from '@ai-coach/vault/vault.js';
-import { noteResolver } from '@ai-coach/vault/graph.js';
+import { noteResolver } from '@ai-coach/vault-domain';
 import { pagesOf } from '@ai-coach/vault/convert.js';
 import { conceptOf, checkPassages } from '@ai-coach/vault/concept.js';
 import { chapterProgress } from '@ai-coach/vault/distill.js';

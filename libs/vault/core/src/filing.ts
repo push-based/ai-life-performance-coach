@@ -9,6 +9,8 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
+import { listNotePaths } from './scan.js';
+import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from './plans.js';
 import {
   classify,
   COACH_ROOT,
@@ -16,16 +18,13 @@ import {
   PARA_BUCKETS,
   PARA_FOLDERS,
   type ParaBucket,
-} from './para.js';
-import { noteResolver } from './graph.js';
-import { listNotePaths, type VaultNote } from './scan.js';
-import {
+  noteResolver,
+  type VaultNote,
   flatDay,
   PACKETS_FOLDER,
   PLAN_LEVELS,
   WORKSTREAMS_FOLDER,
-} from './planning.js';
-import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from './plans.js';
+} from '@ai-coach/vault-domain';
 
 export const OLD_NOTES = posix.join(PARA_FOLDERS.archive, 'old notes');
 

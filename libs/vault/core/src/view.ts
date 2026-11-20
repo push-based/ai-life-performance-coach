@@ -3,11 +3,7 @@ import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { join, posix } from 'node:path';
-import { COACH_ROOT, type ParaBucket } from './para.js';
-import { buildVaultGraph } from './graph.js';
-import type { Mastery } from './mastery.js';
 import type { Vault } from './vault.js';
-import type { VaultNote } from './scan.js';
 import { RAW_TEXT } from './convert.js';
 import {
   bookProgress,
@@ -24,7 +20,14 @@ import {
   type DrawnStructure,
 } from './climb.js';
 import { MAX_SKETCH_BYTES } from './climb-writes.js';
-import type { AssertionMark } from './sessions.js';
+import {
+  COACH_ROOT,
+  type ParaBucket,
+  buildVaultGraph,
+  type Mastery,
+  type VaultNote,
+  type AssertionMark,
+} from '@ai-coach/vault-domain';
 
 export const GRAPH_FILE = posix.join(COACH_ROOT, 'graph.json');
 

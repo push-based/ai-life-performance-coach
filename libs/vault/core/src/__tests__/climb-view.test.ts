@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { createVault, type Vault } from '../vault.js';
 import { createVaultViewServer, listenOnLoopback } from '../view.js';
 import { compareStructure } from '../climb.js';
-import { parseSession } from '../sessions.js';
+import { parseSession } from '@ai-coach/vault-domain';
 
 let dir: string;
 let vault: Vault;

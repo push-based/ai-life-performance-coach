@@ -1,8 +1,22 @@
+import { fsListing } from './scan.js';
 import { readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { PARA_FOLDERS, PLANS_ROOT, RAW_FOLDER } from './para.js';
-import { noteResolver } from './graph.js';
 import {
+  addToSection,
+  applyFields,
+  checkTaskIds,
+  periodOf,
+  TaskLineEditor,
+  wikilinkTo,
+  type NoteEdit,
+  type NoteWrites,
+  type TaskFields,
+} from './plans.js';
+import {
+  PARA_FOLDERS,
+  PLANS_ROOT,
+  RAW_FOLDER,
+  noteResolver,
   parseTasks,
   planning,
   planOf,
@@ -14,28 +28,16 @@ import {
   type Priority,
   type Size,
   type Task,
-} from './planning.js';
-import {
-  addToSection,
-  applyFields,
-  checkTaskIds,
-  periodOf,
-  planPathOf,
-  TaskLineEditor,
-  wikilinkTo,
-  type NoteEdit,
-  type NoteWrites,
-  type TaskFields,
-} from './plans.js';
-import { TaskLine, isRecurrence } from './task-line.js';
-import {
+  TaskLine,
+  isRecurrence,
   HABITS_HEADING,
   HABIT_RULES,
   habitDays,
   habitKey,
   parseHabits,
-} from './habits.js';
-import type { VaultNote } from './scan.js';
+  type VaultNote,
+  planPathOf,
+} from '@ai-coach/vault-domain';
 
 export interface EditPlan extends NoteWrites {
   edits: NoteEdit[];
@@ -281,7 +283,7 @@ export function updateTasks(
     return out;
   }
   const byPath = byPathOf(notes);
-  const p = planning(root, notes);
+  const p = planning(fsListing(root), notes);
   const editor = new TaskLineEditor(root, out.originals);
   const known = new Map(p.tasks.filter((t) => t.id).map((t) => [t.id!, t]));
   const newIds = new Set(
@@ -578,7 +580,7 @@ export function addTasks(
     out.errors.push(`no note ${input.note}`);
     return out;
   }
-  const p = planning(root, notes);
+  const p = planning(fsListing(root), notes);
   const where = plannedNoteError(p, note.path);
   if (where) {
     out.errors.push(where);
@@ -743,7 +745,7 @@ export function addHabits(
     );
     return out;
   }
-  const where = plannedNoteError(planning(root, notes), note.path);
+  const where = plannedNoteError(planning(fsListing(root), notes), note.path);
   if (where) {
     out.errors.push(where);
     return out;
@@ -1052,7 +1054,7 @@ export function createWorkstream(
   input: CreateWorkstreamInput,
 ): EditPlan & { note: string } {
   const out = { ...empty(), note: '' };
-  const p = planning(root, notes);
+  const p = planning(fsListing(root), notes);
   const pr = p.projects.find((x) => !x.archived && x.name === input.project);
   if (!pr) {
     out.errors.push(

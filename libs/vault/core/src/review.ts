@@ -1,13 +1,18 @@
+import { fsListing } from './scan.js';
+import { periodOf, type Period } from './plans.js';
 import {
   planning,
   type OwnedTask,
   type Owner,
   type Planning,
-} from './planning.js';
-import { periodOf, planPathOf, type Period } from './plans.js';
-import { dayBefore, daysBetween, habitKey, isHabitDue } from './habits.js';
-import { noteResolver } from './graph.js';
-import type { VaultNote } from './scan.js';
+  dayBefore,
+  daysBetween,
+  habitKey,
+  isHabitDue,
+  noteResolver,
+  type VaultNote,
+  planPathOf,
+} from '@ai-coach/vault-domain';
 
 export interface Effort {
   weight: number;
@@ -109,7 +114,7 @@ export function reviewPeriod(
     return {
       error: `"${periodName}" is not a period: use YYYY, YYYY-Qn, YYYY-MM, YYYY-Www or YYYY-MM-DD`,
     };
-  const p = planning(root, notes);
+  const p = planning(fsListing(root), notes);
   const inPeriod = (d: string | null) =>
     !!d && d >= period.start && d <= period.end;
   const done = p.tasks.filter(

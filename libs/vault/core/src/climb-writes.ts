@@ -1,7 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { yamlString } from './md.js';
-import { classify, PARA_FOLDERS } from './para.js';
 import { safeName } from './filing.js';
 import {
   CONCEPTS_FOLDER,
@@ -17,8 +15,7 @@ import {
   type Passage,
   type PassageCheck,
 } from './concept.js';
-import { noteFromContent, type VaultNote } from './scan.js';
-import type { SessionRecord } from './sessions.js';
+import { noteOf } from './scan.js';
 import type { NoteWrites } from './plans.js';
 import {
   bookOf,
@@ -45,6 +42,13 @@ import {
   type ConceptClimb,
   type StructureGroup,
 } from './climb.js';
+import {
+  yamlString,
+  classify,
+  PARA_FOLDERS,
+  type VaultNote,
+  type SessionRecord,
+} from '@ai-coach/vault-domain';
 
 export const READING_NOTES_FOLDER = posix.join(
   PARA_FOLDERS.resources,
@@ -92,9 +96,9 @@ function put(
 
 function afterPlan(notes: VaultNote[], plan: ClimbWritePlan): VaultNote[] {
   const out = notes.map((n) =>
-    n.path in plan.writes ? noteFromContent(n.path, plan.writes[n.path]) : n,
+    n.path in plan.writes ? noteOf(n.path, plan.writes[n.path]) : n,
   );
-  for (const p of plan.created) out.push(noteFromContent(p, plan.writes[p]));
+  for (const p of plan.created) out.push(noteOf(p, plan.writes[p]));
   return out;
 }
 
@@ -227,10 +231,9 @@ export function addReadingNotes(
   const content = insertUnder(original, heading, lines);
   put(root, plan, path, content, !existing);
 
-  const written = readingEntries(
-    noteFromContent(path, content),
-    chapter,
-  ).filter((e) => e.page === page);
+  const written = readingEntries(noteOf(path, content), chapter).filter(
+    (e) => e.page === page,
+  );
   const share =
     wordCount(written.map((e) => e.text).join(' ')) /
     Math.max(1, wordCount(section));
@@ -660,7 +663,7 @@ export function conceptWithClimb(
   notes: VaultNote[],
   sessions: SessionRecord[],
 ): string {
-  const note = noteFromContent(path, content);
+  const note = noteOf(path, content);
   const c = climbOf(note, [...notes, note], sessions);
   return CLIMB_STEPS.some((s) => c.steps[s])
     ? withClimb(content, c.steps)

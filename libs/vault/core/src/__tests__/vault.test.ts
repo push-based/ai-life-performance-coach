@@ -10,12 +10,15 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { resolveVaultRoot, defaultVaultConfigFile } from '../root.js';
-import { classify } from '../para.js';
-import { extractLinks, LinkResolver } from '../links.js';
 import { scanVault, listNotePaths } from '../scan.js';
 import { createVault, notePathOf } from '../vault.js';
-import { buildVaultGraph } from '../graph.js';
 import { searchNotes } from '../search.js';
+import {
+  classify,
+  extractLinks,
+  LinkResolver,
+  buildVaultGraph,
+} from '@ai-coach/vault-domain';
 
 let dir: string;
 

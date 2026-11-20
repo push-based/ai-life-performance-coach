@@ -7,7 +7,7 @@ import {
   type MarkChar,
 } from './distill.js';
 import { locateQuote } from './concept.js';
-import type { VaultNote } from './scan.js';
+import { type VaultNote } from '@ai-coach/vault-domain';
 
 export const MAX_PASSAGE_CHARS = 600;
 

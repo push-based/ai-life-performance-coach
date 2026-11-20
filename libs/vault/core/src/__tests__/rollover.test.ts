@@ -10,9 +10,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { rollOver } from '../rollover.js';
 import { nextPeriod, periodOf, executeWrites } from '../plans.js';
-import { scanVault } from '../scan.js';
+import { scanVault, fsListing } from '../scan.js';
 import { createVault } from '../vault.js';
-import { planning } from '../planning.js';
+import { planning } from '@ai-coach/vault-domain';
 
 let dir: string;
 
@@ -124,7 +124,7 @@ describe('roll_over', () => {
     expect(read('Plans/Weekly/2026-W45.md')).toContain(
       '- [ ] All posters out [[Marketing]] #M ↑ [[2026-11#^posters-printed]] ^all-posters-out',
     );
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     const panel = p.tasks.find((t) => t.text === 'Panel posters')!;
     expect(panel).toMatchObject({
       scheduled: '2026-11-09',
@@ -252,7 +252,7 @@ describe('roll_over edge cases', () => {
       '---\r\nstatus: todo\r\n---\r\n- [ ] Print badges ⏳ 2026-11-04\r\n- [x] Done ✅ 2026-11-03\r\n',
     );
     const notes = await scanVault(dir);
-    expect(planning(dir, notes).tasks.map((t) => t.text)).toEqual([
+    expect(planning(fsListing(dir), notes).tasks.map((t) => t.text)).toEqual([
       'Print badges',
       'Done',
     ]);

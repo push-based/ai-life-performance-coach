@@ -1,10 +1,11 @@
+import { fsListing } from './scan.js';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
-import { PLANS_ROOT } from './para.js';
-import { noteResolver } from './graph.js';
 import {
+  PLANS_ROOT,
+  noteResolver,
   isPeriodName,
   OPEN_CHECKBOX,
   planning,
@@ -17,10 +18,13 @@ import {
   type Planning,
   type Priority,
   type Size,
-} from './planning.js';
-import { isRecurrence, TaskLine } from './task-line.js';
-import { HABITS_HEADING, habitKey, isHabitDue } from './habits.js';
-import type { VaultNote } from './scan.js';
+  isRecurrence,
+  TaskLine,
+  HABITS_HEADING,
+  habitKey,
+  isHabitDue,
+  type VaultNote,
+} from '@ai-coach/vault-domain';
 
 export const TEMPLATES_FOLDER = posix.join(PLANS_ROOT, 'Templates');
 export const templatePath = (level: PlanLevel) =>
@@ -188,8 +192,6 @@ export const nextPeriod = (p: Period): Period =>
 
 export const previousPeriod = (p: Period): Period =>
   periodAt(p.level, shift(p.start, -1));
-
-export { planPathOf } from './planning.js';
 
 const PARENT_LEVEL: Record<PlanLevel, PlanLevel | null> = {
   year: null,
@@ -506,7 +508,7 @@ export function planPeriod(
   const byPath = new Map(notes.map((n) => [n.path, n]));
   const path = planPathIn(period, (x) => byPath.has(x) || x in overlay);
   out.plan = path;
-  const p: Planning = planning(root, notes);
+  const p: Planning = planning(fsListing(root), notes);
   const resolver = noteResolver(notes);
 
   const owners = new Map<string, string>();

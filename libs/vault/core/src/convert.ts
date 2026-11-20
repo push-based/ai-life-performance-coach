@@ -8,10 +8,14 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
-import { yamlString } from './md.js';
-import { classify, PARA_FOLDERS, RAW_FOLDER } from './para.js';
 import { safeName } from './filing.js';
-import type { VaultNote } from './scan.js';
+import {
+  yamlString,
+  classify,
+  PARA_FOLDERS,
+  RAW_FOLDER,
+  type VaultNote,
+} from '@ai-coach/vault-domain';
 
 export const RAW_ROOT = posix.join(PARA_FOLDERS.resources, RAW_FOLDER);
 

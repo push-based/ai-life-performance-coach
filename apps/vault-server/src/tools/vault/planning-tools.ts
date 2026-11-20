@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineTool, type ToolDef } from '../../tool-types.js';
 import type { Vault } from '@ai-coach/vault/vault.js';
 import { periodOf } from '@ai-coach/vault/plans.js';
-import { isHabitDue } from '@ai-coach/vault/habits.js';
+import { isHabitDue } from '@ai-coach/vault-domain';
 import { json, fail } from './json.js';
 
 const SIZE = z

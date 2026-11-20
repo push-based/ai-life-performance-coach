@@ -7,14 +7,18 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { habitDays, isHabitDue, parseHabits } from '../habits.js';
-import { planning } from '../planning.js';
 import { planDays, planPeriod, TEMPLATES } from '../plans.js';
 import { reviewPeriod, type PeriodReview } from '../review.js';
 import { rollOver } from '../rollover.js';
 import { addHabits } from '../note-edits.js';
-import { scanVault } from '../scan.js';
+import { scanVault, fsListing } from '../scan.js';
 import { createVault } from '../vault.js';
+import {
+  habitDays,
+  isHabitDue,
+  parseHabits,
+  planning,
+} from '@ai-coach/vault-domain';
 
 let dir: string;
 
@@ -107,7 +111,7 @@ describe('planning', () => {
       'Plans/Daily/2026/11-November/2026-11-02.md',
       '## Habits\n\n- [x] Up at 6:00 [[Morning routine]] ✅ 2026-11-02\n\n## Ad-hoc\n\n- [ ] Call mum [[Promise]]\n',
     );
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     expect(
       p.habits.map((h) => `${h.text}|${h.rule}|${h.owner.workstream}`),
     ).toEqual([
@@ -215,7 +219,7 @@ describe('open habit checks', () => {
       'Plans/Daily/2026/11-November/2026-11-03.md',
       '## Habits\n\n- [x] Up at 6:00 [[Morning routine]] ✅ 2026-11-03\n',
     );
-    const p = planning(dir, await scanVault(dir));
+    const p = planning(fsListing(dir), await scanVault(dir));
     expect(
       p.tasks.filter((t) => t.habit).every((t) => t.scheduled === null),
     ).toBe(true);

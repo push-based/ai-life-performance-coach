@@ -1,9 +1,9 @@
-import { readdirSync } from 'node:fs';
-import { join, posix } from 'node:path';
+import { posix } from '@ai-coach/util-path';
 import { PARA_FOLDERS, PLANS_ROOT } from './para.js';
 import { extractLinks, type RawLink } from './links.js';
 import { noteResolver } from './graph.js';
-import type { VaultNote } from './scan.js';
+import type { VaultNote } from './note.js';
+import type { VaultListing } from './listing.js';
 import {
   HABITS_HEADING,
   HABIT_RULES,
@@ -332,27 +332,6 @@ export interface Planning {
   warnings: string[];
 }
 
-const dirsIn = (abs: string) => {
-  try {
-    return readdirSync(abs, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-      .map((e) => e.name)
-      .sort();
-  } catch {
-    return [];
-  }
-};
-const mdIn = (abs: string) => {
-  try {
-    return readdirSync(abs, { withFileTypes: true })
-      .filter((e) => e.isFile() && e.name.endsWith('.md'))
-      .map((e) => e.name.slice(0, -3))
-      .sort();
-  } catch {
-    return [];
-  }
-};
-
 function statusOf(
   note: VaultNote | undefined,
   warnings: string[],
@@ -376,14 +355,14 @@ const text = (v: unknown) =>
 const under = (p: string, folder: string) => p.startsWith(`${folder}/`);
 
 function units(
-  root: string,
+  listing: VaultListing,
   dir: string,
   notes: VaultNote[],
   skip: string[] = [],
 ) {
-  const folders = new Set(dirsIn(join(root, dir)));
+  const folders = new Set(listing.dirsIn(dir));
   const names = new Set(
-    [...folders, ...mdIn(join(root, dir))].filter((n) => !skip.includes(n)),
+    [...folders, ...listing.mdIn(dir)].filter((n) => !skip.includes(n)),
   );
   const inDir = notes.filter((n) => under(n.path, dir));
   return [...names].sort().map((name) => {
@@ -403,7 +382,7 @@ function units(
   });
 }
 
-export function planning(root: string, notes: VaultNote[]): Planning {
+export function planning(listing: VaultListing, notes: VaultNote[]): Planning {
   const warnings: string[] = [];
   const byPath = new Map(notes.map((n) => [n.path, n]));
 
@@ -425,7 +404,7 @@ export function planning(root: string, notes: VaultNote[]): Planning {
       status: statusOf(pn, archived ? [] : warnings),
       deadline: text(pn?.frontmatter.deadline),
       doneWhen: text(pn?.frontmatter.done_when),
-      workstreams: units(root, ws, notes).map((u) => ({
+      workstreams: units(listing, ws, notes).map((u) => ({
         ...u,
         project: name,
         status: statusOf(byPath.get(u.note ?? ''), archived ? [] : warnings),
@@ -436,22 +415,24 @@ export function planning(root: string, notes: VaultNote[]): Planning {
       archived,
     };
   };
-  const active = dirsIn(join(root, PARA_FOLDERS.projects));
+  const active = listing.dirsIn(PARA_FOLDERS.projects);
 
-  const archivedNames = dirsIn(join(root, PARA_FOLDERS.archive)).filter(
-    (name) =>
-      !active.includes(name) &&
-      (byPath.has(posix.join(PARA_FOLDERS.archive, name, `${name}.md`)) ||
-        dirsIn(join(root, PARA_FOLDERS.archive, name)).includes(
-          WORKSTREAMS_FOLDER,
-        )),
-  );
+  const archivedNames = listing
+    .dirsIn(PARA_FOLDERS.archive)
+    .filter(
+      (name) =>
+        !active.includes(name) &&
+        (byPath.has(posix.join(PARA_FOLDERS.archive, name, `${name}.md`)) ||
+          listing
+            .dirsIn(posix.join(PARA_FOLDERS.archive, name))
+            .includes(WORKSTREAMS_FOLDER)),
+    );
   const projects: Project[] = [
     ...active.map((name) => project(PARA_FOLDERS.projects, name, false)),
     ...archivedNames.map((name) => project(PARA_FOLDERS.archive, name, true)),
   ];
 
-  const areas: Area[] = units(root, PARA_FOLDERS.areas, notes).map((u) => ({
+  const areas: Area[] = units(listing, PARA_FOLDERS.areas, notes).map((u) => ({
     ...u,
     status: statusOf(byPath.get(u.note ?? ''), warnings),
   }));

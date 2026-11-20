@@ -1,12 +1,10 @@
+import { fsListing } from './scan.js';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PARA_FOLDERS } from './para.js';
-import { FIRST_SIGNIFIER, planning, parseTasks } from './planning.js';
 import {
   addToSection,
   nextPeriod,
   periodOf,
-  planPathOf,
   scheduleLine,
   slug,
   templateFor,
@@ -15,7 +13,14 @@ import {
   type NoteWrites,
   type Period,
 } from './plans.js';
-import type { VaultNote } from './scan.js';
+import {
+  PARA_FOLDERS,
+  FIRST_SIGNIFIER,
+  planning,
+  parseTasks,
+  type VaultNote,
+  planPathOf,
+} from '@ai-coach/vault-domain';
 
 export interface RollOverPlan extends NoteWrites {
   from: Period | null;
@@ -89,7 +94,7 @@ export function rollOver(
   out.to = to;
   out.plan = planPathOf(to);
   const tag = `#slipped/${from.period}`;
-  const p = planning(root, notes);
+  const p = planning(fsListing(root), notes);
   const byPath = new Map(notes.map((n) => [n.path, n]));
 
   const editor = new TaskLineEditor(root, out.originals);
