@@ -1,12 +1,4 @@
-import { existsSync } from 'node:fs';
-import {
-  link,
-  mkdir,
-  readdir,
-  readFile,
-  unlink,
-  writeFile,
-} from 'node:fs/promises';
+import { link, mkdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { safeName } from './filing.js';
 import {
@@ -15,6 +7,7 @@ import {
   PARA_FOLDERS,
   RAW_FOLDER,
   type VaultNote,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export const RAW_ROOT = posix.join(PARA_FOLDERS.resources, RAW_FOLDER);
@@ -39,26 +32,17 @@ export interface RawItem {
   convertible: boolean;
 }
 
-export async function listRaw(
-  root: string,
-  notes: VaultNote[],
-): Promise<RawItem[]> {
+export function listRaw(tree: VaultTree, notes: VaultNote[]): RawItem[] {
   const files: string[] = [];
-  async function walk(rel: string): Promise<void> {
-    let entries;
-    try {
-      entries = await readdir(join(root, rel), { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
+  function walk(rel: string): void {
+    for (const e of tree.entries(rel)) {
       if (e.name.startsWith('.')) continue;
       const child = posix.join(rel, e.name);
-      if (e.isDirectory()) await walk(child);
+      if (e.isDirectory()) walk(child);
       else if (e.isFile()) files.push(child);
     }
   }
-  await walk(RAW_ROOT);
+  walk(RAW_ROOT);
   const indexFor = new Map(
     notes
       .filter((n) => n.convertedFrom && n.rawRole !== 'chapter')
@@ -441,8 +425,11 @@ export interface ConvertPlan {
   writes: { path: string; content: string }[];
 }
 
+export type PdfLoader = (path: string) => Promise<PdfText>;
+
 export async function planConvert(
-  root: string,
+  tree: VaultTree,
+  loadPdf: PdfLoader,
   path: string,
   date: string,
   opts: ConvertOptions = {},
@@ -471,7 +458,7 @@ export async function planConvert(
     plan.errors.push(`${path} is not a PDF; only PDFs can be converted`);
     return plan;
   }
-  if (!existsSync(join(root, path))) {
+  if (!tree.exists(path)) {
     plan.errors.push(`no file ${path}`);
     return plan;
   }
@@ -488,7 +475,7 @@ export async function planConvert(
   }
   let pdf: PdfText;
   try {
-    pdf = await extractPdf(new Uint8Array(await readFile(join(root, path))));
+    pdf = await loadPdf(path);
   } catch (err) {
     plan.errors.push(
       `${path} could not be read as a PDF: ${err instanceof Error ? err.message : String(err)}`,
@@ -555,7 +542,7 @@ export async function planConvert(
     ...(plan.move ? [plan.move.to] : []),
     ...plan.writes.map((w) => w.path),
   ]) {
-    if (existsSync(join(root, target))) plan.collisions.push(target);
+    if (tree.exists(target)) plan.collisions.push(target);
   }
   const dupes = paths.filter((p, i) => paths.indexOf(p) !== i);
   if (dupes.length)

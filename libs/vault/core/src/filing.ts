@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import {
   link,
   mkdir,
@@ -9,7 +9,6 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
-import { listNotePaths } from './scan.js';
 import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from './plans.js';
 import {
   classify,
@@ -24,6 +23,7 @@ import {
   PACKETS_FOLDER,
   PLAN_LEVELS,
   WORKSTREAMS_FOLDER,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export const OLD_NOTES = posix.join(PARA_FOLDERS.archive, 'old notes');
@@ -76,16 +76,6 @@ const ALIAS: Record<ParaBucket, RegExp> = {
   archive: /^\d*[\s._-]*archives?$/i,
 };
 const isHidden = (name: string) => name.startsWith('.');
-const dirsIn = (abs: string) => {
-  try {
-    return readdirSync(abs, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && !isHidden(e.name))
-      .map((e) => e.name)
-      .sort();
-  } catch {
-    return [];
-  }
-};
 const bucketOfAlias = (name: string) =>
   PARA_BUCKETS.find((b) => ALIAS[b].test(name)) ?? null;
 
@@ -106,22 +96,21 @@ export interface InitOptions {
   areas?: string[];
 }
 
-export async function planInit(
-  root: string,
-  opts: InitOptions = {},
-): Promise<FilingPlan> {
+export function planInit(tree: VaultTree, opts: InitOptions = {}): FilingPlan {
   const plan = empty();
-  const top = dirsIn(root).filter((n) => n !== COACH_ROOT && n !== PLANS_ROOT);
+  const top = tree
+    .dirsIn('')
+    .filter((n) => n !== COACH_ROOT && n !== PLANS_ROOT);
   const candidates = new Map<ParaBucket, string[]>();
   const consider = (rel: string, name: string) => {
     const b = bucketOfAlias(name);
-    if (b && !existsSync(join(root, PARA_FOLDERS[b])))
+    if (b && !tree.exists(PARA_FOLDERS[b]))
       candidates.set(b, [...(candidates.get(b) ?? []), rel]);
   };
   for (const name of top) {
     if (CANONICAL.has(name)) continue;
     if (name.toLowerCase() === 'para')
-      for (const child of dirsIn(join(root, name)))
+      for (const child of tree.dirsIn(name))
         consider(posix.join(name, child), child);
     else consider(name, name);
   }
@@ -138,14 +127,11 @@ export async function planInit(
   for (const r of renames) plan.actions.push({ op: 'rename', ...r });
   for (const b of PARA_BUCKETS) {
     const folder = PARA_FOLDERS[b];
-    if (
-      !existsSync(join(root, folder)) &&
-      !renames.some((r) => r.to === folder)
-    )
+    if (!tree.exists(folder) && !renames.some((r) => r.to === folder))
       plan.actions.push({ op: 'create', to: folder });
   }
 
-  const notes = (await listNotePaths(root)).map((p) => ({
+  const notes = tree.notePaths().map((p) => ({
     from: p,
     after: mapThrough(renames, p),
   }));
@@ -157,7 +143,7 @@ export async function planInit(
   );
   for (const n of moving) {
     const to = posix.join(OLD_NOTES, n.after);
-    if (afterSet.has(to) || existsSync(join(root, unmap(renames, to))))
+    if (afterSet.has(to) || tree.exists(unmap(renames, to)))
       plan.collisions.push(to);
     else plan.actions.push({ op: 'move', from: n.after, to });
   }
@@ -166,9 +152,7 @@ export async function planInit(
   const stays: string[] = [];
   const walk = (rel: string): boolean => {
     let onlyNotes = true;
-    for (const e of readdirSync(join(root, unmap(renames, rel)), {
-      withFileTypes: true,
-    })) {
+    for (const e of tree.entries(unmap(renames, rel))) {
       const child = posix.join(rel, e.name);
       if (e.name === '.DS_Store' || renames.some((r) => r.from === child))
         continue;
@@ -181,24 +165,24 @@ export async function planInit(
     }
     return onlyNotes;
   };
-  for (const name of dirsIn(root).filter(
-    (n) => n !== COACH_ROOT && n !== PLANS_ROOT && !CANONICAL.has(n),
-  )) {
+  for (const name of tree
+    .dirsIn('')
+    .filter((n) => n !== COACH_ROOT && n !== PLANS_ROOT && !CANONICAL.has(n))) {
     if (renames.some((r) => r.from === name)) continue;
     if (walk(name)) plan.actions.push({ op: 'remove_empty', from: name });
   }
-  for (const e of readdirSync(root, { withFileTypes: true })) {
+  for (const e of tree.entries('')) {
     if (e.isFile() && !isHidden(e.name) && !e.name.endsWith('.md'))
       stays.push(e.name);
   }
   if (stays.length)
     plan.warnings.push(`left in place (not notes): ${stays.join(', ')}`);
-  planPlanningLayout(root, plan, renames, opts);
+  planPlanningLayout(tree, plan, renames, opts);
   return plan;
 }
 
 function planPlanningLayout(
-  root: string,
+  tree: VaultTree,
   plan: FilingPlan,
   renames: { from: string; to: string }[],
   opts: InitOptions,
@@ -213,20 +197,19 @@ function planPlanningLayout(
     ...Object.values(PLAN_LEVELS).map((l) => posix.join(PLANS_ROOT, l)),
     TEMPLATES_FOLDER,
   ]) {
-    if (!existsSync(join(root, folder)))
-      plan.actions.push({ op: 'create', to: folder });
+    if (!tree.exists(folder)) plan.actions.push({ op: 'create', to: folder });
   }
   const dayFolder = posix.join(PLANS_ROOT, PLAN_LEVELS.day);
-  for (const file of readdirOrEmpty(join(root, dayFolder))) {
+  for (const file of filesIn(tree, dayFolder)) {
     const from = posix.join(dayFolder, file);
     const to = flatDay(from);
     if (!to) continue;
-    if (existsSync(join(root, to))) plan.collisions.push(to);
+    if (tree.exists(to)) plan.collisions.push(to);
     else plan.actions.push({ op: 'move', from, to });
   }
   for (const level of Object.keys(TEMPLATES) as (keyof typeof TEMPLATES)[]) {
     const to = templatePath(level);
-    if (existsSync(join(root, to))) continue;
+    if (tree.exists(to)) continue;
     plan.actions.push({ op: 'write', to });
     contents[to] = TEMPLATES[level];
   }
@@ -234,26 +217,25 @@ function planPlanningLayout(
   const projectsRoot = PARA_FOLDERS.projects;
   if (
     renames.some((r) => r.to === projectsRoot) ||
-    !existsSync(join(root, projectsRoot))
+    !tree.exists(projectsRoot)
   ) {
     plan.warnings.push(
       `${projectsRoot} is created or renamed by this run; run init_vault again to write its missing project notes`,
     );
   } else {
-    for (const name of dirsIn(join(root, projectsRoot))) {
+    for (const name of tree.dirsIn(projectsRoot)) {
       const folder = posix.join(projectsRoot, name);
       const ws = posix.join(folder, WORKSTREAMS_FOLDER);
       const projectNote = posix.join(folder, `${name}.md`);
-      if (existsSync(join(root, projectNote)) || planned.has(projectNote))
-        continue;
+      if (tree.exists(projectNote) || planned.has(projectNote)) continue;
       const units = [
-        ...dirsIn(join(root, ws)).map((d) => ({
+        ...tree.dirsIn(ws).map((d) => ({
           name: d,
-          note: existsSync(join(root, ws, d, `${d}.md`))
+          note: tree.exists(posix.join(ws, d, `${d}.md`))
             ? `${d}/${d}.md`
             : null,
         })),
-        ...readdirOrEmpty(join(root, ws))
+        ...filesIn(tree, ws)
           .filter((f) => f.endsWith('.md'))
           .map((f) => ({ name: f.slice(0, -3), note: f })),
       ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
@@ -280,13 +262,13 @@ function planPlanningLayout(
     const to = posix.join(areasRoot, `${name}.md`);
 
     if (
-      existsSync(join(root, unmap(renames, to))) ||
-      existsSync(join(root, unmap(renames, posix.join(areasRoot, name)))) ||
+      tree.exists(unmap(renames, to)) ||
+      tree.exists(unmap(renames, posix.join(areasRoot, name))) ||
       planned.has(to)
     )
       continue;
     if (
-      !existsSync(join(root, areasRoot)) &&
+      !tree.exists(areasRoot) &&
       !plan.actions.some((a) => a.op === 'create' && a.to === areasRoot) &&
       !renames.some((r) => r.to === areasRoot)
     ) {
@@ -298,15 +280,11 @@ function planPlanningLayout(
   }
 }
 
-function readdirOrEmpty(abs: string): string[] {
-  try {
-    return readdirSync(abs, { withFileTypes: true })
-      .filter((e) => e.isFile())
-      .map((e) => e.name)
-      .sort();
-  } catch {
-    return [];
-  }
+function filesIn(tree: VaultTree, dir: string): string[] {
+  return tree
+    .entries(dir)
+    .filter((e) => e.isFile())
+    .map((e) => e.name);
 }
 
 const UNSAFE = /[\\/:*?"<>|#^[\]]/g;
@@ -321,7 +299,7 @@ export function safeName(name: string): string | null {
 }
 
 export function planCapture(
-  root: string,
+  tree: VaultTree,
   title: string,
   body: string,
 ): FilingPlan {
@@ -334,9 +312,9 @@ export function planCapture(
     return plan;
   }
   const to = posix.join(PARA_FOLDERS.inbox, `${name}.md`);
-  if (!existsSync(join(root, PARA_FOLDERS.inbox)))
+  if (!tree.exists(PARA_FOLDERS.inbox))
     plan.actions.push({ op: 'create', to: PARA_FOLDERS.inbox });
-  if (existsSync(join(root, to))) plan.collisions.push(to);
+  if (tree.exists(to)) plan.collisions.push(to);
   else plan.actions.push({ op: 'write', to });
   plan.contents = { [to]: body.endsWith('\n') ? body : `${body}\n` };
   return plan;
@@ -359,7 +337,7 @@ function brokenByMove(notes: VaultNote[], from: string, to: string): string[] {
 }
 
 export function planFileNote(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   path: string,
   toFolder: string,
@@ -388,9 +366,8 @@ export function planFileNote(
     plan.errors.push(`${path} is already in ${folder}`);
     return plan;
   }
-  if (!existsSync(join(root, folder)))
-    plan.actions.push({ op: 'create', to: folder });
-  if (existsSync(join(root, to))) plan.collisions.push(to);
+  if (!tree.exists(folder)) plan.actions.push({ op: 'create', to: folder });
+  if (tree.exists(to)) plan.collisions.push(to);
   else plan.actions.push({ op: 'move', from: path, to });
   const broken = brokenByMove(notes, path, to);
   if (broken.length)
@@ -455,7 +432,7 @@ export const RESOURCE_PACKETS = posix.join(
 );
 
 export function planArchiveProject(
-  root: string,
+  tree: VaultTree,
   project: string,
   notes: VaultNote[] = [],
   opts: ArchiveOptions = {},
@@ -472,21 +449,18 @@ export function planArchiveProject(
     return plan;
   }
   const from = posix.join(PARA_FOLDERS.projects, project);
-  const abs = join(root, from);
-  if (!existsSync(abs) || !statSync(abs).isDirectory()) {
+  if (!tree.isDir(from)) {
     plan.errors.push(`no project folder ${from}`);
     return plan;
   }
   const to = posix.join(PARA_FOLDERS.archive, project);
   const packetsFrom = posix.join(from, PACKETS_FOLDER);
   const packetsTo = posix.join(RESOURCE_PACKETS, project);
-  const hasPackets =
-    existsSync(join(root, packetsFrom)) &&
-    statSync(join(root, packetsFrom)).isDirectory();
+  const hasPackets = tree.exists(packetsFrom) && tree.isDir(packetsFrom);
   if (hasPackets) {
-    if (!existsSync(join(root, RESOURCE_PACKETS)))
+    if (!tree.exists(RESOURCE_PACKETS))
       plan.actions.push({ op: 'create', to: RESOURCE_PACKETS });
-    if (existsSync(join(root, packetsTo))) plan.collisions.push(packetsTo);
+    if (tree.exists(packetsTo)) plan.collisions.push(packetsTo);
     else plan.actions.push({ op: 'move', from: packetsFrom, to: packetsTo });
   }
   const suggestions = keepSuggestions(notes, project);
@@ -539,11 +513,11 @@ export function planArchiveProject(
       continue;
     }
     const target = posix.join(dest, posix.basename(k.note));
-    if (!existsSync(join(root, dest)) && !created.has(dest)) {
+    if (!tree.exists(dest) && !created.has(dest)) {
       plan.actions.push({ op: 'create', to: dest });
       created.add(dest);
     }
-    if (existsSync(join(root, target)) || targets.has(target))
+    if (tree.exists(target) || targets.has(target))
       plan.collisions.push(target);
     else {
       plan.actions.push({ op: 'move', from: k.note, to: target });
@@ -560,29 +534,24 @@ export function planArchiveProject(
   const leaves = (f: string) =>
     kept.has(posix.join(from, f)) ||
     (hasPackets && posix.join(from, f).startsWith(`${packetsFrom}/`));
-  if ((kept.size || hasPackets) && filesUnder(abs).every(leaves)) {
+  if ((kept.size || hasPackets) && filesUnder(tree, from).every(leaves)) {
     plan.actions.push({ op: 'remove_empty', from });
     return plan;
   }
-  if (!existsSync(join(root, PARA_FOLDERS.archive)))
+  if (!tree.exists(PARA_FOLDERS.archive))
     plan.actions.push({ op: 'create', to: PARA_FOLDERS.archive });
-  if (existsSync(join(root, to))) plan.collisions.push(to);
+  if (tree.exists(to)) plan.collisions.push(to);
   else plan.actions.push({ op: 'move', from, to });
   return plan;
 }
 
-function filesUnder(abs: string, rel = ''): string[] {
-  let entries;
-  try {
-    entries = readdirSync(join(abs, rel), { withFileTypes: true });
-  } catch {
-    return [];
-  }
-  return entries
+function filesUnder(tree: VaultTree, dir: string, rel = ''): string[] {
+  return tree
+    .entries(posix.join(dir, rel))
     .filter((e) => !isHidden(e.name))
     .flatMap((e) =>
       e.isDirectory()
-        ? filesUnder(abs, posix.join(rel, e.name))
+        ? filesUnder(tree, dir, posix.join(rel, e.name))
         : [posix.join(rel, e.name)],
     );
 }

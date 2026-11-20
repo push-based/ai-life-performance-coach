@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { safeName } from './filing.js';
@@ -8,6 +7,7 @@ import {
   classify,
   PARA_FOLDERS,
   type VaultNote,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export const CONCEPT_TYPE = 'concept';
@@ -338,7 +338,7 @@ const nonEmpty = (
 };
 
 export function planConcept(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   input: ConceptInput,
   date: string,
@@ -393,7 +393,7 @@ export function planConcept(
   });
 
   const path = name ? posix.join(folder, `${name}.md`) : null;
-  const collisions = path && existsSync(join(root, path)) ? [path] : [];
+  const collisions = path && tree.exists(path) ? [path] : [];
   const clean = !errors.length && path;
   return {
     path,

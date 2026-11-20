@@ -1,6 +1,4 @@
-import { fsListing } from './scan.js';
-import { readFileSync } from 'node:fs';
-import { join, posix } from 'node:path';
+import { posix } from 'node:path';
 import {
   addToSection,
   applyFields,
@@ -37,6 +35,7 @@ import {
   parseHabits,
   type VaultNote,
   planPathOf,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export interface EditPlan extends NoteWrites {
@@ -129,8 +128,7 @@ function hunk(
   return [edit];
 }
 
-const read = (root: string, path: string) =>
-  readFileSync(join(root, path), 'utf-8');
+const read = (tree: VaultTree, path: string) => tree.text(path);
 
 export interface TaskAddress {
   note: string;
@@ -272,7 +270,7 @@ function withSize(desc: string, size: Size | null): string {
 }
 
 export function updateTasks(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   updates: TaskUpdate[],
   today: string,
@@ -283,8 +281,8 @@ export function updateTasks(
     return out;
   }
   const byPath = byPathOf(notes);
-  const p = planning(fsListing(root), notes);
-  const editor = new TaskLineEditor(root, out.originals);
+  const p = planning(tree, notes);
+  const editor = new TaskLineEditor(tree, out.originals);
   const known = new Map(p.tasks.filter((t) => t.id).map((t) => [t.id!, t]));
   const newIds = new Set(
     updates.map((u) => u.set.id).filter((x): x is string => !!x),
@@ -569,7 +567,7 @@ function addUnderHeading(
 }
 
 export function addTasks(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   input: AddTasksInput,
 ): EditPlan {
@@ -580,7 +578,7 @@ export function addTasks(
     out.errors.push(`no note ${input.note}`);
     return out;
   }
-  const p = planning(fsListing(root), notes);
+  const p = planning(tree, notes);
   const where = plannedNoteError(p, note.path);
   if (where) {
     out.errors.push(where);
@@ -625,7 +623,7 @@ export function addTasks(
       })),
     ),
   );
-  const original = read(root, note.path);
+  const original = read(tree, note.path);
   out.originals[note.path] = original;
   const file = original.split('\n');
   const bodyStart = file.length - note.body.split('\n').length;
@@ -729,7 +727,7 @@ export interface AddHabitsInput {
 }
 
 export function addHabits(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   input: AddHabitsInput,
 ): EditPlan {
@@ -745,7 +743,7 @@ export function addHabits(
     );
     return out;
   }
-  const where = plannedNoteError(planning(fsListing(root), notes), note.path);
+  const where = plannedNoteError(planning(tree, notes), note.path);
   if (where) {
     out.errors.push(where);
     return out;
@@ -783,7 +781,7 @@ export function addHabits(
     lines.push(`- ${h.text.trim()} 🔁 ${h.rule.trim().replace(/\s+/g, ' ')}`);
   }
   if (out.errors.length) return out;
-  const original = read(root, note.path);
+  const original = read(tree, note.path);
   out.originals[note.path] = original;
   const fm = original.match(FRONTMATTER)?.[0] ?? '';
   const content =
@@ -817,7 +815,7 @@ function yamlValue(v: Exclude<FrontmatterValue, null>): string {
 }
 
 export function setFrontmatter(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   path: string,
   set: Record<string, FrontmatterValue>,
@@ -868,7 +866,7 @@ export function setFrontmatter(
   }
   if (out.errors.length) return out;
 
-  const original = read(root, note.path);
+  const original = read(tree, note.path);
   out.originals[note.path] = original;
   const nl = original.includes('\r\n') ? '\r\n' : '\n';
   const m = original.match(FRONTMATTER);
@@ -917,7 +915,7 @@ const TASKS_ARE_TASK_TOOLS =
   'tasks are changed with update_task (include_closed: true reaches a done or cancelled one) and added with add_tasks, which keep their Tasks signifiers intact';
 
 export function editNote(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   input: EditNoteInput,
 ): EditPlan {
@@ -938,7 +936,7 @@ export function editNote(
     return out;
   }
 
-  const original = read(root, note.path);
+  const original = read(tree, note.path);
   out.originals[note.path] = original;
   const fm = original.match(FRONTMATTER)?.[0] ?? '';
   let body = original.slice(fm.length);
@@ -1049,12 +1047,12 @@ export interface CreateWorkstreamInput {
 }
 
 export function createWorkstream(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   input: CreateWorkstreamInput,
 ): EditPlan & { note: string } {
   const out = { ...empty(), note: '' };
-  const p = planning(fsListing(root), notes);
+  const p = planning(tree, notes);
   const pr = p.projects.find((x) => !x.archived && x.name === input.project);
   if (!pr) {
     out.errors.push(
@@ -1110,7 +1108,7 @@ export function createWorkstream(
     after: out.writes[path].replace(/\n$/, ''),
   });
 
-  const original = read(root, pr.note);
+  const original = read(tree, pr.note);
   out.originals[pr.note] = original;
   const clash = notes.some((n) => posix.basename(n.path, '.md') === name);
   const link = clash ? `[[${path.slice(0, -3)}|${name}]]` : `[[${name}]]`;

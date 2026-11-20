@@ -1,4 +1,3 @@
-import { fsListing } from './scan.js';
 import { periodOf, type Period } from './plans.js';
 import {
   planning,
@@ -12,6 +11,7 @@ import {
   noteResolver,
   type VaultNote,
   planPathOf,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export interface Effort {
@@ -104,7 +104,7 @@ const byWeight = <T extends Effort & { name: string }>(a: T, b: T) =>
   b.weight - a.weight || (a.name < b.name ? -1 : 1);
 
 export function reviewPeriod(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   periodName: string,
   today: string,
@@ -114,7 +114,7 @@ export function reviewPeriod(
     return {
       error: `"${periodName}" is not a period: use YYYY, YYYY-Qn, YYYY-MM, YYYY-Www or YYYY-MM-DD`,
     };
-  const p = planning(fsListing(root), notes);
+  const p = planning(tree, notes);
   const inPeriod = (d: string | null) =>
     !!d && d >= period.start && d <= period.end;
   const done = p.tasks.filter(

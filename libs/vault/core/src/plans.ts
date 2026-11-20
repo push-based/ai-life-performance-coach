@@ -1,6 +1,5 @@
-import { fsListing } from './scan.js';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import {
@@ -24,6 +23,7 @@ import {
   habitKey,
   isHabitDue,
   type VaultNote,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export const TEMPLATES_FOLDER = posix.join(PLANS_ROOT, 'Templates');
@@ -293,9 +293,9 @@ export const slug = (s: string) =>
     .slice(0, 24)
     .replace(/-+$/, '') || 'goal';
 
-export function templateFor(root: string, level: PlanLevel): string {
-  const own = join(root, templatePath(level));
-  return existsSync(own) ? readFileSync(own, 'utf-8') : TEMPLATES[level];
+export function templateFor(tree: VaultTree, level: PlanLevel): string {
+  const own = templatePath(level);
+  return tree.exists(own) ? tree.text(own) : TEMPLATES[level];
 }
 
 export function addToSection(
@@ -340,7 +340,7 @@ export class TaskLineEditor {
   readonly edits: NoteEdit[] = [];
 
   constructor(
-    private readonly root: string,
+    private readonly tree: VaultTree,
     private readonly originals: Record<string, string>,
     private readonly overlay: Record<string, string> = {},
   ) {}
@@ -353,7 +353,7 @@ export class TaskLineEditor {
   ): string | null {
     let file = this.files.get(note.path);
     if (!file) {
-      const disk = readFileSync(join(this.root, note.path), 'utf-8');
+      const disk = this.tree.text(note.path);
       this.originals[note.path] ??= disk;
       file = (this.overlay[note.path] ?? disk).split('\n');
       this.files.set(note.path, file);
@@ -480,7 +480,7 @@ export function applyFields(
 }
 
 export function planPeriod(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   input: PlanPeriodInput,
   overlay: Record<string, string> = {},
@@ -508,7 +508,7 @@ export function planPeriod(
   const byPath = new Map(notes.map((n) => [n.path, n]));
   const path = planPathIn(period, (x) => byPath.has(x) || x in overlay);
   out.plan = path;
-  const p: Planning = planning(fsListing(root), notes);
+  const p: Planning = planning(tree, notes);
   const resolver = noteResolver(notes);
 
   const owners = new Map<string, string>();
@@ -578,11 +578,11 @@ export function planPeriod(
 
   const existing = byPath.get(path);
   out.creates = !existing && overlay[path] === undefined;
-  const original = existing ? readFileSync(join(root, path), 'utf-8') : null;
+  const original = existing ? tree.text(path) : null;
   let content =
     overlay[path] ??
     original ??
-    templateFor(root, period.level).replace(/\{\{title\}\}/g, period.period);
+    templateFor(tree, period.level).replace(/\{\{title\}\}/g, period.period);
   if (original !== null) out.originals[path] = original;
 
   const goals = input.goals ?? [];
@@ -661,7 +661,7 @@ export function planPeriod(
     if (link !== null) adHocLines.push(line.toString());
   }
 
-  const editor = new TaskLineEditor(root, out.originals, overlay);
+  const editor = new TaskLineEditor(tree, out.originals, overlay);
   for (const s of input.schedule ?? []) {
     const n = byPath.get(s.note) ?? byPath.get(`${s.note}.md`);
     if (!n) {
@@ -812,7 +812,7 @@ export interface PlanDaysPlan extends NoteWrites {
 }
 
 export function planDays(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   days: Record<string, DayInput>,
 ): PlanDaysPlan {
@@ -833,7 +833,7 @@ export function planDays(
       continue;
     }
     const plan = planPeriod(
-      root,
+      tree,
       notes,
       { period: day, adHoc: days[day].adHoc, schedule: days[day].schedule },
       out.writes,

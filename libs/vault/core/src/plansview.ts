@@ -1,4 +1,3 @@
-import { fsListing } from './scan.js';
 import {
   nextPeriod,
   periodAt,
@@ -14,6 +13,7 @@ import {
   type PlanLevel,
   type Status,
   type VaultNote,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 const ORDER = Object.keys(PLAN_LEVELS) as PlanLevel[];
@@ -96,7 +96,7 @@ export const rowOf = (o: Owner): string | null =>
         : null;
 
 export function plansView(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   spanName: string,
   byLevel: string,
@@ -122,7 +122,7 @@ export function plansView(
   const columnOf = (day: string | null) =>
     day ? columns.findIndex((c) => c.start <= day && day <= c.end) : -1;
 
-  const p = planning(fsListing(root), notes);
+  const p = planning(tree, notes);
   const byPath = new Map(notes.map((n) => [n.path, n]));
   const titleOf = (path: string) => byPath.get(path)?.title ?? path;
   const empty = (): Cell[] => columns.map(() => ({ done: 0, planned: 0 }));

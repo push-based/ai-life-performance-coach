@@ -11,7 +11,7 @@ import { planDays, planPeriod, TEMPLATES } from '../plans.js';
 import { reviewPeriod, type PeriodReview } from '../review.js';
 import { rollOver } from '../rollover.js';
 import { addHabits } from '../note-edits.js';
-import { scanVault, fsListing } from '../scan.js';
+import { scanVault, loadTree, snapshot } from '../scan.js';
 import { createVault } from '../vault.js';
 import {
   habitDays,
@@ -111,7 +111,7 @@ describe('planning', () => {
       'Plans/Daily/2026/11-November/2026-11-02.md',
       '## Habits\n\n- [x] Up at 6:00 [[Morning routine]] ✅ 2026-11-02\n\n## Ad-hoc\n\n- [ ] Call mum [[Promise]]\n',
     );
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     expect(
       p.habits.map((h) => `${h.text}|${h.rule}|${h.owner.workstream}`),
     ).toEqual([
@@ -143,7 +143,7 @@ describe('day plans', () => {
 
   it('plan_period adds the habits due that day to a new day plan', async () => {
     seed();
-    const r = planPeriod(dir, await scanVault(dir), { period: '2026-11-02' });
+    const r = planPeriod(...(await snapshot(dir)), { period: '2026-11-02' });
     expect(r.errors).toEqual([]);
     expect(r.habits).toEqual([
       '- [ ] Gym [[Gym]]',
@@ -161,7 +161,7 @@ describe('day plans', () => {
       'Plans/Daily/2026/11-November/2026-11-07.md',
       '# 2026-11-07\n\n## Today\n\n## Ad-hoc\n\n## Log\n',
     );
-    const sat = planPeriod(dir, await scanVault(dir), { period: '2026-11-07' });
+    const sat = planPeriod(...(await snapshot(dir)), { period: '2026-11-07' });
     expect(sat.habits).toEqual(['- [ ] Up at 6:00 [[Morning routine]]']);
     expect(sat.writes['Plans/Daily/2026/11-November/2026-11-07.md']).toBe(
       '# 2026-11-07\n\n## Today\n\n## Habits\n\n- [ ] Up at 6:00 [[Morning routine]]\n\n## Ad-hoc\n\n## Log\n',
@@ -171,14 +171,14 @@ describe('day plans', () => {
       'Plans/Daily/2026/11-November/2026-11-04.md',
       '## Habits\n\n- [x] Up at 6:00 [[Morning routine]] ✅ 2026-11-04\n\n## Ad-hoc\n',
     );
-    const wed = planPeriod(dir, await scanVault(dir), { period: '2026-11-04' });
+    const wed = planPeriod(...(await snapshot(dir)), { period: '2026-11-04' });
     expect(wed.habits).toEqual([
       '- [ ] Gym [[Gym]]',
       '- [ ] Water before coffee [[Morning routine]]',
     ]);
 
     put('Plans/Daily/2026/11-November/2026-11-04.md', wed.content);
-    const again = planPeriod(dir, await scanVault(dir), {
+    const again = planPeriod(...(await snapshot(dir)), {
       period: '2026-11-04',
     });
     expect(again.habits).toEqual([]);
@@ -187,7 +187,7 @@ describe('day plans', () => {
 
   it('plan_days fills each day it plans', async () => {
     seed();
-    const r = planDays(dir, await scanVault(dir), {
+    const r = planDays(...(await snapshot(dir)), {
       '2026-11-07': {},
       '2026-11-09': {},
     });
@@ -204,7 +204,7 @@ describe('open habit checks', () => {
       '## Habits\n\n- [ ] Up at 6:00 [[Morning routine]]\n',
     );
     put('Plans/Weekly/2026-W45.md', '## Goals\n\n## Ad-hoc\n');
-    const r = rollOver(dir, await scanVault(dir), '2026-W45');
+    const r = rollOver(...(await snapshot(dir)), '2026-W45');
     expect(r.tasks.map((t) => t.note)).toEqual([MORNING]);
     expect(r.warnings.join('\n')).not.toContain('Up at 6:00');
   });
@@ -219,7 +219,7 @@ describe('open habit checks', () => {
       'Plans/Daily/2026/11-November/2026-11-03.md',
       '## Habits\n\n- [x] Up at 6:00 [[Morning routine]] ✅ 2026-11-03\n',
     );
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     expect(
       p.tasks.filter((t) => t.habit).every((t) => t.scheduled === null),
     ).toBe(true);
@@ -246,8 +246,7 @@ describe('review_period', () => {
       '## Habits\n\n- [x] Up at 6:00 [[Morning routine]] ✅ 2026-11-05\n',
     );
     const r = reviewPeriod(
-      dir,
-      await scanVault(dir),
+      ...(await snapshot(dir)),
       '2026-W45',
       '2026-11-06',
     ) as PeriodReview;
@@ -273,7 +272,7 @@ describe('add_habits', () => {
   it('writes plain list items under Habits, previews, and executes with versions', async () => {
     seed();
     put('2.Areas/Reading.md', '---\nstatus: in-progress\n---\n# Reading\n');
-    const r = addHabits(dir, await scanVault(dir), {
+    const r = addHabits(...(await snapshot(dir)), {
       note: '2.Areas/Reading.md',
       habits: [
         { text: 'Read 10 pages', rule: 'every day' },
@@ -304,14 +303,14 @@ describe('add_habits', () => {
   it('refuses a plan, an unreadable rule, a duplicate, and text with signifiers or links', async () => {
     seed();
     put('Plans/Daily/2026/11-November/2026-11-02.md', '## Ad-hoc\n');
-    const notes = await scanVault(dir);
+    const [tree, notes] = await snapshot(dir);
     expect(
-      addHabits(dir, notes, {
+      addHabits(tree, notes, {
         note: 'Plans/Daily/2026/11-November/2026-11-02.md',
         habits: [{ text: 'X', rule: 'every day' }],
       }).errors[0],
     ).toContain('is a plan');
-    const r = addHabits(dir, notes, {
+    const r = addHabits(tree, notes, {
       note: MORNING,
       habits: [
         { text: 'Up at 6:00', rule: 'every day' },

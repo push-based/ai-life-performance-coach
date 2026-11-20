@@ -1,5 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join, posix } from 'node:path';
+import { posix } from 'node:path';
 import { safeName } from './filing.js';
 import {
   CONCEPTS_FOLDER,
@@ -48,6 +47,7 @@ import {
   PARA_FOLDERS,
   type VaultNote,
   type SessionRecord,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export const READING_NOTES_FOLDER = posix.join(
@@ -73,24 +73,23 @@ const emptyPlan = (): ClimbWritePlan => ({
   climbs: [],
 });
 
-const read = (root: string, path: string) =>
-  readFileSync(join(root, path), 'utf-8');
+const read = (tree: VaultTree, path: string) => tree.text(path);
 
-function current(root: string, plan: ClimbWritePlan, path: string): string {
+function current(tree: VaultTree, plan: ClimbWritePlan, path: string): string {
   if (path in plan.writes) return plan.writes[path];
-  if (!(path in plan.originals)) plan.originals[path] = read(root, path);
+  if (!(path in plan.originals)) plan.originals[path] = read(tree, path);
   return plan.originals[path];
 }
 
 function put(
-  root: string,
+  tree: VaultTree,
   plan: ClimbWritePlan,
   path: string,
   content: string,
   create = false,
 ): void {
   if (create) plan.created.push(path);
-  else current(root, plan, path);
+  else current(tree, plan, path);
   plan.writes[path] = content;
 }
 
@@ -103,7 +102,7 @@ function afterPlan(notes: VaultNote[], plan: ClimbWritePlan): VaultNote[] {
 }
 
 function refreshClimbs(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   sessions: SessionRecord[],
   plan: ClimbWritePlan,
@@ -115,7 +114,7 @@ function refreshClimbs(
     if (!note || !isConceptNote(note)) continue;
     const c = climbOf(note, after, sessions);
     if (c.current) continue;
-    put(root, plan, path, withClimb(current(root, plan, path), c.steps));
+    put(tree, plan, path, withClimb(current(tree, plan, path), c.steps));
     plan.climbs.push({
       path,
       climb: Object.fromEntries(
@@ -148,7 +147,7 @@ const chapterLink = (chapter: VaultNote, page: number | null, label: string) =>
   `[[${chapter.path.replace(/\.md$/, '')}${page !== null ? `#Page ${page}` : ''}|${label}]]`;
 
 export function addReadingNotes(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   sessions: SessionRecord[],
   input: ReadingNotesInput,
@@ -204,7 +203,7 @@ export function addReadingNotes(
     );
     return plan;
   }
-  if (!existing && existsSync(join(root, path))) {
+  if (!existing && tree.exists(path)) {
     plan.errors.push(`${path} exists and is not a note`);
     return plan;
   }
@@ -215,7 +214,7 @@ export function addReadingNotes(
       `- ${date} · ${e.quote ? `“${e.text}” (quote)` : e.text} — ${chapterLink(chapter, page, page !== null ? `p. ${page}` : chapter.title)}`,
   );
   const original = existing
-    ? current(root, plan, path)
+    ? current(tree, plan, path)
     : [
         '---',
         `type: ${yamlString(READING_NOTES_TYPE)}`,
@@ -229,7 +228,7 @@ export function addReadingNotes(
         '',
       ].join('\n');
   const content = insertUnder(original, heading, lines);
-  put(root, plan, path, content, !existing);
+  put(tree, plan, path, content, !existing);
 
   const written = readingEntries(noteOf(path, content), chapter).filter(
     (e) => e.page === page,
@@ -243,7 +242,7 @@ export function addReadingNotes(
     );
 
   refreshClimbs(
-    root,
+    tree,
     notes,
     sessions,
     plan,
@@ -290,7 +289,7 @@ const allBooks = (notes: VaultNote[]) =>
   new Set(notes.filter(isConceptNote).flatMap((c) => conceptBooks(c, notes)));
 
 export function writeStructure(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   sessions: SessionRecord[],
   input: StructureInput,
@@ -368,7 +367,7 @@ export function writeStructure(
     plan.errors.push(
       `${path} exists and is not the structure note of ${isTopic ? 'topic' : 'book'} ${name}${was?.book ? `; it is book ${was.book}'s` : was?.topic ? `; it is topic ${was.topic}'s` : ''}`,
     );
-  else if (!existing && existsSync(join(root, path)))
+  else if (!existing && tree.exists(path))
     plan.errors.push(`${path} exists and is not a note`);
   if (isTopic) {
     const members = new Set(groups.flatMap((g) => g.concepts));
@@ -449,7 +448,7 @@ export function writeStructure(
       : []),
     '',
   ].join('\n');
-  put(root, plan, path, content, !existing);
+  put(tree, plan, path, content, !existing);
 
   const setGroup = (c: string, group: string | null) => {
     const note = all.find((n) => n.path === c)!;
@@ -472,7 +471,7 @@ export function writeStructure(
       ),
     ];
     let next = setFrontmatterLines(
-      current(root, plan, c),
+      current(tree, plan, c),
       'groups',
       keys.length
         ? [
@@ -488,7 +487,7 @@ export function writeStructure(
         'topic',
         group === null ? null : [`topic: ${yamlString(name)}`],
       );
-    if (next !== current(root, plan, c)) put(root, plan, c, next);
+    if (next !== current(tree, plan, c)) put(tree, plan, c, next);
   };
   for (const g of groups) for (const c of g.concepts) setGroup(c, g.name);
   const dropped = (was?.groups.flatMap((g) => g.concepts) ?? []).filter(
@@ -497,7 +496,7 @@ export function writeStructure(
       all.some((n) => n.path === c),
   );
   for (const c of dropped) setGroup(c, null);
-  refreshClimbs(root, notes, sessions, plan, [
+  refreshClimbs(tree, notes, sessions, plan, [
     ...(isTopic ? placedConcepts : concepts).map((c) => c.path),
     ...dropped,
   ]);
@@ -544,7 +543,7 @@ export interface GuidelinePlan extends ClimbWritePlan {
 }
 
 export function saveGuideline(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   sessions: SessionRecord[],
   input: GuidelineInput,
@@ -600,7 +599,7 @@ export function saveGuideline(
   }
   const path = posix.join(folder, `${name}.md`);
   plan.path = path;
-  if (existsSync(join(root, path))) {
+  if (tree.exists(path)) {
     plan.errors.push(`${path} already exists`);
     return plan;
   }
@@ -619,7 +618,7 @@ export function saveGuideline(
     '',
     ...lesson.flatMap((t) => [t, '']),
   ].join('\n');
-  put(root, plan, path, content, true);
+  put(tree, plan, path, content, true);
   return plan;
 }
 
@@ -642,13 +641,13 @@ export function climbs(
 }
 
 export function rebuildClimbs(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   sessions: SessionRecord[],
 ): ClimbWritePlan {
   const plan = emptyPlan();
   refreshClimbs(
-    root,
+    tree,
     notes,
     sessions,
     plan,
@@ -759,7 +758,7 @@ export interface SketchPlan {
 }
 
 export function planSketch(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   target: string,
   png: Buffer,
@@ -788,7 +787,7 @@ export function planSketch(
   if (plan.errors.length) return plan;
   const base = `${safeName(concept?.title ?? book!) ?? 'Sketch'} ${date}`;
   let path = posix.join(SKETCHES_FOLDER, `${base}.png`);
-  for (let n = 2; existsSync(join(root, path)); n++)
+  for (let n = 2; tree.exists(path); n++)
     path = posix.join(SKETCHES_FOLDER, `${base} (${n}).png`);
   plan.path = path;
   return plan;
@@ -840,7 +839,7 @@ function addToSection(
 }
 
 export function extendConcept(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   sessions: SessionRecord[],
   input: ExtendConceptInput,
@@ -928,7 +927,7 @@ export function extendConcept(
     );
 
   const added = plan.passages.map(({ found: _f, problem: _p, ...p }) => p);
-  let content = current(root, plan, note.path);
+  let content = current(tree, plan, note.path);
   if (added.length)
     content = setFrontmatterLines(
       content,
@@ -964,7 +963,7 @@ export function extendConcept(
       fromNotes.map((n) => fromNoteLine(n, byPath)),
       ['My elaborations'],
     );
-  put(root, plan, note.path, content);
-  refreshClimbs(root, notes, sessions, plan, [note.path]);
+  put(tree, plan, note.path, content);
+  refreshClimbs(tree, notes, sessions, plan, [note.path]);
   return plan;
 }

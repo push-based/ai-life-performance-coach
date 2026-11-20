@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { rollOver } from '../rollover.js';
 import { nextPeriod, periodOf, executeWrites } from '../plans.js';
-import { scanVault, fsListing } from '../scan.js';
+import { scanVault, loadTree, snapshot } from '../scan.js';
 import { createVault } from '../vault.js';
 import { planning } from '@ai-coach/vault-domain';
 
@@ -88,7 +88,7 @@ describe('nextPeriod', () => {
 describe('roll_over', () => {
   it('reschedules open tasks where they stand, raised and tagged, and copies open goals into the next plan', async () => {
     seed();
-    const plan = rollOver(dir, await scanVault(dir), '2026-W45');
+    const plan = rollOver(...(await snapshot(dir)), '2026-W45');
     expect(plan.errors).toEqual([]);
     expect(plan.to?.period).toBe('2026-W46');
     expect(plan.tasks.map((e) => [e.fileLine, e.after])).toEqual([
@@ -124,7 +124,7 @@ describe('roll_over', () => {
     expect(read('Plans/Weekly/2026-W45.md')).toContain(
       '- [ ] All posters out [[Marketing]] #M ↑ [[2026-11#^posters-printed]] ^all-posters-out',
     );
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     const panel = p.tasks.find((t) => t.text === 'Panel posters')!;
     expect(panel).toMatchObject({
       scheduled: '2026-11-09',
@@ -144,7 +144,7 @@ describe('roll_over', () => {
       '1.Projects/Promise/Workstreams/Morning.md',
       '- [ ] Up at 6:00 🔁 every day ⏳ 2026-11-06\n- [ ] Read 🔁 every day\n',
     );
-    const plan = rollOver(dir, await scanVault(dir), '2026-W45');
+    const plan = rollOver(...(await snapshot(dir)), '2026-W45');
     expect(plan.tasks.map((e) => e.note)).not.toContain(
       '1.Projects/Promise/Workstreams/Morning.md',
     );
@@ -172,7 +172,7 @@ describe('roll_over', () => {
       'Plans/Monthly/2026-12.md',
       '## Goals\n\n- [ ] Retro written [[Expo2026]] ↑ [[2026-Q4#^expo]] ^retro-written\n',
     );
-    const plan = rollOver(dir, await scanVault(dir), '2026-12');
+    const plan = rollOver(...(await snapshot(dir)), '2026-12');
     expect(plan.to?.period).toBe('2027-01');
     expect(plan.warnings).toContain(
       'goal "Retro written [[Expo2026]]": its parent in 2026-Q4 does not overlap 2027-01; link a new parent if it moved on',
@@ -188,7 +188,7 @@ describe('roll_over', () => {
       'Plans/Weekly/2026-W46.md',
       '# 2026-W46\n\n## Goals\n\n- [ ] Something else [[Health]] ^all-posters-out\n\n## Review\n',
     );
-    const plan = rollOver(dir, await scanVault(dir), '2026-W45');
+    const plan = rollOver(...(await snapshot(dir)), '2026-W45');
     expect(plan.creates).toBe(false);
     expect(plan.goals[0].id).toBe('all-posters-out-2');
     expect(plan.writes['Plans/Weekly/2026-W46.md']).toMatch(
@@ -198,14 +198,14 @@ describe('roll_over', () => {
 
   it('refuses a year, a day and a non-period', async () => {
     seed();
-    const notes = await scanVault(dir);
-    expect(rollOver(dir, notes, '2026').errors[0]).toMatch(
+    const [tree, notes] = await snapshot(dir);
+    expect(rollOver(tree, notes, '2026').errors[0]).toMatch(
       /a year does not roll over/,
     );
-    expect(rollOver(dir, notes, '2026-11-03').errors[0]).toMatch(
+    expect(rollOver(tree, notes, '2026-11-03').errors[0]).toMatch(
       /a day carries no slip/,
     );
-    expect(rollOver(dir, notes, 'last week').errors[0]).toMatch(
+    expect(rollOver(tree, notes, 'last week').errors[0]).toMatch(
       /is not a period/,
     );
   });
@@ -227,7 +227,7 @@ describe('roll_over edge cases', () => {
       'Plans/Weekly/2026-W45.md',
       '## Goals\n\n- [ ] 📚 Read 3 books [[Reading]] 🔼 ^read\n',
     );
-    const plan = rollOver(dir, await scanVault(dir), '2026-W45');
+    const plan = rollOver(...(await snapshot(dir)), '2026-W45');
     expect(plan.errors).toEqual([]);
     expect(plan.writes['Plans/Weekly/2026-W46.md']).toContain(
       '- [ ] 📚 Read 3 books [[Reading]] #slipped/2026-W45 ⏫ ^read',
@@ -239,7 +239,7 @@ describe('roll_over edge cases', () => {
       '1.Projects/Expo2026/Workstreams/Marketing.md',
       '- [/] Draft slides ⏳ 2026-11-04\n',
     );
-    const plan = rollOver(dir, await scanVault(dir), '2026-W45');
+    const plan = rollOver(...(await snapshot(dir)), '2026-W45');
     expect(plan.errors).toEqual([]);
     expect(plan.tasks.map((t) => t.after)).toEqual([
       '- [/] Draft slides #slipped/2026-W45 ⏳ 2026-11-09 ⏫',
@@ -251,12 +251,11 @@ describe('roll_over edge cases', () => {
       '1.Projects/Expo2026/Workstreams/Marketing.md',
       '---\r\nstatus: todo\r\n---\r\n- [ ] Print badges ⏳ 2026-11-04\r\n- [x] Done ✅ 2026-11-03\r\n',
     );
-    const notes = await scanVault(dir);
-    expect(planning(fsListing(dir), notes).tasks.map((t) => t.text)).toEqual([
-      'Print badges',
-      'Done',
-    ]);
-    const plan = rollOver(dir, notes, '2026-W45');
+    const [tree, notes] = await snapshot(dir);
+    expect(
+      planning(await loadTree(dir), notes).tasks.map((t) => t.text),
+    ).toEqual(['Print badges', 'Done']);
+    const plan = rollOver(tree, notes, '2026-W45');
     await executeWrites(dir, plan);
     expect(read('1.Projects/Expo2026/Workstreams/Marketing.md')).toBe(
       '---\r\nstatus: todo\r\n---\r\n- [ ] Print badges #slipped/2026-W45 ⏳ 2026-11-09 ⏫\r\n- [x] Done ✅ 2026-11-03\r\n',
@@ -268,7 +267,7 @@ describe('roll_over edge cases', () => {
       '4.Archive/Old/Old.md',
       '---\nstatus: done\n---\n- [ ] Send invoice ⏳ 2026-11-04\n',
     );
-    const plan = rollOver(dir, await scanVault(dir), '2026-W45');
+    const plan = rollOver(...(await snapshot(dir)), '2026-W45');
     expect(plan.tasks).toEqual([]);
   });
 
@@ -282,7 +281,7 @@ describe('roll_over edge cases', () => {
       'Plans/Weekly/2026-W46.md',
       '## Goals\n\n## Ad-hoc\n\n- [ ] Book a physio [[Health]] ⏳ 2026-11-06\n',
     );
-    const plan = rollOver(dir, await scanVault(dir), '2026-W45');
+    const plan = rollOver(...(await snapshot(dir)), '2026-W45');
     expect(plan.errors).toEqual([]);
     const next = plan.writes['Plans/Weekly/2026-W46.md'];
     expect(next).toContain(

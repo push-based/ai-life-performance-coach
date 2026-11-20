@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { conceptOf } from './concept.js';
@@ -37,6 +36,7 @@ import {
   type AssertionMark,
   PARA_FOLDERS,
   type VaultNote,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export interface SessionItemInput {
@@ -106,7 +106,7 @@ export interface RecordPlan {
 }
 
 export interface RecordContext {
-  root: string;
+  tree: VaultTree;
   notes: VaultNote[];
   sessions: SessionRecord[];
   now: Date;
@@ -634,7 +634,7 @@ export function planSession(
     ...elaborations.map((e) => e.path),
   ]);
   for (const path of [...touched].sort()) {
-    const original = readFileSync(join(ctx.root, path), 'utf-8');
+    const original = ctx.tree.text(path);
     let content = original;
     if (idOf.has(path)) content = insertCoachId(content, idOf.get(path)!);
     const e = elaborations.find((x) => x.path === path);

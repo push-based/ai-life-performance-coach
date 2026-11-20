@@ -6,6 +6,7 @@ import {
   insertKey,
   declaresKey,
   type VaultNote,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export const READ_KEY = 'read_on';
@@ -238,12 +239,12 @@ export interface WritePlan {
 
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
-export async function planMarkRead(
-  root: string,
+export function planMarkRead(
+  tree: VaultTree,
   notes: VaultNote[],
   book: string,
   date: string,
-): Promise<WritePlan> {
+): WritePlan {
   const fail = (e: string): WritePlan => ({
     path: null,
     errors: [e],
@@ -261,7 +262,7 @@ export async function planMarkRead(
       `no converted book at ${book}; give its text.md or its work folder`,
     );
   if (!isDate(date)) return fail(`date ${date} is not YYYY-MM-DD`);
-  const content = await readFile(join(root, index.path), 'utf-8');
+  const content = tree.text(index.path);
   if (declaresKey(content, READ_KEY))
     return fail(
       `${index.path} is already marked read on ${String(index.frontmatter[READ_KEY])}`,
@@ -285,13 +286,13 @@ function callout(text: string): string {
   ].join('\n');
 }
 
-export async function planSummary(
-  root: string,
+export function planSummary(
+  tree: VaultTree,
   notes: VaultNote[],
   path: string,
   text: string,
   page?: number,
-): Promise<WritePlan> {
+): WritePlan {
   const fail = (e: string): WritePlan => ({
     path: null,
     errors: [e],
@@ -303,7 +304,7 @@ export async function planSummary(
   if (!note || note.rawRole !== 'chapter')
     return fail(`${path} is not a chapter of a converted book`);
   if (!text.trim()) return fail('the summary is empty');
-  const content = await readFile(join(root, path), 'utf-8');
+  const content = tree.text(path);
   const eol = content.includes('\r\n') ? '\r\n' : '\n';
   const block = callout(text).split('\n').join(eol);
   const progress = chapterProgress(note);

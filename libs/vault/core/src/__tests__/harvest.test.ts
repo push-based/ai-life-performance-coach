@@ -9,7 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { harvestWorkstream, resetChecklist } from '../harvest.js';
-import { scanVault, fsListing } from '../scan.js';
+import { scanVault, loadTree, snapshot } from '../scan.js';
 import { createVault } from '../vault.js';
 import { buildVaultGraph, planning } from '@ai-coach/vault-domain';
 
@@ -84,8 +84,7 @@ describe('harvest_workstream', () => {
       '---\nstatus: done\n---\n# Marketing\n',
     );
     const plan = harvestWorkstream(
-      dir,
-      await scanVault(dir),
+      ...(await snapshot(dir)),
       'Expo2026',
       'Marketing',
       undefined,
@@ -118,10 +117,10 @@ describe('harvest_workstream', () => {
 
   it('refuses a workstream that is not done, or not there', async () => {
     seed();
-    const notes = await scanVault(dir);
+    const [tree, notes] = await snapshot(dir);
     expect(
       harvestWorkstream(
-        dir,
+        tree,
         notes,
         'Expo2026',
         'Marketing',
@@ -133,7 +132,7 @@ describe('harvest_workstream', () => {
     ]);
     expect(
       harvestWorkstream(
-        dir,
+        tree,
         notes,
         'Expo2026',
         'Catering',
@@ -142,7 +141,7 @@ describe('harvest_workstream', () => {
       ).errors[0],
     ).toMatch(/no workstream Catering .* it has Marketing, Workshops/);
     expect(
-      harvestWorkstream(dir, notes, 'Nope', 'x', undefined, '2026-11-30')
+      harvestWorkstream(tree, notes, 'Nope', 'x', undefined, '2026-11-30')
         .errors,
     ).toEqual(['no project Nope in 1.Projects']);
   });
@@ -262,8 +261,7 @@ describe('harvest_workstream', () => {
   it('refuses sources outside the workstream and packets with nothing in them', async () => {
     seed();
     const r = harvestWorkstream(
-      dir,
-      await scanVault(dir),
+      ...(await snapshot(dir)),
       'Expo2026',
       'Workshops',
       [
@@ -286,8 +284,7 @@ describe('harvest_workstream links', () => {
     seed();
     put('0.Inbox/Expo2026.md', 'An idea.\n');
     const r = harvestWorkstream(
-      dir,
-      await scanVault(dir),
+      ...(await snapshot(dir)),
       'Expo2026',
       'Workshops',
       [{ title: 'X', text: 'y' }],
@@ -373,8 +370,7 @@ describe('harvest edge cases', () => {
     put('1.Projects/Expo2026/Workstreams/Marketing/poster.png', 'png');
     const from = ['1.Projects/Expo2026/Workstreams/Marketing/poster.png'];
     const r = harvestWorkstream(
-      dir,
-      await scanVault(dir),
+      ...(await snapshot(dir)),
       'Expo2026',
       'Marketing',
       [
@@ -401,6 +397,8 @@ describe('harvest edge cases', () => {
       '1.Projects/Expo2026/Intermediate Packets/Checklist.md',
       '- [ ] Book the room\n',
     );
-    expect(planning(fsListing(dir), await scanVault(dir)).tasks).toEqual([]);
+    expect(planning(await loadTree(dir), await scanVault(dir)).tasks).toEqual(
+      [],
+    );
   });
 });

@@ -1,5 +1,4 @@
-import { fsListing } from './scan.js';
-import { constants, existsSync, readdirSync, statSync } from 'node:fs';
+import { constants } from 'node:fs';
 import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 import { safeName } from './filing.js';
@@ -13,6 +12,7 @@ import {
   type Project,
   type Workstream,
   type VaultNote,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export const PACKET_TYPE = 'intermediate-packet';
@@ -86,16 +86,10 @@ function sections(body: string): { heading: string; text: string }[] {
   return out;
 }
 
-function filesIn(root: string, folder: string): string[] {
+function filesIn(tree: VaultTree, folder: string): string[] {
   const out: string[] = [];
   const walk = (rel: string) => {
-    let entries;
-    try {
-      entries = readdirSync(join(root, rel), { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    for (const e of tree.entries(rel)) {
       if (e.name.startsWith('.')) continue;
       const child = posix.join(rel, e.name);
       if (e.isDirectory()) walk(child);
@@ -107,7 +101,7 @@ function filesIn(root: string, folder: string): string[] {
 }
 
 export function harvestWorkstream(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   project: string,
   workstream: string,
@@ -125,7 +119,7 @@ export function harvestWorkstream(
     writes: {},
     copies: [],
   };
-  const p = planning(fsListing(root), notes);
+  const p = planning(tree, notes);
   const pr: Project | undefined = p.projects.find(
     (x) => x.name === project && !x.archived,
   );
@@ -169,7 +163,7 @@ export function harvestWorkstream(
     }
   }
   if (isFolder)
-    for (const f of filesIn(root, ws.path))
+    for (const f of filesIn(tree, ws.path))
       out.candidates.push({ kind: 'file', path: f });
   if (!packets?.length) return out;
 
@@ -192,7 +186,7 @@ export function harvestWorkstream(
     isFolder ? path.startsWith(`${ws.path}/`) : path === ws.path;
   const targets = new Set<string>();
   const claim = (to: string) => {
-    if (existsSync(join(root, to)) || targets.has(to)) {
+    if (tree.exists(to) || targets.has(to)) {
       out.collisions.push(to);
       return false;
     }
@@ -239,10 +233,7 @@ export function harvestWorkstream(
           continue;
         }
         body.push(`## ${part.heading}`, '', resetChecklist(part.text), '');
-      } else if (
-        existsSync(join(root, src)) &&
-        statSync(join(root, src)).isFile()
-      ) {
+      } else if (tree.exists(src) && tree.isFile(src)) {
         const to = posix.join(folder, posix.basename(src));
 
         const shared = out.copies.find((c) => c.to === to);

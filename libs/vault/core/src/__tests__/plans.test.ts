@@ -15,7 +15,7 @@ import {
   executePlanPeriod,
   TEMPLATES,
 } from '../plans.js';
-import { scanVault, fsListing } from '../scan.js';
+import { scanVault, loadTree, snapshot } from '../scan.js';
 import { createVault } from '../vault.js';
 import { planning } from '@ai-coach/vault-domain';
 
@@ -127,7 +127,7 @@ describe('plan_period', () => {
       'Plans/Monthly/2026-11.md',
       '## Goals\n\n- [ ] Posters printed [[Marketing]] ↑ [[2026-Q4#^expo-delivered]] ^posters-printed\n',
     );
-    const plan = planPeriod(dir, await scanVault(dir), {
+    const plan = planPeriod(...(await snapshot(dir)), {
       period: '2026-W45',
       goals: [
         {
@@ -177,7 +177,7 @@ describe('plan_period', () => {
     );
 
     await executePlanPeriod(dir, plan);
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     const goals = p.tasks.filter(
       (t) => t.plan?.period === '2026-W45' && t.goal,
     );
@@ -204,7 +204,7 @@ describe('plan_period', () => {
       'Plans/Templates/Monthly.md',
       '# My month {{title}}\n\n## Goals\n\n## Notes\n',
     );
-    const plan = planPeriod(dir, await scanVault(dir), {
+    const plan = planPeriod(...(await snapshot(dir)), {
       period: '2026-11',
       goals: [
         {
@@ -221,14 +221,14 @@ describe('plan_period', () => {
 
   it('adds to an existing plan without touching what is there, keeping block ids unique', async () => {
     seed();
-    const plan = planPeriod(dir, await scanVault(dir), {
+    const plan = planPeriod(...(await snapshot(dir)), {
       period: '2026-Q4',
       goals: [{ text: 'Expo delivered', link: 'Expo2026', parent: '2026#^x' }],
     });
     expect(plan.errors).toEqual([
       'goal "Expo delivered": no goal ^x in Plans/Yearly/2026.md',
     ]);
-    const ok = planPeriod(dir, await scanVault(dir), {
+    const ok = planPeriod(...(await snapshot(dir)), {
       period: '2026-Q4',
       goals: [{ text: 'Expo delivered', link: 'Expo2026' }],
       adHoc: [{ text: 'Book flights', link: 'Health' }],
@@ -242,7 +242,7 @@ describe('plan_period', () => {
 
   it('schedules existing open tasks where they stand, after any frontmatter and before a block id', async () => {
     seed();
-    const plan = planPeriod(dir, await scanVault(dir), {
+    const plan = planPeriod(...(await snapshot(dir)), {
       period: '2026-W45',
       schedule: [
         {
@@ -282,7 +282,7 @@ describe('plan_period', () => {
 
   it('refuses what it cannot place, and names it', async () => {
     seed();
-    const r = planPeriod(dir, await scanVault(dir), {
+    const r = planPeriod(...(await snapshot(dir)), {
       period: '2026-W45',
       goals: [
         { text: 'A', link: 'Nowhere' },
@@ -310,7 +310,7 @@ describe('plan_period', () => {
       'schedule: no note 3.Resources/Elsewhere.md',
     ]);
     expect(
-      planPeriod(dir, await scanVault(dir), {
+      planPeriod(...(await snapshot(dir)), {
         period: '2026-11-03',
         goals: [{ text: 'x', link: 'Health' }],
       }).errors,
@@ -318,7 +318,7 @@ describe('plan_period', () => {
       'a day plan holds no goals; add the work as ad-hoc tasks or schedule tasks into it',
     ]);
     expect(
-      planPeriod(dir, await scanVault(dir), { period: 'soon' }).errors[0],
+      planPeriod(...(await snapshot(dir)), { period: 'soon' }).errors[0],
     ).toMatch(/is not a period/);
   });
 
@@ -334,7 +334,7 @@ describe('plan_period', () => {
     const preview = await vault.planPeriod(input, false);
     expect(preview.executed).toBe(false);
     expect(existsSync(join(dir, 'Plans/Weekly/2026-W45.md'))).toBe(false);
-    const plan = planPeriod(dir, await scanVault(dir), input);
+    const plan = planPeriod(...(await snapshot(dir)), input);
     put(
       '1.Projects/Expo2026/Workstreams/Workshops.md',
       '- [ ] Confirm rooms\n',
@@ -359,13 +359,13 @@ describe('plan_period edge cases', () => {
   it("writes a new day plan into its month's folder, and an unmigrated one where it is", async () => {
     put('2.Areas/Health.md', '# Health\n');
     put('Plans/Daily/2026-11-03.md', '# 2026-11-03\n\n## Ad-hoc\n');
-    const flat = planPeriod(dir, await scanVault(dir), {
+    const flat = planPeriod(...(await snapshot(dir)), {
       period: '2026-11-03',
       adHoc: [{ text: 'Stretch', link: 'Health' }],
     });
     expect(flat.plan).toBe('Plans/Daily/2026-11-03.md');
     expect(flat.creates).toBe(false);
-    const fresh = planPeriod(dir, await scanVault(dir), {
+    const fresh = planPeriod(...(await snapshot(dir)), {
       period: '2026-11-04',
       adHoc: [{ text: 'Stretch', link: 'Health' }],
     });
@@ -379,7 +379,7 @@ describe('plan_period edge cases', () => {
       'Plans/Weekly/2026-W45.md',
       '## Goals\n\n## Ad-hoc\n\n- [ ] Call the physio [[Health]]\n',
     );
-    const r = planPeriod(dir, await scanVault(dir), {
+    const r = planPeriod(...(await snapshot(dir)), {
       period: '2026-W45',
       goals: [{ text: 'Sleep eight hours', link: 'Health' }],
       schedule: [

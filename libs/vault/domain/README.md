@@ -14,12 +14,13 @@
 | **Mastery**    | A note's history and mastery from its sessions.                                                             | `mastery.ts`   |
 | **Planning**   | Projects, workstreams, areas, plans, tasks and habits. The folder listing is passed in as a `VaultListing`. | `planning.ts`  |
 | **Task lines** | Reading and rewriting one Obsidian Tasks line.                                                              | `task-line.ts` |
+| **Snapshot**   | `VaultTree`: the vault's folders and note texts at one moment, which planners read instead of the disk.     | `tree.ts`      |
 | **Habits**     | Habit rules and which days they fall on.                                                                    | `habits.ts`    |
 
 ## Good to know
 
 - **No I/O.** No files, no npm packages, no Node built-ins; lint enforces it. Paths use `@ai-coach/util-path`.
-- Where a rule needs something from outside, the caller passes it in: a `FrontmatterParser` to read a note, a `VaultListing` to see folders.
+- Where a rule needs something from outside, the caller passes it in: a `FrontmatterParser` to read a note, a `VaultListing` or a `VaultTree` to see folders and read notes.
 
 ## Tests
 

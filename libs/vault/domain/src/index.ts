@@ -11,3 +11,4 @@ export * from './lib/payload.js';
 export * from './lib/graph.js';
 export * from './lib/planning.js';
 export * from './lib/task-line.js';
+export * from './lib/tree.js';

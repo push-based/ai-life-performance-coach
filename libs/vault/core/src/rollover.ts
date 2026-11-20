@@ -1,6 +1,3 @@
-import { fsListing } from './scan.js';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   addToSection,
   nextPeriod,
@@ -20,6 +17,7 @@ import {
   parseTasks,
   type VaultNote,
   planPathOf,
+  type VaultTree,
 } from '@ai-coach/vault-domain';
 
 export interface RollOverPlan extends NoteWrites {
@@ -54,7 +52,7 @@ function raise(line: string): string {
 }
 
 export function rollOver(
-  root: string,
+  tree: VaultTree,
   notes: VaultNote[],
   periodName: string,
 ): RollOverPlan {
@@ -94,10 +92,10 @@ export function rollOver(
   out.to = to;
   out.plan = planPathOf(to);
   const tag = `#slipped/${from.period}`;
-  const p = planning(fsListing(root), notes);
+  const p = planning(tree, notes);
   const byPath = new Map(notes.map((n) => [n.path, n]));
 
-  const editor = new TaskLineEditor(root, out.originals);
+  const editor = new TaskLineEditor(tree, out.originals);
   for (const t of p.tasks) {
     if (
       t.goal ||
@@ -123,11 +121,11 @@ export function rollOver(
   Object.assign(out.writes, editor.writes());
 
   const target = byPath.get(out.plan);
-  const original = target ? readFileSync(join(root, out.plan), 'utf-8') : null;
+  const original = target ? tree.text(out.plan) : null;
   if (original !== null) out.originals[out.plan] ??= original;
   const content =
     original ??
-    templateFor(root, to.level).replace(/\{\{title\}\}/g, to.period);
+    templateFor(tree, to.level).replace(/\{\{title\}\}/g, to.period);
   const there = parseTasks(out.plan, target?.body ?? content, to);
   const taken = new Set(there.map((t) => t.blockId).filter(Boolean));
   const lines: string[] = [];

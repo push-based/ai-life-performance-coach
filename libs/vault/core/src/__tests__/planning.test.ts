@@ -7,7 +7,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { scanVault, fsListing } from '../scan.js';
+import { scanVault, loadTree } from '../scan.js';
 import { planInit } from '../filing.js';
 import { createVault } from '../vault.js';
 import {
@@ -280,7 +280,7 @@ describe('planning', () => {
 
   it('reads projects with their note, status, deadline, definition of done and workstreams', async () => {
     seed();
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     const expo = p.projects.find((x) => x.name === 'Expo2026')!;
     expect(expo).toMatchObject({
       note: '1.Projects/Expo2026/Expo2026.md',
@@ -321,7 +321,7 @@ describe('planning', () => {
 
   it('warns about a missing project note and reads status only from project, workstream and area notes', async () => {
     seed();
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     expect(p.projects.find((x) => x.name === 'Garden')).toMatchObject({
       note: null,
       workstreams: [],
@@ -336,7 +336,7 @@ describe('planning', () => {
 
   it('reads areas as notes or folders', async () => {
     seed();
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     expect(
       p.areas.map((a) => [a.name, a.note, a.status, a.notes.length]),
     ).toEqual([
@@ -347,7 +347,7 @@ describe('planning', () => {
 
   it('lists plans and warns about a note in Plans/ that is not one', async () => {
     seed();
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     expect(p.plans.map((x) => `${x.level}:${x.period}`).sort()).toEqual([
       'day:2026-11-03',
       'quarter:2026-Q4',
@@ -360,7 +360,7 @@ describe('planning', () => {
 
   it('gives each task its owner: by path in a project or area, by link in a plan', async () => {
     seed();
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     const owner = (text: string) =>
       p.tasks.find((t) => t.text.startsWith(text))!.owner;
     expect(owner('Book the venue')).toEqual({
@@ -418,7 +418,7 @@ describe('planning', () => {
 
   it('warns about unlinked plan items and goals below the year without a parent', async () => {
     seed();
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     expect(p.warnings).toContain(
       'Plans/Weekly/2026-W45.md:6: "Water the plants" links no project, workstream or area',
     );
@@ -433,7 +433,7 @@ describe('planning', () => {
 
   it('reports a status outside the vocabulary', async () => {
     put('1.Projects/X/X.md', '---\nstatus: Done\n---\n');
-    const p = planning(fsListing(dir), await scanVault(dir));
+    const p = planning(await loadTree(dir), await scanVault(dir));
     expect(p.warnings).toContain(
       '1.Projects/X/X.md: status "Done" is not one of todo, in-progress, blocked, done',
     );
@@ -452,7 +452,7 @@ describe('init_vault and Plans/', () => {
       mkdirSync(join(dir, f));
     put('Plans/Weekly/2026-W45.md', '## Goals\n');
     put('Stray.md', 'Outside PARA.\n');
-    const plan = await planInit(dir);
+    const plan = await planInit(await loadTree(dir));
     expect(plan.actions).toEqual([
       { op: 'move', from: 'Stray.md', to: '4.Archive/old notes/Stray.md' },
       { op: 'create', to: 'Plans/Yearly' },
@@ -487,7 +487,9 @@ describe('init_vault planning layout (Decision 14)', () => {
 
   it('previews the layout, a note for each project without one, and the areas asked for', async () => {
     seedProjects();
-    const plan = await planInit(dir, { areas: ['Health', 'Public Speaking'] });
+    const plan = await planInit(await loadTree(dir), {
+      areas: ['Health', 'Public Speaking'],
+    });
     expect(plan.errors).toEqual([]);
     expect(plan.collisions).toEqual([]);
     expect(plan.actions).toEqual([
@@ -553,7 +555,9 @@ describe('init_vault planning layout (Decision 14)', () => {
 describe('init_vault areas under a folder it renames', () => {
   it('sees an area note inside an Areas/ folder that becomes 2.Areas, and plans no write onto it', async () => {
     put('Areas/Health.md', '# Health\n');
-    const plan = await planInit(dir, { areas: ['Health', 'Sport'] });
+    const plan = await planInit(await loadTree(dir), {
+      areas: ['Health', 'Sport'],
+    });
     expect(plan.actions).toContainEqual({
       op: 'rename',
       from: 'Areas',

@@ -1,8 +1,13 @@
-import { existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { join, posix, resolve, sep } from 'node:path';
 import { isInside } from './root.js';
-import { listNotePaths, readNote, scanVault, fsListing } from './scan.js';
+import {
+  listNotePaths,
+  loadTree,
+  readNote,
+  scanVault,
+  snapshot as loadSnapshot,
+} from './scan.js';
 import { loadSessions } from './sessions.js';
 import {
   planSession,
@@ -28,6 +33,8 @@ import {
   type RawItem,
   type ConvertPlan,
   type ConvertOptions,
+  extractPdf,
+  type PdfLoader,
 } from './convert.js';
 import {
   planConcept,
@@ -489,6 +496,11 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
   const newSessionId = opts.newSessionId ?? defaultSessionId;
   const newCoachId = opts.newCoachId ?? defaultCoachId;
 
+  const snapshot = () => loadSnapshot(root);
+
+  const loadPdf: PdfLoader = async (path) =>
+    extractPdf(new Uint8Array(await readFile(join(root, path))));
+
   async function notesWithHistory() {
     const [notes, { sessions, invalid }] = await Promise.all([
       scanVault(root),
@@ -554,14 +566,15 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     sessions: () => loadSessions(root),
     async recordSession(input, execute) {
       const at = now();
+      const [tree, notes] = await snapshot();
       const plan = planSession(input, {
-        root,
-        notes: await scanVault(root),
+        tree,
+        notes,
         sessions: (await loadSessions(root)).sessions,
         now: at,
         newSessionId: () => newSessionId(at),
         newCoachId,
-        exists: (rel) => existsSync(join(root, rel)),
+        exists: (rel) => tree.exists(rel),
       });
       if (!execute || plan.errors.length) return { ...plan, executed: false };
       await executeSession(root, plan);
@@ -651,34 +664,37 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       return tier2Payload(session, assertions);
     },
     initVault: async (execute, opts) =>
-      apply(root, await planInit(root, opts), execute),
+      apply(root, planInit(await loadTree(root), opts), execute),
     capture: async (title, body, execute) =>
-      apply(root, planCapture(root, title, body), execute),
+      apply(root, planCapture(await loadTree(root), title, body), execute),
     async fileNote(path, toFolder, execute) {
       const rel = notePathOf(root, path) ?? path;
       return apply(
         root,
-        planFileNote(root, await scanVault(root), rel, toFolder),
+        planFileNote(...(await snapshot()), rel, toFolder),
         execute,
       );
     },
-    archiveProject: async (project, execute, opts) =>
-      apply(
+    async archiveProject(project, execute, opts) {
+      const [tree, notes] = await snapshot();
+      return apply(
         root,
-        planArchiveProject(root, project, await scanVault(root), opts),
+        planArchiveProject(tree, project, notes, opts),
         execute,
-      ),
+      );
+    },
     async listRaw() {
-      const notes = await scanVault(root);
+      const [tree, notes] = await snapshot();
       const cited = citations(notes);
-      return (await listRaw(root, notes)).map((item) => ({
+      return listRaw(tree, notes).map((item) => ({
         ...item,
         ...(cited.get(item.note ?? '') ?? { notes: [], concepts: [] }),
       }));
     },
     async convertRaw(path, execute, opts) {
       const plan = await planConvert(
-        root,
+        await loadTree(root),
+        loadPdf,
         posix.normalize(path.split(sep).join('/').replace(/^\/+/, '')),
         localDate(now()),
         opts,
@@ -696,8 +712,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       applyWrite(
         root,
         await planMarkRead(
-          root,
-          await scanVault(root),
+          ...(await snapshot()),
           book,
           date ?? localDate(now()),
         ),
@@ -707,7 +722,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       const rel = notePathOf(root, path) ?? path;
       return applyWrite(
         root,
-        await planSummary(root, await scanVault(root), rel, text, page),
+        await planSummary(...(await snapshot()), rel, text, page),
         execute,
       );
     },
@@ -750,9 +765,9 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
           : setPageSummary(content, page, text, base),
       );
     },
-    planning: async () => planning(fsListing(root), await scanVault(root)),
+    planning: async () => planning(...(await snapshot())),
     async planPeriod(input, execute, versions) {
-      const plan = planPeriod(root, await scanVault(root), input);
+      const plan = planPeriod(...(await snapshot()), input);
       return applyNoteWrites(
         root,
         { ...plan, created: plan.creates ? [plan.plan] : [] },
@@ -763,14 +778,13 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     planDays: async (days, execute, versions) =>
       applyNoteWrites(
         root,
-        planDays(root, await scanVault(root), days),
+        planDays(...(await snapshot()), days),
         execute,
         versions,
       ),
     async updateTasks(updates, execute, versions) {
       const plan = updateTasks(
-        root,
-        await scanVault(root),
+        ...(await snapshot()),
         updates,
         localDate(now()),
       );
@@ -784,43 +798,42 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     addTasks: async (input, execute, versions) =>
       applyNoteWrites(
         root,
-        addTasks(root, await scanVault(root), input),
+        addTasks(...(await snapshot()), input),
         execute,
         versions,
       ),
     addHabits: async (input, execute, versions) =>
       applyNoteWrites(
         root,
-        addHabits(root, await scanVault(root), input),
+        addHabits(...(await snapshot()), input),
         execute,
         versions,
       ),
     setFrontmatter: async (note, set, execute, versions) =>
       applyNoteWrites(
         root,
-        setFrontmatter(root, await scanVault(root), note, set),
+        setFrontmatter(...(await snapshot()), note, set),
         execute,
         versions,
       ),
     editNote: async (input, execute, versions) =>
       applyNoteWrites(
         root,
-        editNote(root, await scanVault(root), input),
+        editNote(...(await snapshot()), input),
         execute,
         versions,
       ),
     createWorkstream: async (input, execute, versions) =>
       applyNoteWrites(
         root,
-        createWorkstream(root, await scanVault(root), input),
+        createWorkstream(...(await snapshot()), input),
         execute,
         versions,
       ),
     async plansView(span, by) {
       const today = localDate(now());
       return plansView(
-        root,
-        await scanVault(root),
+        ...(await snapshot()),
         span || periodAt('quarter', today).period,
         by || 'week',
         today,
@@ -828,8 +841,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
     },
     async harvestWorkstream(project, workstream, packets, execute) {
       const plan = harvestWorkstream(
-        root,
-        await scanVault(root),
+        ...(await snapshot()),
         project,
         workstream,
         packets,
@@ -845,16 +857,11 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       return { ...shown, contents: writes, executed: ok };
     },
     reviewPeriod: async (period, today) =>
-      reviewPeriod(
-        root,
-        await scanVault(root),
-        period,
-        today ?? localDate(now()),
-      ),
+      reviewPeriod(...(await snapshot()), period, today ?? localDate(now())),
     rollOver: async (period, execute, versions) =>
       applyNoteWrites(
         root,
-        rollOver(root, await scanVault(root), period),
+        rollOver(...(await snapshot()), period),
         execute,
         versions,
       ),
@@ -871,8 +878,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       applyNoteWrites(
         root,
         rebuildClimbs(
-          root,
-          await scanVault(root),
+          ...(await snapshot()),
           (await loadSessions(root)).sessions,
         ),
         execute,
@@ -882,8 +888,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       applyNoteWrites(
         root,
         addReadingNotes(
-          root,
-          await scanVault(root),
+          ...(await snapshot()),
           (await loadSessions(root)).sessions,
           input,
           localDate(now()),
@@ -895,8 +900,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       applyNoteWrites(
         root,
         writeStructure(
-          root,
-          await scanVault(root),
+          ...(await snapshot()),
           (await loadSessions(root)).sessions,
           input,
           localDate(now()),
@@ -908,8 +912,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       applyNoteWrites(
         root,
         saveGuideline(
-          root,
-          await scanVault(root),
+          ...(await snapshot()),
           (await loadSessions(root)).sessions,
           input,
         ),
@@ -938,8 +941,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       applyNoteWrites(
         root,
         extendConcept(
-          root,
-          await scanVault(root),
+          ...(await snapshot()),
           (await loadSessions(root)).sessions,
           input,
         ),
@@ -948,8 +950,7 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       ),
     async saveSketch(target, png, execute) {
       const plan = planSketch(
-        root,
-        await scanVault(root),
+        ...(await snapshot()),
         target,
         png,
         localDate(now()),
@@ -976,8 +977,8 @@ export function createVault(root: string, opts: VaultOptions = {}): Vault {
       }
     },
     async createConcept(input, execute) {
-      const notes = await scanVault(root);
-      const plan = planConcept(root, notes, input, localDate(now()));
+      const [tree, notes] = await snapshot();
+      const plan = planConcept(tree, notes, input, localDate(now()));
       if (plan.content && plan.path)
         plan.content = conceptWithClimb(
           plan.path,

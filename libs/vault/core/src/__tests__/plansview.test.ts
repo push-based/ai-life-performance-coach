@@ -3,7 +3,7 @@ import { request, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { plansView, type PlansView } from '../plansview.js';
-import { scanVault } from '../scan.js';
+import { snapshot } from '../scan.js';
 import { createVault } from '../vault.js';
 import { createVaultViewServer, listenOnLoopback } from '../view.js';
 
@@ -69,7 +69,7 @@ function seed(): void {
 }
 
 const view = async (span: string, by: string, today = '2026-11-06') =>
-  plansView(dir, await scanVault(dir), span, by, today) as PlansView;
+  plansView(...(await snapshot(dir)), span, by, today) as PlansView;
 
 describe('plansView', () => {
   it('cuts the span into columns, marking the current one', async () => {
@@ -197,14 +197,14 @@ describe('plansView', () => {
 
   it('refuses a span that is not a period and a level not below it', async () => {
     seed();
-    const notes = await scanVault(dir);
-    expect(plansView(dir, notes, 'soon', 'week', '2026-11-06')).toEqual({
+    const [tree, notes] = await snapshot(dir);
+    expect(plansView(tree, notes, 'soon', 'week', '2026-11-06')).toEqual({
       error: '"soon" is not a period',
     });
-    expect(plansView(dir, notes, '2026-W45', 'month', '2026-11-06')).toEqual({
+    expect(plansView(tree, notes, '2026-W45', 'month', '2026-11-06')).toEqual({
       error: '"month" is not a level below week: use one of day',
     });
-    expect(plansView(dir, notes, '2026-11-03', 'day', '2026-11-06')).toEqual({
+    expect(plansView(tree, notes, '2026-11-03', 'day', '2026-11-06')).toEqual({
       error: '"day" is not a level below day: use one of none',
     });
   });
@@ -279,8 +279,7 @@ describe('plans view periods', () => {
       '## Goals\n\n- [ ] Run twice [[Health]] ^run\n',
     );
     const v = plansView(
-      dir,
-      await scanVault(dir),
+      ...(await snapshot(dir)),
       '2026-Q4',
       'week',
       '2026-11-04',
@@ -296,8 +295,7 @@ describe('plans view periods', () => {
       day: '2026-11-04',
     });
     const past = plansView(
-      dir,
-      await scanVault(dir),
+      ...(await snapshot(dir)),
       '2026-Q3',
       'week',
       '2026-11-04',

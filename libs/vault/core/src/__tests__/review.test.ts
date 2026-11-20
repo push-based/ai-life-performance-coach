@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { reviewPeriod, type PeriodReview } from '../review.js';
-import { scanVault } from '../scan.js';
+import { snapshot } from '../scan.js';
 import { createVault } from '../vault.js';
 
 let dir: string;
@@ -63,7 +63,7 @@ function seed(): void {
 }
 
 const review = async (period: string, today: string) =>
-  reviewPeriod(dir, await scanVault(dir), period, today) as PeriodReview;
+  reviewPeriod(...(await snapshot(dir)), period, today) as PeriodReview;
 
 describe('review_period', () => {
   it("weighs the week's done work per project, workstream, area and unlinked, archived projects included", async () => {
@@ -187,7 +187,7 @@ describe('review_period', () => {
   it('refuses what is not a period, and takes today from the clock', async () => {
     seed();
     expect(
-      reviewPeriod(dir, await scanVault(dir), 'soon', '2026-11-09'),
+      reviewPeriod(...(await snapshot(dir)), 'soon', '2026-11-09'),
     ).toEqual({ error: expect.stringMatching(/is not a period/) });
     const vault = createVault(dir, { now: () => new Date(2026, 10, 5, 12) });
     expect(await vault.reviewPeriod('2026-W45')).toMatchObject({
