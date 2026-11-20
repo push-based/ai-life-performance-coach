@@ -168,51 +168,51 @@ export function planningOverviewTool(vault: Vault): ToolDef {
         !!period && q.start <= period.end && q.end >= period.start;
       const ofPeriod = period
         ? {
-          period,
-          goals: p.tasks
-            .filter((t) => t.goal && t.plan?.period === period.period)
-            .map(task),
-          ...(period.level === 'day'
-            ? {
-              habitsDue: p.habits
-                .filter((h) => isHabitDue(h.rule, period.start) && want(h))
-                .map(habit),
-              habitChecks: dayChecks.filter(want).map(task),
-            }
-            : {}),
-          scheduled: p.tasks
-            .filter(
-              (t) =>
-                !t.goal &&
-                !t.habit &&
-                t.scheduled &&
-                t.scheduled >= period.start &&
-                t.scheduled <= period.end &&
-                want(t),
-            )
-            .map(task),
-          overdue: p.tasks
-            .filter(
-              (t) =>
-                !t.goal &&
-                !t.habit &&
-                t.state === 'open' &&
-                t.scheduled &&
-                t.scheduled < period.start &&
-                want(t),
-            )
-            .map(task),
-          parentGoals: up
-            ? p.tasks
+            period,
+            goals: p.tasks
+              .filter((t) => t.goal && t.plan?.period === period.period)
+              .map(task),
+            ...(period.level === 'day'
+              ? {
+                  habitsDue: p.habits
+                    .filter((h) => isHabitDue(h.rule, period.start) && want(h))
+                    .map(habit),
+                  habitChecks: dayChecks.filter(want).map(task),
+                }
+              : {}),
+            scheduled: p.tasks
               .filter(
                 (t) =>
-                  t.goal &&
-                  t.plan?.level === up &&
-                  overlaps(periodOf(t.plan.period)!),
+                  !t.goal &&
+                  !t.habit &&
+                  t.scheduled &&
+                  t.scheduled >= period.start &&
+                  t.scheduled <= period.end &&
+                  want(t),
               )
-              .map(task)
-            : [],
-        }
+              .map(task),
+            overdue: p.tasks
+              .filter(
+                (t) =>
+                  !t.goal &&
+                  !t.habit &&
+                  t.state === 'open' &&
+                  t.scheduled &&
+                  t.scheduled < period.start &&
+                  want(t),
+              )
+              .map(task),
+            parentGoals: up
+              ? p.tasks
+                  .filter(
+                    (t) =>
+                      t.goal &&
+                      t.plan?.level === up &&
+                      overlaps(periodOf(t.plan.period)!),
+                  )
+                  .map(task)
+              : [],
+          }
         : {};
       if (args.scope === 'period')
         return json({ ...ofPeriod, warnings: p.warnings });
@@ -473,8 +473,8 @@ export function harvestWorkstreamTool(vault: Vault): ToolDef {
       );
       return r.errors.length
         ? fail(
-          `harvest_workstream refused:\n- ${r.errors.join('\n- ')}${r.candidates.length ? `\ncandidates: ${JSON.stringify(r.candidates)}` : ''}`,
-        )
+            `harvest_workstream refused:\n- ${r.errors.join('\n- ')}${r.candidates.length ? `\ncandidates: ${JSON.stringify(r.candidates)}` : ''}`,
+          )
         : json(r);
     },
   });

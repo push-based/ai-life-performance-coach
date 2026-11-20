@@ -757,10 +757,7 @@ describe('planning_overview', () => {
       '1.Projects/Expo2026/Workstreams/Marketing.md',
       '- [ ] Marketing task\n',
     );
-    put(
-      '1.Projects/Other2026/Workstreams/Ops.md',
-      '- [ ] Other task\n',
-    );
+    put('1.Projects/Other2026/Workstreams/Ops.md', '- [ ] Other task\n');
     const { data } = await call('planning_overview', {
       project: 'Expo2026',
       scope: 'tasks',
