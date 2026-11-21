@@ -4,6 +4,7 @@
   const BUCKETS = [
     ['inbox', 'Inbox'],
     ['projects', 'Projects'],
+    ['workstreams', 'Workstreams'],
     ['areas', 'Areas'],
     ['resources', 'Resources'],
     ['archive', 'Archive'],
@@ -103,7 +104,10 @@
   };
 
   const label = (list, key) => (list.find(([k]) => k === key) || [key, key])[1];
-  const bucketOf = (n) => n.bucket || 'none';
+  const bucketOf = (n) =>
+    n.workstream && n.bucket === 'projects'
+      ? 'workstreams'
+      : n.bucket || 'none';
   const kindOf = (n) => (n.concept ? 'concept' : n.raw ? 'raw' : 'note');
   const folded = (n) => n.book && !state.expanded.has(n.book);
   const visible = (n) =>
@@ -1584,7 +1588,13 @@
     const near = [...(state.adj.get(n.id) || [])]
       .map((id) => state.byId.get(id))
       .filter(Boolean);
-    const kind = n.concept ? 'Concept note' : n.raw ? 'Raw resource' : 'Note';
+    const kind = n.concept
+      ? 'Concept note'
+      : n.raw
+        ? 'Raw resource'
+        : n.workstream
+          ? 'Workstream'
+          : 'Note';
     const color = fillOf(n);
     return [
       card(

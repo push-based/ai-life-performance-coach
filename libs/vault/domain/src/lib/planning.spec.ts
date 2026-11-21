@@ -2,7 +2,7 @@ import { classify } from './para.js';
 import { noteFromContent, type VaultNote } from './note.js';
 import type { FrontmatterParser } from './md.js';
 import type { VaultListing } from './listing.js';
-import { planning } from './planning.js';
+import { isWorkstreamPath, planning } from './planning.js';
 
 const parse: FrontmatterParser = (content) => {
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -49,6 +49,24 @@ describe('classify', () => {
       raw: false,
     });
     expect(classify('Loose.md').bucket).toBeNull();
+  });
+});
+
+describe('isWorkstreamPath', () => {
+  it('matches notes inside a project or archived project Workstreams folder', () => {
+    expect(isWorkstreamPath('1.Projects/Expo/Workstreams/Talks.md')).toBe(true);
+    expect(
+      isWorkstreamPath('1.Projects/Expo/Workstreams/Marketing/Marketing.md'),
+    ).toBe(true);
+    expect(
+      isWorkstreamPath('1.Projects/Expo/Workstreams/Marketing/Merch/Badges.md'),
+    ).toBe(true);
+    expect(isWorkstreamPath('4.Archive/Old/Workstreams/Task.md')).toBe(true);
+    expect(isWorkstreamPath('1.Projects/Expo/Expo.md')).toBe(false);
+    expect(
+      isWorkstreamPath('1.Projects/Expo/Intermediate Packets/Packet.md'),
+    ).toBe(false);
+    expect(isWorkstreamPath('3.Resources/Workstreams/Other.md')).toBe(false);
   });
 });
 

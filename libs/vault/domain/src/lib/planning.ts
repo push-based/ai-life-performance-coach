@@ -14,6 +14,15 @@ import {
 export const WORKSTREAMS_FOLDER = 'Workstreams';
 export const PACKETS_FOLDER = 'Intermediate Packets';
 
+export function isWorkstreamPath(relPath: string): boolean {
+  const parts = relPath.split('/');
+  return (
+    (parts[0] === PARA_FOLDERS.projects || parts[0] === PARA_FOLDERS.archive) &&
+    parts.length > 3 &&
+    parts[2] === WORKSTREAMS_FOLDER
+  );
+}
+
 const TEMPLATES = `${PLANS_ROOT}/Templates`;
 
 export const PLAN_LEVELS = {

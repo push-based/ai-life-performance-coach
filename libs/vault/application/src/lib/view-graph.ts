@@ -13,6 +13,7 @@ import {
   COACH_ROOT,
   type ParaBucket,
   buildVaultGraph,
+  isWorkstreamPath,
   type Mastery,
   type VaultNote,
 } from '@ai-coach/vault-domain';
@@ -29,6 +30,7 @@ export interface VaultViewGraph {
     label: string;
     bucket: ParaBucket | null;
     container: string | null;
+    workstream: boolean;
     raw: boolean;
     rawRole: 'index' | 'chapter' | null;
 
@@ -113,6 +115,7 @@ export async function writeViewGraph(
         label: shortLabel(note),
         bucket: n.bucket,
         container: n.container,
+        workstream: isWorkstreamPath(n.id),
         raw: n.raw,
         rawRole: note.rawRole,
         concept: note.concept,
