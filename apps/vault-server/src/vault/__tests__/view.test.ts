@@ -444,10 +444,7 @@ describe('graph labels and book folding', () => {
   it('marks workstream notes while keeping their PARA bucket', async () => {
     put('1.Projects/Expo/Expo.md', '# Expo\n');
     put('1.Projects/Expo/Workstreams/Talks.md', '# Talks\n');
-    put(
-      '1.Projects/Expo/Workstreams/Marketing/Merch/Badges.md',
-      '# Badges\n',
-    );
+    put('1.Projects/Expo/Workstreams/Marketing/Merch/Badges.md', '# Badges\n');
     put('4.Archive/Old/Workstreams/Task.md', '# Task\n');
     const graph = await vault.viewGraph();
     const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
