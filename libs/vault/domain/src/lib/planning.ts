@@ -23,6 +23,10 @@ export function isWorkstreamPath(relPath: string): boolean {
   );
 }
 
+export function isPlanPath(relPath: string): boolean {
+  return relPath.startsWith(`${PLANS_ROOT}/`);
+}
+
 const TEMPLATES = `${PLANS_ROOT}/Templates`;
 
 export const PLAN_LEVELS = {

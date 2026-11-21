@@ -13,6 +13,7 @@ import {
   COACH_ROOT,
   type ParaBucket,
   buildVaultGraph,
+  isPlanPath,
   isWorkstreamPath,
   type Mastery,
   type VaultNote,
@@ -31,6 +32,7 @@ export interface VaultViewGraph {
     bucket: ParaBucket | null;
     container: string | null;
     workstream: boolean;
+    plan: boolean;
     raw: boolean;
     rawRole: 'index' | 'chapter' | null;
 
@@ -116,6 +118,7 @@ export async function writeViewGraph(
         bucket: n.bucket,
         container: n.container,
         workstream: isWorkstreamPath(n.id),
+        plan: isPlanPath(n.id),
         raw: n.raw,
         rawRole: note.rawRole,
         concept: note.concept,

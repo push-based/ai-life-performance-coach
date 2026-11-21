@@ -2,7 +2,7 @@ import { classify } from './para.js';
 import { noteFromContent, type VaultNote } from './note.js';
 import type { FrontmatterParser } from './md.js';
 import type { VaultListing } from './listing.js';
-import { isWorkstreamPath, planning } from './planning.js';
+import { isPlanPath, isWorkstreamPath, planning } from './planning.js';
 
 const parse: FrontmatterParser = (content) => {
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -67,6 +67,16 @@ describe('isWorkstreamPath', () => {
       isWorkstreamPath('1.Projects/Expo/Intermediate Packets/Packet.md'),
     ).toBe(false);
     expect(isWorkstreamPath('3.Resources/Workstreams/Other.md')).toBe(false);
+  });
+});
+
+describe('isPlanPath', () => {
+  it('matches notes under Plans/ and excludes loose root notes', () => {
+    expect(isPlanPath('Plans/Weekly/2026-W46.md')).toBe(true);
+    expect(isPlanPath('Plans/Daily/2026/11-November/2026-11-01.md')).toBe(true);
+    expect(isPlanPath('Plans/Templates/Daily.md')).toBe(true);
+    expect(isPlanPath('Loose.md')).toBe(false);
+    expect(isPlanPath('1.Projects/Expo/Expo.md')).toBe(false);
   });
 });
 

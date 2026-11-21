@@ -22,7 +22,7 @@ Every page has a light and a dark theme, and **Present** (`P`) hides the control
 
 ## The graph
 
-Each dot is a note, and each line a link between two notes. The colour says where the note lives in [PARA](glossary.md#para), with active workstreams under `1.Projects/<Project>/Workstreams/` shown in their own **Workstreams** category apart from project notes. A concept note also shows how well you know it: never sparred, attempted, [Tier 1](glossary.md#tier-1-tier-2) passed or Tier 2 passed.
+Each dot is a note, and each line a link between two notes. The colour says where the note lives in [PARA](glossary.md#para), with active workstreams under `1.Projects/<Project>/Workstreams/` shown in their own **Workstreams** category apart from project notes and planning notes under `Plans/` shown in their own **Plans** category apart from **Out of place** notes. A concept note also shows how well you know it: never sparred, attempted, [Tier 1](glossary.md#tier-1-tier-2) passed or Tier 2 passed.
 
 - **Find a note:** press `/` and type. Open **Filters** to show or hide PARA folders, kinds of notes and mastery levels.
 - **Follow the links:** click a note. The notes not linked to it fade, and a panel shows its details: its folder, its mastery and next review, the notes it's linked with, and for a source, how far you've distilled it.

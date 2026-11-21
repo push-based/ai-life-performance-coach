@@ -471,6 +471,26 @@ describe('graph labels and book folding', () => {
     });
   });
 
+  it('marks planning notes under Plans/ separately from out-of-place notes', async () => {
+    put('Plans/Weekly/2026-W46.md', '# 2026-W46\n');
+    put('Plans/Templates/Daily.md', '# Daily\n');
+    put('Loose.md', '# Loose\n');
+    const graph = await vault.viewGraph();
+    const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
+    expect(node('Plans/Weekly/2026-W46.md')).toMatchObject({
+      bucket: null,
+      plan: true,
+    });
+    expect(node('Plans/Templates/Daily.md')).toMatchObject({
+      bucket: null,
+      plan: true,
+    });
+    expect(node('Loose.md')).toMatchObject({
+      bucket: null,
+      plan: false,
+    });
+  });
+
   it('counts the notes and concept notes made from each raw source', async () => {
     const home = '3.Resources/0.Raw/Books/A/B';
     put(

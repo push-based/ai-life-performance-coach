@@ -7,6 +7,7 @@
     ['workstreams', 'Workstreams'],
     ['areas', 'Areas'],
     ['resources', 'Resources'],
+    ['plans', 'Plans'],
     ['archive', 'Archive'],
     ['none', 'Out of place'],
   ];
@@ -107,7 +108,9 @@
   const bucketOf = (n) =>
     n.workstream && n.bucket === 'projects'
       ? 'workstreams'
-      : n.bucket || 'none';
+      : n.plan
+        ? 'plans'
+        : n.bucket || 'none';
   const kindOf = (n) => (n.concept ? 'concept' : n.raw ? 'raw' : 'note');
   const folded = (n) => n.book && !state.expanded.has(n.book);
   const visible = (n) =>
@@ -1594,7 +1597,9 @@
         ? 'Raw resource'
         : n.workstream
           ? 'Workstream'
-          : 'Note';
+          : n.plan
+            ? 'Plan'
+            : 'Note';
     const color = fillOf(n);
     return [
       card(
