@@ -441,6 +441,53 @@ describe('graph labels and book folding', () => {
     ).toMatchObject({ concept: true, label: 'Idea' });
   });
 
+  it('marks workstream notes while keeping their PARA bucket', async () => {
+    put('1.Projects/Expo/Expo.md', '# Expo\n');
+    put('1.Projects/Expo/Workstreams/Talks.md', '# Talks\n');
+    put('1.Projects/Expo/Workstreams/Marketing/Merch/Badges.md', '# Badges\n');
+    put('4.Archive/Old/Workstreams/Task.md', '# Task\n');
+    const graph = await vault.viewGraph();
+    const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
+    expect(node('1.Projects/Expo/Expo.md')).toMatchObject({
+      bucket: 'projects',
+      workstream: false,
+    });
+    expect(node('1.Projects/Expo/Workstreams/Talks.md')).toMatchObject({
+      bucket: 'projects',
+      workstream: true,
+    });
+    expect(
+      node('1.Projects/Expo/Workstreams/Marketing/Merch/Badges.md'),
+    ).toMatchObject({
+      bucket: 'projects',
+      workstream: true,
+    });
+    expect(node('4.Archive/Old/Workstreams/Task.md')).toMatchObject({
+      bucket: 'archive',
+      workstream: true,
+    });
+  });
+
+  it('marks planning notes under Plans/ separately from out-of-place notes', async () => {
+    put('Plans/Weekly/2026-W46.md', '# 2026-W46\n');
+    put('Plans/Templates/Daily.md', '# Daily\n');
+    put('Loose.md', '# Loose\n');
+    const graph = await vault.viewGraph();
+    const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
+    expect(node('Plans/Weekly/2026-W46.md')).toMatchObject({
+      bucket: null,
+      plan: true,
+    });
+    expect(node('Plans/Templates/Daily.md')).toMatchObject({
+      bucket: null,
+      plan: true,
+    });
+    expect(node('Loose.md')).toMatchObject({
+      bucket: null,
+      plan: false,
+    });
+  });
+
   it('counts the notes and concept notes made from each raw source', async () => {
     const home = '3.Resources/0.Raw/Books/A/B';
     put(
