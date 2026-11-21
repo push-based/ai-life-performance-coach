@@ -1,11 +1,11 @@
 import { parseArgs } from 'node:util';
 import type { CliIo } from '../main.js';
-import { createVault } from '@ai-coach/vault/vault.js';
+import { composeVault } from '../compose.js';
 import {
   createVaultViewServer,
   listenOnLoopback,
-  GRAPH_FILE,
-} from '@ai-coach/vault/view.js';
+} from '@ai-coach/vault-adapter-view';
+import { GRAPH_FILE } from '@ai-coach/vault-application';
 import { resolveVaultForProcess } from '../serve-vault.js';
 
 export async function run(args: string[], io: CliIo): Promise<number> {
@@ -32,7 +32,7 @@ export async function run(args: string[], io: CliIo): Promise<number> {
     env: process.env,
   });
   const url = await listenOnLoopback(
-    createVaultViewServer(createVault(root)),
+    createVaultViewServer(composeVault(root)),
     port,
   );
   console.error(`[coach-vault-view] Vault: ${root}`);

@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { defineTool, type ToolDef } from '../../tool-types.js';
-import type { Vault } from '@ai-coach/vault/vault.js';
-import { PARA_BUCKETS } from '@ai-coach/vault/para.js';
-import { searchNotes } from '@ai-coach/vault/search.js';
+import type { Vault } from '@ai-coach/vault-application';
+import { PARA_BUCKETS } from '@ai-coach/vault-domain';
 import { json } from './json.js';
 
 export function searchNotesTool(vault: Vault): ToolDef {
@@ -27,7 +26,7 @@ export function searchNotesTool(vault: Vault): ToolDef {
     },
     handler: async (args) =>
       json(
-        await searchNotes(await vault.notes(), args.query, {
+        await vault.searchNotes(args.query, {
           bucket: args.bucket,
           limit: args.limit,
         }),

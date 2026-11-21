@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { defineTool, type ToolDef } from '../../tool-types.js';
-import type { Vault } from '@ai-coach/vault/vault.js';
-import { PARA_BUCKETS } from '@ai-coach/vault/para.js';
-import { buildVaultGraph } from '@ai-coach/vault/graph.js';
+import type { Vault } from '@ai-coach/vault-application';
+import { PARA_BUCKETS, buildVaultGraph } from '@ai-coach/vault-domain';
 import { json } from './json.js';
 
 export function vaultGraphTool(vault: Vault): ToolDef {

@@ -4,6 +4,9 @@
   "files": [],
   "references": [
     {
+      "path": "./libs/shared/util-path"
+    },
+    {
       "path": "./libs/coach/domain"
     },
     {
@@ -25,7 +28,25 @@
       "path": "./apps/cli"
     },
     {
-      "path": "./libs/vault/core"
+      "path": "./libs/vault/domain"
+    },
+    {
+      "path": "./libs/vault/application"
+    },
+    {
+      "path": "./libs/vault/adapter-fs"
+    },
+    {
+      "path": "./libs/vault/adapter-markdown"
+    },
+    {
+      "path": "./libs/vault/adapter-search"
+    },
+    {
+      "path": "./libs/vault/adapter-pdf"
+    },
+    {
+      "path": "./libs/vault/adapter-view"
     },
     {
       "path": "./apps/vault-server"

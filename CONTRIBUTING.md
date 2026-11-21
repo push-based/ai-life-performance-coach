@@ -66,5 +66,5 @@ Never rewrite an accepted record: write a new one that supersedes it. `kb/` isn'
 - **No comments in source code.** Names and tests carry the meaning (ADR-AIC-0011).
 - **Commit messages follow [Conventional Commits](https://www.conventionalcommits.org)**: `feat(cli): add the review command`, `fix(domain): …`, `docs: …`, `build: …`. CI checks every commit in a pull request (ADR-AIC-0033); `npx commitlint --from origin/main` checks yours before you push.
 - **Rules go in the domain, not in prompts.** If a model could talk its way past it, it belongs in code.
-- **New vault abilities belong in the vault server**: `libs/vault/core` and `apps/vault-server`. `adapter-vault-mcp` only wraps the tools the server offers, and nothing else in the coach may import the vault ([ADR-AIC-0048](kb/source/initiatives/ai-coach/decisions/ADR-AIC-0048-keep-the-vault-server-in-this-repository-behind-the-same-mcp-boundary.md)).
+- **New vault abilities belong in the vault server**: the `libs/vault/*` libraries and `apps/vault-server`. `adapter-vault-mcp` only wraps the tools the server offers, and nothing else in the coach may import the vault ([ADR-AIC-0048](kb/source/initiatives/ai-coach/decisions/ADR-AIC-0048-keep-the-vault-server-in-this-repository-behind-the-same-mcp-boundary.md)).
 - **Never point tests or experiments at your real vault.** Use a copy.

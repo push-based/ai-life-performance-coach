@@ -1,11 +1,10 @@
 import { z } from 'zod';
 import { defineTool, type ToolDef } from '../../tool-types.js';
-import type { Vault } from '@ai-coach/vault/vault.js';
-import { noteResolver } from '@ai-coach/vault/graph.js';
-import { pagesOf } from '@ai-coach/vault/convert.js';
-import { conceptOf, checkPassages } from '@ai-coach/vault/concept.js';
-import { chapterProgress } from '@ai-coach/vault/distill.js';
-import { notePathOf } from '@ai-coach/vault/vault.js';
+import type { Vault } from '@ai-coach/vault-application';
+import { noteResolver } from '@ai-coach/vault-domain';
+import { pagesOf } from '@ai-coach/vault-application';
+import { conceptOf, checkPassages } from '@ai-coach/vault-application';
+import { chapterProgress } from '@ai-coach/vault-application';
 import { json, fail } from './json.js';
 
 export function readNoteTool(vault: Vault): ToolDef {
@@ -30,9 +29,7 @@ export function readNoteTool(vault: Vault): ToolDef {
     },
     handler: async (args) => {
       const { notes } = await vault.notesWithHistory();
-      const note = notes.find(
-        (n) => n.path === notePathOf(vault.root, args.path),
-      );
+      const note = notes.find((n) => n.path === vault.pathOf(args.path));
       if (!note) return fail(`Note not found: ${args.path}`);
       const resolver = noteResolver(notes);
       const body = args.pages ? pagesOf(note.body, args.pages) : note.body;

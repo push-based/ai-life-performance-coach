@@ -136,14 +136,24 @@ export default [
               allowedExternalImports: ['zod', ...NODE],
             },
             {
-              sourceTag: 'type:vault',
-              onlyDependOnLibsWithTags: ['type:vault', 'type:util'],
-              allowedExternalImports: [
-                'gray-matter',
-                'flexsearch',
-                'pdfjs-dist/*',
-                ...NODE,
-              ],
+              sourceTag: 'adapter:vault-fs',
+              allowedExternalImports: [...NODE],
+            },
+            {
+              sourceTag: 'adapter:vault-markdown',
+              allowedExternalImports: ['gray-matter'],
+            },
+            {
+              sourceTag: 'adapter:vault-search',
+              allowedExternalImports: ['flexsearch'],
+            },
+            {
+              sourceTag: 'adapter:vault-pdf',
+              allowedExternalImports: ['pdfjs-dist/*'],
+            },
+            {
+              sourceTag: 'adapter:vault-view',
+              allowedExternalImports: [...NODE],
             },
             {
               sourceTag: 'type:feat',
@@ -171,7 +181,6 @@ export default [
                 'type:domain',
                 'type:application',
                 'type:adapter',
-                'type:vault',
                 'type:feat',
                 'type:ui',
                 'type:data-access',

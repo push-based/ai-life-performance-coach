@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool, type ToolDef } from '../../tool-types.js';
-import type { Vault } from '@ai-coach/vault/vault.js';
+import type { Vault } from '@ai-coach/vault-application';
 import { json, fail } from './json.js';
 import { TASK_FIELDS, VERSIONS } from './planning-tools.js';
 
