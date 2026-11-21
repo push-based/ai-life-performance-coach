@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "coach": "node --env-file-if-exists=.env apps/cli/dist/main.js"
+    "coach": "node --env-file-if-exists=.env apps/cli/dist/main.js",
+    "workshop:setup": "node scripts/workshop-setup.mjs"
   },
   "private": true,
   "devDependencies": {
