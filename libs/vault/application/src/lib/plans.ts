@@ -333,8 +333,17 @@ export function addToSection(
   ].join('\n');
 }
 
+export interface ChildBulletChange {
+  pattern: RegExp;
+  line: string | null;
+}
+
+const indentWidth = (ws: string) => ws.replace(/\t/g, '  ').length;
+
 export class TaskLineEditor {
   private readonly files = new Map<string, string[]>();
+  private readonly baseLengths = new Map<string, number>();
+  private readonly shifts = new Map<string, { at: number; delta: number }[]>();
   readonly edits: NoteEdit[] = [];
 
   constructor(
@@ -343,11 +352,20 @@ export class TaskLineEditor {
     private readonly overlay: Record<string, string> = {},
   ) {}
 
+  private shiftBefore(path: string, baseIndex: number): number {
+    let total = 0;
+    for (const s of this.shifts.get(path) ?? []) {
+      if (s.at < baseIndex) total += s.delta;
+    }
+    return total;
+  }
+
   edit(
     note: VaultNote,
     bodyLine: number,
     change: (line: string) => string,
     anyState = false,
+    child?: ChildBulletChange,
   ): string | null {
     let file = this.files.get(note.path);
     if (!file) {
@@ -355,9 +373,12 @@ export class TaskLineEditor {
       this.originals[note.path] ??= disk;
       file = (this.overlay[note.path] ?? disk).split('\n');
       this.files.set(note.path, file);
+      this.baseLengths.set(note.path, file.length);
     }
 
-    const i = file.length - note.body.split('\n').length + bodyLine;
+    const baseIndex =
+      this.baseLengths.get(note.path)! - note.body.split('\n').length + bodyLine;
+    const i = baseIndex + this.shiftBefore(note.path, baseIndex);
     const raw = file[i] ?? '';
     if (!(anyState ? /^\s*[-*+]\s+\[.\]/ : OPEN_CHECKBOX).test(raw))
       return `line ${i + 1} of ${note.path} is not ${anyState ? 'a' : 'an open'} task`;
@@ -365,14 +386,63 @@ export class TaskLineEditor {
     const cr = raw.endsWith('\r') ? '\r' : '';
     const before = cr ? raw.slice(0, -1) : raw;
     const after = change(before);
-    if (after !== before) {
-      file[i] = after + cr;
+
+    let childIndex = -1;
+    let beforeChild: string | null = null;
+    let afterChild: string | null = null;
+    let childChanged = false;
+    if (child) {
+      const taskIndent = before.match(/^(\s*)/)?.[1] ?? '';
+      const baseWidth = indentWidth(taskIndent);
+      for (let j = i + 1; j < file.length; j++) {
+        const line = file[j].replace(/\r$/, '');
+        if (!line.trim() || /^#{1,6}\s/.test(line)) break;
+        const ws = line.match(/^(\s*)/)?.[1] ?? '';
+        if (indentWidth(ws) <= baseWidth) break;
+        if (child.pattern.test(line)) {
+          childIndex = j;
+          beforeChild = line;
+          break;
+        }
+      }
+      if (child.line !== null) {
+        const childIndent =
+          beforeChild?.match(/^(\s*)/)?.[1] ?? `${taskIndent}\t`;
+        afterChild = `${childIndent}${child.line}`;
+        if (childIndex >= 0) {
+          if (afterChild !== beforeChild) {
+            file[childIndex] = afterChild + cr;
+            childChanged = true;
+          }
+        } else {
+          file.splice(i + 1, 0, afterChild + cr);
+          const list = this.shifts.get(note.path) ?? [];
+          list.push({ at: baseIndex, delta: 1 });
+          this.shifts.set(note.path, list);
+          childChanged = true;
+        }
+      } else if (childIndex >= 0) {
+        file.splice(childIndex, 1);
+        const list = this.shifts.get(note.path) ?? [];
+        list.push({ at: baseIndex, delta: -1 });
+        this.shifts.set(note.path, list);
+        childChanged = true;
+      }
+    }
+
+    if (after !== before) file[i] = after + cr;
+
+    if (after !== before || childChanged) {
+      const beforeLines =
+        childChanged && beforeChild !== null ? [before, beforeChild] : [before];
+      const afterLines =
+        childChanged && afterChild !== null ? [after, afterChild] : [after];
       this.edits.push({
         note: note.path,
         line: bodyLine,
         fileLine: i + 1,
-        before,
-        after,
+        before: beforeLines.join('\n'),
+        after: afterLines.join('\n'),
       });
     }
     return null;

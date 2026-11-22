@@ -205,7 +205,13 @@ export function plansView(
   );
 
   for (const t of p.tasks) {
-    if (t.goal || t.habit || t.state === 'cancelled') continue;
+    if (
+      t.goal ||
+      t.habit ||
+      t.state === 'cancelled' ||
+      t.state === 'missed'
+    )
+      continue;
     const col = t.state === 'done' ? columnOf(t.doneOn) : columnOf(t.scheduled);
     if (col < 0) continue;
     const ref: TaskRef = {
@@ -253,7 +259,7 @@ export function plansView(
           ? 'met'
           : g.state === 'cancelled'
             ? 'dropped'
-            : today > gp.end
+            : g.state === 'missed' || today > gp.end
               ? 'missed'
               : 'open',
       slipped: g.slipped,

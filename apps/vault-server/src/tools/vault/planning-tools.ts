@@ -408,7 +408,7 @@ export function reviewPeriodTool(vault: Vault): ToolDef {
   return defineTool({
     name: 'review_period',
     description:
-      "Review a year, quarter, month, week or day (ADR-KI-0062): effort as the size-weighted sum of tasks done in it (S 1, M 3, L 8, untagged 1) per project and workstream, per area and unlinked, with how many done tasks had no size; each goal of the period's plan as met, open, missed (open after the period ended) or dropped, with the effort done for its owner and the goals that serve it down the chain; what slipped out of the period; and open items that slipped twice or more; and each habit's due days, ticked days, missed days and current streak (habit checks are not effort). Archived projects still count. Talk the review through with the user; it reads only.",
+      "Review a year, quarter, month, week or day (ADR-KI-0062): effort as the size-weighted sum of tasks done in it (S 1, M 3, L 8, untagged 1) per project and workstream, per area and unlinked, with how many done tasks had no size; each goal of the period's plan as met, open, missed (open after the period ended or marked missed) or dropped, with the effort done for its owner and the goals that serve it down the chain; what slipped out of the period; open items that slipped twice or more; tasks marked missed in the period with their elaboration reasons; and each habit's due days, ticked days, missed days and current streak (habit checks are not effort). Archived projects still count. Talk the review through with the user; it reads only.",
     annotations: { readOnlyHint: true, idempotentHint: true },
     schema: {
       period: z

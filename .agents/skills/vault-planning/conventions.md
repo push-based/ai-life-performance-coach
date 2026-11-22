@@ -29,6 +29,7 @@ Obsidian Tasks syntax, signifiers at the end of the line:
 | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `⏳ YYYY-MM-DD`     | scheduled: the day the user intends to do it. The only date the planner uses                                      |
 | `✅ YYYY-MM-DD`     | done on that day (Obsidian adds it on tick)                                                                       |
+| `[-] ... ❌ YYYY-MM-DD` | cancelled (decided not to do it). With `#missed`, it is **missed** (not completed in time, can no longer be done), optionally followed by an indented `- missed: <reason>` bullet explaining why so `review_period` can surface and analyze it |
 | `⏫`                | high priority. `roll_over` adds it to everything that slipped                                                     |
 | `#S` `#M` `#L`      | size, weighing 1, 3 and 8 in reviews. Untagged counts as 1                                                        |
 | `#slipped/<period>` | added by `roll_over`, once per slip; two tags means it slipped twice                                              |

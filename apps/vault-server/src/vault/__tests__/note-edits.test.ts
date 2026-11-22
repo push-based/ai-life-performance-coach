@@ -256,6 +256,122 @@ describe('update_task', () => {
       '- [ ] Post recap #slipped/2026-W44 #L ⏫ ⏳ 2026-11-03 ^recap\n',
     );
   });
+
+  it('marks tasks missed with an indented reason, updates and clears the reason, and surfaces them in review_period', async () => {
+    const preview = await vault.updateTasks(
+      [
+        {
+          note: TALKS,
+          task: 'Anna Kowalska',
+          set: {
+            state: 'missed',
+            reason: 'ran out of time before the deadline',
+          },
+        },
+        {
+          note: TALKS,
+          task: 'Post recap',
+          set: {
+            state: 'missed',
+            reason: 'speaker photos arrived late',
+          },
+        },
+      ],
+      false,
+    );
+    expect(preview.errors).toEqual([]);
+    const applied = await vault.updateTasks(
+      [
+        {
+          note: TALKS,
+          task: 'Anna Kowalska',
+          set: {
+            state: 'missed',
+            reason: 'ran out of time before the deadline',
+          },
+        },
+        {
+          note: TALKS,
+          task: 'Post recap',
+          set: {
+            state: 'missed',
+            reason: 'speaker photos arrived late',
+          },
+        },
+      ],
+      true,
+      preview.versions,
+    );
+    expect(applied.executed).toBe(true);
+    const content = read(TALKS);
+    expect(content).toContain(
+      '- [-] **Anna Kowalska** #missed ❌ 2026-11-02\n\t- missed: ran out of time before the deadline\n',
+    );
+    expect(content).toContain(
+      '- [-] Post recap #S #slipped/2026-W44 #missed ⏫ ⏳ 2026-11-03 ❌ 2026-11-02 ^recap\n\t- missed: speaker photos arrived late\n',
+    );
+
+    const rev = await vault.reviewPeriod('2026-W45', '2026-11-08');
+    expect('error' in rev).toBe(false);
+    if (!('error' in rev)) {
+      expect(rev.missed).toEqual([
+        expect.objectContaining({
+          text: '**Anna Kowalska**',
+          missedOn: '2026-11-02',
+          reason: 'ran out of time before the deadline',
+        }),
+        expect.objectContaining({
+          text: 'Post recap',
+          missedOn: '2026-11-02',
+          reason: 'speaker photos arrived late',
+        }),
+      ]);
+    }
+
+    const editReason = await vault.updateTasks(
+      [
+        {
+          note: TALKS,
+          task: 'Anna Kowalska',
+          includeClosed: true,
+          set: { reason: 'underestimated prep time' },
+        },
+      ],
+      true,
+    );
+    expect(editReason.errors).toEqual([]);
+    expect(read(TALKS)).toContain('\t- missed: underestimated prep time\n');
+    expect(read(TALKS)).not.toContain('ran out of time before the deadline');
+
+    const reopen = await vault.updateTasks(
+      [
+        {
+          note: TALKS,
+          task: 'Anna Kowalska',
+          includeClosed: true,
+          set: { state: 'open' },
+        },
+      ],
+      true,
+    );
+    expect(reopen.errors).toEqual([]);
+    expect(read(TALKS)).toContain('- [ ] **Anna Kowalska**\n');
+    expect(read(TALKS)).not.toContain('underestimated prep time');
+  });
+
+  it('refuses a reason on a non-missed task', async () => {
+    const r = await vault.updateTasks(
+      [
+        {
+          note: TALKS,
+          task: 'Anna Kowalska',
+          set: { state: 'cancelled', reason: 'not needed' },
+        },
+      ],
+      false,
+    );
+    expect(r.errors[0]).toMatch(/reason is only for missed tasks/);
+  });
 });
 
 describe('update_task on done and cancelled tasks', () => {
