@@ -49,7 +49,7 @@ const refused = (tool: string, r: { errors: string[] }) =>
 export function updateTaskTool(vault: Vault): ToolDef {
   return defineTool({
     name: 'update_task',
-    description: `Change existing tasks or goals where they stand (ADR-KI-0064): description, size, priority, scheduled date, state (done writes ✅ today, cancelled writes [-] and ❌ today, open clears both), a goal's parent goal one level up, 🆔 id, ⛔ blockedBy and 🔁 recurrence. Only the fields given change; the rest of the line, slip tags included, stays as it is. Address each task by its note and one of line, blockId or task; task matches open tasks only, unless include_closed: true, which also reaches a done or cancelled task, e.g. to fix a name in a ticked task's text while its [x], ✅ date and every other signifier stay. Several updates go in one preview. ${PREVIEW_LINES} Refuses done or cancelled on a repeating task: tick it in Obsidian so Tasks writes the next occurrence, or set recurrence: null with it to end the habit. Preview, show the user each before/after line, then execute: true with the preview's versions.`,
+    description: `Change existing tasks or goals where they stand (ADR-KI-0064): description, size, priority, scheduled date, state (done writes ✅ today, cancelled writes [-] and ❌ today, missed writes [-], #missed and ❌ today with an optional indented "- missed: <reason>" line, open clears them), a goal's parent goal one level up, 🆔 id, ⛔ blockedBy and 🔁 recurrence. Only the fields given change; the rest of the line, slip tags included, stays as it is. Address each task by its note and one of line, blockId or task; task matches open tasks only, unless include_closed: true, which also reaches a done, cancelled or missed task, e.g. to fix a name in a ticked task's text while its [x], ✅ date and every other signifier stay. Several updates go in one preview. ${PREVIEW_LINES} Refuses done, cancelled or missed on a repeating task: tick it in Obsidian so Tasks writes the next occurrence, or set recurrence: null with it to end the habit. Preview, show the user each before/after line, then execute: true with the preview's versions.`,
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
@@ -76,7 +76,16 @@ export function updateTaskTool(vault: Vault): ToolDef {
                   .nullable()
                   .optional(),
                 scheduled: DAY.nullable().optional(),
-                state: z.enum(['open', 'done', 'cancelled']).optional(),
+                state: z
+                  .enum(['open', 'done', 'cancelled', 'missed'])
+                  .optional(),
+                reason: z
+                  .string()
+                  .nullable()
+                  .optional()
+                  .describe(
+                    'Why a missed task was not completed; written as an indented "- missed: <reason>" line under it (null removes it)',
+                  ),
                 parent: z
                   .string()
                   .nullable()

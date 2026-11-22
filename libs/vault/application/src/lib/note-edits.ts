@@ -47,6 +47,8 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const SIGNIFIER_IN_TEXT = /[🆔⛔🔺⏫🔼🔽⏬🔁🏁➕🛫⏳📅❌✅]/u;
 const SIZE_TAG = /(?:^|\s)#[SML](?=\s|$)/g;
 const SLIP_TAGS = /\s#slipped\/[0-9A-Za-z-]+/g;
+const MISSED_TAG = /(?:^|\s)#missed(?=\s|$)/g;
+const MISSED_REASON_LINE = /^\s*[-*+]\s+missed:/i;
 const PARENT_LINK = /\s*↑\s*\[\[[^\]]*\]\]/g;
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n?---[ \t]*(?:\r?\n|$)/;
 
@@ -248,7 +250,8 @@ export interface TaskChanges {
   size?: Size | null;
   priority?: Priority | null;
   scheduled?: string | null;
-  state?: 'open' | 'done' | 'cancelled';
+  state?: 'open' | 'done' | 'cancelled' | 'missed';
+  reason?: string | null;
 
   parent?: string | null;
   id?: string | null;
@@ -267,6 +270,15 @@ function withSize(desc: string, size: Size | null): string {
   return p < 0
     ? `${plain.replace(/\s+$/, '')} #${size}`
     : `${plain.slice(0, p)} #${size}${plain.slice(p)}`;
+}
+
+function withMissedTag(desc: string, present: boolean): string {
+  const plain = desc.replace(MISSED_TAG, '');
+  if (!present) return plain;
+  const p = plain.search(/\s*↑\s*\[\[/);
+  return p < 0
+    ? `${plain.replace(/\s+$/, '')} #missed`
+    : `${plain.slice(0, p)} #missed${plain.slice(p)}`;
 }
 
 export function updateTasks(
@@ -309,8 +321,19 @@ export function updateTasks(
       errors.push(`${what}: size "${s.size}" is not one of S, M, L`);
     if (s.scheduled && !DAY.test(s.scheduled))
       errors.push(`${what}: scheduled "${s.scheduled}" is not YYYY-MM-DD`);
-    if (s.state && !['open', 'done', 'cancelled'].includes(s.state))
-      errors.push(`${what}: state "${s.state}" is not open, done or cancelled`);
+    if (s.state && !['open', 'done', 'cancelled', 'missed'].includes(s.state))
+      errors.push(
+        `${what}: state "${s.state}" is not open, done, cancelled or missed`,
+      );
+    const effectiveState = s.state ?? hit?.task.state;
+    if (s.reason !== undefined && s.reason !== null) {
+      if (!s.reason.trim() || /[\r\n]/.test(s.reason))
+        errors.push(`${what}: reason must be a single non-empty line`);
+      else if (hit && effectiveState !== 'missed')
+        errors.push(
+          `${what}: reason is only for missed tasks; set state: "missed" with it`,
+        );
+    }
     if (s.recurrence && !isRecurrence(s.recurrence))
       errors.push(
         `${what}: recurrence "${s.recurrence}" is not a Tasks rule such as "every week on Monday"`,
@@ -342,7 +365,7 @@ export function updateTasks(
     if (
       hit &&
       s.recurrence !== null &&
-      (s.state === 'done' || s.state === 'cancelled') &&
+      (s.state === 'done' || s.state === 'cancelled' || s.state === 'missed') &&
       (hit.task.recurrence || s.recurrence)
     ) {
       errors.push(
@@ -360,6 +383,16 @@ export function updateTasks(
       return;
     }
 
+    const childBullet =
+      s.reason !== undefined
+        ? {
+            pattern: MISSED_REASON_LINE,
+            line: s.reason === null ? null : `- missed: ${s.reason.trim()}`,
+          }
+        : s.state && s.state !== 'missed'
+          ? { pattern: MISSED_REASON_LINE, line: null }
+          : undefined;
+
     const err = editor.edit(
       hit.note,
       hit.task.line,
@@ -368,8 +401,9 @@ export function updateTasks(
         if (s.text !== undefined) {
           const keep = line.description.match(SIZE_TAG)?.[0] ?? '';
           const slips = (line.description.match(SLIP_TAGS) ?? []).join('');
+          const missed = line.description.match(MISSED_TAG)?.[0] ?? '';
           const up = line.description.match(PARENT_LINK)?.[0] ?? '';
-          line.description = `${s.text.trim()}${keep}${slips}${up}`;
+          line.description = `${s.text.trim()}${keep}${slips}${missed}${up}`;
         }
         if (s.size !== undefined)
           line.description = withSize(line.description, s.size);
@@ -392,20 +426,34 @@ export function updateTasks(
           line.setStatus(' ');
           line.set('done', null);
           line.set('cancelled', null);
+          line.description = withMissedTag(line.description, false);
+          line.stripTails(MISSED_TAG);
         }
         if (s.state === 'done') {
           line.setStatus('x');
           line.set('cancelled', null);
+          line.description = withMissedTag(line.description, false);
+          line.stripTails(MISSED_TAG);
           if (!line.get('done')) line.set('done', today);
         }
         if (s.state === 'cancelled') {
           line.setStatus('-');
           line.set('done', null);
+          line.description = withMissedTag(line.description, false);
+          line.stripTails(MISSED_TAG);
+          if (!line.get('cancelled')) line.set('cancelled', today);
+        }
+        if (s.state === 'missed') {
+          line.setStatus('-');
+          line.set('done', null);
+          line.stripTails(MISSED_TAG);
+          line.description = withMissedTag(line.description, true);
           if (!line.get('cancelled')) line.set('cancelled', today);
         }
         return line.toString();
       },
       true,
+      childBullet,
     );
     if (err) out.errors.push(`${what}: ${err}`);
   });

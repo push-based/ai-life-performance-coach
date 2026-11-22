@@ -148,6 +148,8 @@ export const OPEN_CHECKBOX = /^\s*[-*+]\s+\[[^xX-]\]/;
 
 export const lines = (text: string) => text.split(/\r?\n/);
 
+export type TaskState = 'open' | 'done' | 'cancelled' | 'missed';
+
 export interface Task {
   note: string;
 
@@ -155,9 +157,11 @@ export interface Task {
 
   text: string;
 
-  state: 'open' | 'done' | 'cancelled';
+  state: TaskState;
   scheduled: string | null;
   doneOn: string | null;
+  cancelledOn: string | null;
+  missedReason: string | null;
   priority: Priority | null;
   size: Size | null;
   weight: number;
@@ -180,18 +184,40 @@ export interface Task {
   links: RawLink[];
 }
 
-const CHECKBOX = /^\s*[-*+]\s+\[(.)\]\s+(.*)$/;
+const CHECKBOX = /^(\s*)[-*+]\s+\[(.)\]\s+(.*)$/;
 const DATE = (sign: string) =>
   new RegExp(`${sign}\\uFE0F?\\s*(\\d{4}-\\d{2}-\\d{2})`);
 const SCHEDULED = DATE('⏳');
 const DONE = DATE('✅');
+const CANCELLED = DATE('❌');
 const PARENT = /↑\s*\[\[([^\]|#]+)#\^([A-Za-z0-9-]+)(?:\|[^\]]*)?\]\]/;
 const SIZE = /(?:^|\s)#([SML])(?=\s|$)/;
 const SLIPPED = /(?:^|\s)#slipped\/([0-9A-Za-z-]+)/g;
+const MISSED_TAG = /(?:^|\s)#missed(?=\s|$)/g;
+const MISSED_REASON = /^(\s*)[-*+]\s+missed:\s*(.+)$/i;
 const RECURRENCE = /🔁\uFE0F?\s*([^⏳✅📅🛫➕❌🔺⏫🔼🔽⏬🏁🆔⛔↑#^]*)/u;
 const BLOCK_ID = /\s\^([A-Za-z0-9-]+)\s*$/;
 const HEADING = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 const FENCE_LINE = /^\s*(```|~~~)/;
+
+const indentWidth = (ws: string) => ws.replace(/\t/g, '  ').length;
+
+function findMissedReason(
+  all: string[],
+  taskLine: number,
+  taskIndent: string,
+): string | null {
+  const base = indentWidth(taskIndent);
+  for (let i = taskLine + 1; i < all.length; i++) {
+    const raw = all[i];
+    if (!raw.trim() || HEADING.test(raw)) break;
+    const ws = raw.match(/^(\s*)/)?.[1] ?? '';
+    if (indentWidth(ws) <= base) break;
+    const hit = raw.match(MISSED_REASON);
+    if (hit) return hit[2].trim();
+  }
+  return null;
+}
 
 export function parseTasks(
   note: string,
@@ -202,7 +228,8 @@ export function parseTasks(
   let fenced = false;
   let inGoals = false;
   let inHabits = false;
-  lines(body).forEach((raw, line) => {
+  const all = lines(body);
+  all.forEach((raw, line) => {
     if (FENCE_LINE.test(raw)) {
       fenced = !fenced;
       return;
@@ -217,15 +244,24 @@ export function parseTasks(
     }
     const m = raw.match(CHECKBOX);
     if (!m) return;
-    let rest = m[2];
-    const state =
-      m[1] === 'x' || m[1] === 'X'
+    const taskIndent = m[1];
+    const mark = m[2];
+    let rest = m[3];
+    const hasMissed = mark === '-' && MISSED_TAG.test(rest);
+    MISSED_TAG.lastIndex = 0;
+    const state: TaskState =
+      mark === 'x' || mark === 'X'
         ? 'done'
-        : m[1] === '-'
-          ? 'cancelled'
-          : 'open';
+        : hasMissed
+          ? 'missed'
+          : mark === '-'
+            ? 'cancelled'
+            : 'open';
     const scheduled = rest.match(SCHEDULED)?.[1] ?? null;
     const doneOn = rest.match(DONE)?.[1] ?? null;
+    const cancelledOn = rest.match(CANCELLED)?.[1] ?? null;
+    const missedReason =
+      state === 'missed' ? findMissedReason(all, line, taskIndent) : null;
     const priority = [...rest].map((c) => PRIORITY[c]).find(Boolean) ?? null;
     const size = (rest.match(SIZE)?.[1] as Size | undefined) ?? null;
     const slipped = [...rest.matchAll(SLIPPED)].map((s) => s[1]);
@@ -251,7 +287,8 @@ export function parseTasks(
     rest = rest
       .replace(BLOCK_ID, '')
       .replace(/(?:^|\s)#[SML](?=\s|$)/g, ' ')
-      .replace(SLIPPED, ' ');
+      .replace(SLIPPED, ' ')
+      .replace(MISSED_TAG, ' ');
     out.push({
       note,
       line,
@@ -259,6 +296,8 @@ export function parseTasks(
       state,
       scheduled,
       doneOn,
+      cancelledOn,
+      missedReason,
       priority,
       size,
       weight: size ? SIZE_WEIGHTS[size] : 1,
@@ -271,7 +310,7 @@ export function parseTasks(
       goal: inGoals && plan !== null && plan.level !== 'day',
       habit: inHabits && plan?.level === 'day',
 
-      links: extractLinks(m[2].replace(PARENT, '')),
+      links: extractLinks(m[3].replace(PARENT, '')),
     });
   });
   return out;

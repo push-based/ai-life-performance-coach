@@ -1,4 +1,4 @@
-import type { Priority } from './planning.js';
+import type { Priority, TaskState } from './planning.js';
 
 export const FIELD_ORDER = [
   'id',
@@ -114,12 +114,14 @@ export class TaskLine {
     return new TaskLine(`${indent}- [`, ' ', '] ', description.trim(), [], '');
   }
 
-  get state(): 'open' | 'done' | 'cancelled' {
-    return this.status === 'x' || this.status === 'X'
-      ? 'done'
-      : this.status === '-'
-        ? 'cancelled'
-        : 'open';
+  get state(): TaskState {
+    if (this.status === 'x' || this.status === 'X') return 'done';
+    if (this.status === '-') {
+      return /(?:^|\s)#missed(?=\s|$)/.test(`${this.description} ${this.tails}`)
+        ? 'missed'
+        : 'cancelled';
+    }
+    return 'open';
   }
 
   setStatus(char: ' ' | 'x' | '-'): void {

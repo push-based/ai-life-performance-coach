@@ -4,6 +4,7 @@ import {
   type OwnedTask,
   type Owner,
   type Planning,
+  type Size,
   dayBefore,
   daysBetween,
   habitKey,
@@ -90,6 +91,16 @@ export interface PeriodReview {
     note: string;
     owner: Owner;
     slipped: string[];
+  }[];
+
+  missed: {
+    text: string;
+    note: string;
+    owner: Owner;
+    size: Size | null;
+    scheduled: string | null;
+    missedOn: string | null;
+    reason: string | null;
   }[];
 
   warnings: string[];
@@ -181,7 +192,7 @@ export function reviewPeriod(
         ? 'met'
         : g.state === 'cancelled'
           ? 'dropped'
-          : today > gp.end
+          : g.state === 'missed' || today > gp.end
             ? 'missed'
             : 'open';
     const kids =
@@ -242,6 +253,23 @@ export function reviewPeriod(
         note: t.note,
         owner: t.owner,
         slipped: t.slipped,
+      })),
+    missed: p.tasks
+      .filter(
+        (t) =>
+          !t.goal &&
+          !t.habit &&
+          t.state === 'missed' &&
+          inPeriod(t.scheduled ?? t.cancelledOn),
+      )
+      .map((t) => ({
+        text: t.text,
+        note: t.note,
+        owner: t.owner,
+        size: t.size,
+        scheduled: t.scheduled,
+        missedOn: t.cancelledOn,
+        reason: t.missedReason,
       })),
     warnings: p.warnings.filter((w) => w.startsWith(`${planPathOf(period)}:`)),
   };
