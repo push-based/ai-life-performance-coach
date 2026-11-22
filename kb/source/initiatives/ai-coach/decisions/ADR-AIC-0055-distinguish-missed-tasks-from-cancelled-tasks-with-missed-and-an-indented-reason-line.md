@@ -1,18 +1,18 @@
 ---
 doc_type: adr
-id: ADR-0001
+id: ADR-AIC-0055
 title: "Distinguish missed tasks from cancelled tasks with #missed and an indented reason line"
 summary: "Tasks that were not completed in time and can no longer be done are distinct from tasks deliberately cancelled. A fourth task state, missed, is stored in Markdown as [-] with #missed and ❌ YYYY-MM-DD so Obsidian Tasks treats it as closed with zero plugin configuration, and an optional indented '- missed: <reason>' bullet records why it was missed so review_period can surface missed tasks and their causes for analysis. A custom Obsidian checkbox status (such as [!] or [m]) is noted as a future option."
-status: draft
+status: accepted
 initiative: "ai-coach"
-owners: ["<team/org>"]
+owners: []
 reviewers: []
 date: 2026-11-22
 links: ["ADR-KI-0062","ADR-KI-0064","ADR-KI-0066","ADR-AIC-0052"]
 tags: ["planning","tasks"]
 ---
 
-# ADR-0001: Distinguish missed tasks from cancelled tasks with #missed and an indented reason line
+# ADR-AIC-0055: Distinguish missed tasks from cancelled tasks with #missed and an indented reason line
 
 ## Context
 
