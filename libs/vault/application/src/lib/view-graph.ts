@@ -14,6 +14,7 @@ import {
   type ParaBucket,
   buildVaultGraph,
   isPlanPath,
+  isPlanTemplatePath,
   isWorkstreamPath,
   type Mastery,
   type VaultNote,
@@ -91,7 +92,8 @@ export async function writeViewGraph(
   store: NoteStore,
   now: Date,
 ): Promise<VaultViewGraph> {
-  const { notes } = await vault.notesWithHistory();
+  const { notes: allNotes } = await vault.notesWithHistory();
+  const notes = allNotes.filter((n) => !isPlanTemplatePath(n.path));
   const history = new Map(notes.map((n) => [n.path, n.history]));
   const byPath = new Map(notes.map((n) => [n.path, n]));
   const g = buildVaultGraph(notes);

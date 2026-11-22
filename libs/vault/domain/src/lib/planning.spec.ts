@@ -2,7 +2,12 @@ import { classify } from './para.js';
 import { noteFromContent, type VaultNote } from './note.js';
 import type { FrontmatterParser } from './md.js';
 import type { VaultListing } from './listing.js';
-import { isPlanPath, isWorkstreamPath, planning } from './planning.js';
+import {
+  isPlanPath,
+  isPlanTemplatePath,
+  isWorkstreamPath,
+  planning,
+} from './planning.js';
 
 const parse: FrontmatterParser = (content) => {
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -77,6 +82,18 @@ describe('isPlanPath', () => {
     expect(isPlanPath('Plans/Templates/Daily.md')).toBe(true);
     expect(isPlanPath('Loose.md')).toBe(false);
     expect(isPlanPath('1.Projects/Expo/Expo.md')).toBe(false);
+  });
+});
+
+describe('isPlanTemplatePath', () => {
+  it('matches notes under Plans/Templates/ only', () => {
+    expect(isPlanTemplatePath('Plans/Templates/Daily.md')).toBe(true);
+    expect(isPlanTemplatePath('Plans/Templates/Sub/Custom.md')).toBe(true);
+    expect(isPlanTemplatePath('Plans/Weekly/2026-W46.md')).toBe(false);
+    expect(isPlanTemplatePath('Plans/Daily/2026/11-November/2026-11-01.md')).toBe(
+      false,
+    );
+    expect(isPlanTemplatePath('Loose.md')).toBe(false);
   });
 });
 

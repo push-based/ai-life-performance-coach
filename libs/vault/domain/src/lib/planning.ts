@@ -29,6 +29,10 @@ export function isPlanPath(relPath: string): boolean {
 
 const TEMPLATES = `${PLANS_ROOT}/Templates`;
 
+export function isPlanTemplatePath(relPath: string): boolean {
+  return relPath.startsWith(`${TEMPLATES}/`);
+}
+
 export const PLAN_LEVELS = {
   year: 'Yearly',
   quarter: 'Quarterly',
