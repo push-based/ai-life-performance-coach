@@ -377,7 +377,9 @@ export class TaskLineEditor {
     }
 
     const baseIndex =
-      this.baseLengths.get(note.path)! - note.body.split('\n').length + bodyLine;
+      this.baseLengths.get(note.path)! -
+      note.body.split('\n').length +
+      bodyLine;
     const i = baseIndex + this.shiftBefore(note.path, baseIndex);
     const raw = file[i] ?? '';
     if (!(anyState ? /^\s*[-*+]\s+\[.\]/ : OPEN_CHECKBOX).test(raw))

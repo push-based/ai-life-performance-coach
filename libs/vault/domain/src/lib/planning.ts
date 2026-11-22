@@ -269,8 +269,8 @@ export function parseTasks(
     const id = rest.match(TASK_ID)?.[1] ?? null;
     const blockedBy =
       rest
-        .match(BLOCKED_BY)
-        ?.[1].split(',')
+        .match(BLOCKED_BY)?.[1]
+        .split(',')
         .map((x) => x.trim()) ?? [];
     const p = rest.match(PARENT);
     const parent = p ? { target: p[1].trim(), block: p[2] } : null;
