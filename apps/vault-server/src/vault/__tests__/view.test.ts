@@ -468,21 +468,70 @@ describe('graph labels and book folding', () => {
     });
   });
 
-  it('marks planning notes under Plans/ separately from out-of-place notes and excludes Plans/Templates/', async () => {
+  it('marks planning notes under Plans/ with their plan level separately from out-of-place notes and excludes Plans/Templates/', async () => {
+    put('Plans/Yearly/2026.md', '# 2026\n');
+    put('Plans/Quarterly/2026-Q4.md', '# 2026-Q4\n');
+    put('Plans/Monthly/2026-11.md', '# 2026-11\n');
     put('Plans/Weekly/2026-W46.md', '# 2026-W46\n');
+    put('Plans/Daily/2026/11-November/2026-11-01.md', '# 2026-11-01\n');
     put('Plans/Templates/Daily.md', '# Daily\n');
     put('Loose.md', '# Loose\n');
     const graph = await vault.viewGraph();
     const node = (id: string) => graph.nodes.find((n) => n.id === id);
+    expect(node('Plans/Yearly/2026.md')).toMatchObject({
+      bucket: null,
+      plan: true,
+      planLevel: 'year',
+    });
+    expect(node('Plans/Quarterly/2026-Q4.md')).toMatchObject({
+      bucket: null,
+      plan: true,
+      planLevel: 'quarter',
+    });
+    expect(node('Plans/Monthly/2026-11.md')).toMatchObject({
+      bucket: null,
+      plan: true,
+      planLevel: 'month',
+    });
     expect(node('Plans/Weekly/2026-W46.md')).toMatchObject({
       bucket: null,
       plan: true,
+      planLevel: 'week',
+    });
+    expect(node('Plans/Daily/2026/11-November/2026-11-01.md')).toMatchObject({
+      bucket: null,
+      plan: true,
+      planLevel: 'day',
     });
     expect(node('Plans/Templates/Daily.md')).toBeUndefined();
     expect(node('Loose.md')).toMatchObject({
       bucket: null,
       plan: false,
+      planLevel: null,
     });
+  });
+
+  it('connects notes with scheduled tasks and weekly plans to the matching daily plan', async () => {
+    put(
+      '1.Projects/Expo/Workstreams/Talks.md',
+      '- [ ] Announce keynote #S ⏳ 2026-11-23\n- [ ] Second task #S ⏳ 2026-11-23\n- [ ] Missing day #S ⏳ 2026-11-24\n',
+    );
+    put('Plans/Weekly/2026-W48.md', '# 2026-W48\n');
+    put('Plans/Daily/2026/11-November/2026-11-23.md', '# 2026-11-23\n');
+    const graph = await vault.viewGraph();
+    const scheduled = graph.edges.filter((e) => e.kind === 'scheduled');
+    expect(scheduled).toEqual([
+      {
+        source: 'Plans/Daily/2026/11-November/2026-11-23.md',
+        target: '1.Projects/Expo/Workstreams/Talks.md',
+        kind: 'scheduled',
+      },
+      {
+        source: 'Plans/Weekly/2026-W48.md',
+        target: 'Plans/Daily/2026/11-November/2026-11-23.md',
+        kind: 'scheduled',
+      },
+    ]);
   });
 
   it('counts the notes and concept notes made from each raw source', async () => {

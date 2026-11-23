@@ -38,6 +38,11 @@
         --areas: #a78bfa;
         --resources: #6d8cff;
         --plans: #facc15;
+        --plan-year: #f59e0b;
+        --plan-quarter: #fde047;
+        --plan-month: #a3e635;
+        --plan-week: #38bdf8;
+        --plan-day: #fb7185;
         --archive: #64748b;
         --none: #cbd5e1;
         --attempted: #fb7185;
@@ -78,6 +83,11 @@
         --areas: #7c3aed;
         --resources: #4f6ef7;
         --plans: #ca8a04;
+        --plan-year: #b45309;
+        --plan-quarter: #a16207;
+        --plan-month: #4d7c0f;
+        --plan-week: #0284c7;
+        --plan-day: #e11d48;
         --archive: #94a3b8;
         --none: #334155;
         --attempted: #e11d48;
@@ -399,6 +409,17 @@
       .mark.dia {
         border-radius: 2px;
         transform: rotate(45deg) scale(0.82);
+      }
+      .mark.hex {
+        border-radius: 0;
+        clip-path: polygon(
+          50% 0%,
+          93.3% 25%,
+          93.3% 75%,
+          50% 100%,
+          6.7% 75%,
+          6.7% 25%
+        );
       }
       .mark.ring {
         background: transparent !important;
@@ -1551,6 +1572,8 @@
       <div class="chips" id="buckets"></div>
       <div class="section-title">Kinds</div>
       <div class="chips" id="kinds"></div>
+      <div class="section-title">Plan levels</div>
+      <div class="chips" id="plan-levels"></div>
       <div class="section-title">Sparring mastery</div>
       <div class="chips" id="mastery"></div>
       <div class="section-title">Distilling a book</div>
