@@ -176,7 +176,7 @@ describe('plan_period', () => {
       '',
     ]);
     expect(plan.content).toContain(
-      '```tasks\nnot done\nscheduled in 2026-W45\ngroup by folder\n```',
+      '```tasks\nnot done\nscheduled in 2026-W45\ngroup by folder\ngroup by filename\n```',
     );
     expect(plan.content).toContain(
       '## Ad-hoc\n\n- [ ] Call the venue [[Expo2026]] #S ⏳ 2026-11-04\n\n## Done',

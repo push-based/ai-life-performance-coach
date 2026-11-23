@@ -1,7 +1,9 @@
 import type { NoteStore } from './ports/note-store.js';
 import { posix } from '@ai-coach/util-path';
 import {
+  PARA_FOLDERS,
   PLANS_ROOT,
+  WORKSTREAMS_FOLDER,
   noteResolver,
   isPeriodName,
   OPEN_CHECKBOX,
@@ -30,17 +32,60 @@ export const templatePath = (level: PlanLevel) =>
 
 const fence = (lines: string[]) => ['```tasks', ...lines, '```'].join('\n');
 
+const under = (folder: string) =>
+  `path regex matches /^${folder.replace(/\./g, '\\.')}\\//`;
+export const GROUP_BY_FOLDER = 'group by folder';
+export const GROUP_BY_FILE = 'group by filename';
+
+const splitPath = "const p = task.file.path.split('/');";
+const stripMd = (part: string) => `${part}.replace(/\\.md$/, '')`;
+const SCRIPTED = {
+  owner: `group by function ${splitPath} return p[0] === '${PARA_FOLDERS.projects}' ? p[1] : p[0] === '${PARA_FOLDERS.areas}' ? 'Areas' : p[0] === '${PLANS_ROOT}' ? 'Ad-hoc' : p[0];`,
+  project: `group by function task.file.path.split('/')[1]`,
+  unit: `group by function ${splitPath} return p[0] === '${PARA_FOLDERS.projects}' && p[2] === '${WORKSTREAMS_FOLDER}' ? ${stripMd('p[3]')} : p[0] === '${PARA_FOLDERS.areas}' ? ${stripMd('p[1]')} : '';`,
+};
+
+export const EARLIER_DAYS_HEADING = 'Earlier days';
+
+const scheduledIn = (t: string) =>
+  fence(['not done', `scheduled in ${t}`, GROUP_BY_FOLDER, GROUP_BY_FILE]);
+const doneIn = (t: string) =>
+  fence([`done in ${t}`, GROUP_BY_FOLDER, GROUP_BY_FILE]);
+const dueBy = (t: string, ...rest: string[]) =>
+  fence(['not done', `scheduled on or before ${t}`, ...rest]);
+const projectsSection = (t: string) => [
+  '## Projects',
+  '',
+  dueBy(t, under(PARA_FOLDERS.projects), GROUP_BY_FOLDER, GROUP_BY_FILE),
+  '',
+];
+const areasSection = (t: string) => [
+  '## Areas',
+  '',
+  dueBy(t, under(PARA_FOLDERS.areas), GROUP_BY_FILE),
+  '',
+];
+const earlierDays = (t: string) => [
+  `### ${EARLIER_DAYS_HEADING}`,
+  '',
+  dueBy(t, under(PLANS_ROOT), 'path does not include {{query.file.path}}'),
+];
+const doneOn = (t: string) =>
+  fence([`done on ${t}`, GROUP_BY_FOLDER, GROUP_BY_FILE]);
+
+const T = '{{title}}';
+
 export const TEMPLATES: Record<PlanLevel, string> = {
-  year: ['# {{title}}', '', '## Goals', '', '## Review', ''].join('\n'),
-  quarter: ['# {{title}}', '', '## Goals', '', '## Review', ''].join('\n'),
+  year: [`# ${T}`, '', '## Goals', '', '## Review', ''].join('\n'),
+  quarter: [`# ${T}`, '', '## Goals', '', '## Review', ''].join('\n'),
   month: [
-    '# {{title}}',
+    `# ${T}`,
     '',
     '## Goals',
     '',
     '## Scheduled',
     '',
-    fence(['not done', 'scheduled in {{title}}', 'group by folder']),
+    scheduledIn(T),
     '',
     '## Ad-hoc',
     '',
@@ -48,42 +93,99 @@ export const TEMPLATES: Record<PlanLevel, string> = {
     '',
   ].join('\n'),
   week: [
-    '# {{title}}',
+    `# ${T}`,
     '',
     '## Goals',
     '',
     '## This week',
     '',
-    fence(['not done', 'scheduled in {{title}}', 'group by folder']),
+    scheduledIn(T),
     '',
     '## Ad-hoc',
     '',
     '## Done',
     '',
-    fence(['done in {{title}}', 'group by folder']),
+    doneIn(T),
     '',
     '## Review',
     '',
   ].join('\n'),
   day: [
-    '# {{title}}',
-    '',
-    '## Today',
-    '',
-    fence(['not done', 'scheduled on or before {{title}}', 'group by folder']),
+    `# ${T}`,
     '',
     `## ${HABITS_HEADING}`,
     '',
+    ...projectsSection(T),
+    ...areasSection(T),
     '## Ad-hoc',
+    '',
+    ...earlierDays(T),
     '',
     '## Done',
     '',
-    fence(['done on {{title}}']),
+    doneOn(T),
     '',
     '## Log',
     '',
   ].join('\n'),
 };
+
+const OLD = {
+  scheduledIn:
+    /```tasks\nnot done\nscheduled in ([^\n]+)\ngroup by folder\n```/g,
+  doneIn: /```tasks\ndone in ([^\n]+)\ngroup by folder\n```/g,
+  today:
+    /^## Today\n+```tasks\nnot done\nscheduled on or before ([^\n]+)\ngroup by folder\n```\n*/m,
+  doneOn: /```tasks\ndone on ([^\n]+)\n```/g,
+};
+
+const BUILT_IN_GROUPS = `${GROUP_BY_FOLDER}\n${GROUP_BY_FILE}`;
+
+export function hasOldPlanQueries(content: string): boolean {
+  return (
+    /^group by folder\n(?!group by filename$)/m.test(content) ||
+    Object.values(SCRIPTED).some((line) => content.includes(line))
+  );
+}
+
+export function upgradePlanLayout(content: string): string | null {
+  let out = content
+    .split(`${SCRIPTED.owner}\n${SCRIPTED.unit}`)
+    .join(BUILT_IN_GROUPS)
+    .split(`${SCRIPTED.project}\n${SCRIPTED.unit}`)
+    .join(BUILT_IN_GROUPS)
+    .split(SCRIPTED.unit)
+    .join(GROUP_BY_FILE)
+    .replace(OLD.scheduledIn, (_, t: string) => scheduledIn(t))
+    .replace(OLD.doneIn, (_, t: string) => doneIn(t))
+    .replace(OLD.doneOn, (_, t: string) => doneOn(t));
+  const today = OLD.today.exec(out);
+  if (today) {
+    const t = today[1];
+    out = out.slice(0, today.index) + out.slice(today.index + today[0].length);
+    const lines = out.split('\n');
+    const isHeading = (l: string, name: string) =>
+      /^##\s/.test(l) && l.slice(2).trim().toLowerCase() === name.toLowerCase();
+    let at = lines.findIndex((l) => isHeading(l, 'Ad-hoc'));
+    if (at < 0) at = lines.findIndex((l) => isHeading(l, 'Done'));
+    if (at < 0) at = lines.length;
+    out = [
+      ...lines.slice(0, at),
+      ...projectsSection(t),
+      ...areasSection(t),
+      ...lines.slice(at),
+    ].join('\n');
+    const hasEarlier = lines.some(
+      (l) => /^###\s/.test(l) && l.slice(3).trim() === EARLIER_DAYS_HEADING,
+    );
+    if (!hasEarlier)
+      out = addToSection(out, 'Ad-hoc', ['', ...earlierDays(t)]).replace(
+        /^## Ad-hoc\n\n\n/m,
+        '## Ad-hoc\n\n',
+      );
+  }
+  return out === content ? null : out;
+}
 
 export interface Period {
   level: PlanLevel;

@@ -12,7 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
-import type { Vault } from '@ai-coach/vault-application';
+import { TEMPLATES, type Vault } from '@ai-coach/vault-application';
 
 let dir: string;
 let vault: Vault;
@@ -227,6 +227,163 @@ describe('init_vault', () => {
     expect(preview.collisions).toContain(
       'Plans/Daily/2026/11-November/2026-11-01.md',
     );
+  });
+
+  it('moves an unedited day plan onto sections by kind and keeps its habits and ad-hoc tasks', async () => {
+    const oldDay = [
+      '# 2026-11-23',
+      '',
+      '## Today',
+      '',
+      '```tasks\nnot done\nscheduled on or before 2026-11-23\ngroup by folder\n```',
+      '',
+      '## Habits',
+      '',
+      '- [x] Walk [[Gym and walks]]',
+      '',
+      '## Ad-hoc',
+      '',
+      '- [ ] Attend the meetup [[GDG Wrocław]] #M ⏳ 2026-11-23',
+      '',
+      '## Done',
+      '',
+      '```tasks\ndone on 2026-11-23\n```',
+      '',
+      '## Log',
+      '',
+    ].join('\n');
+    put('Plans/Daily/2026/11-November/2026-11-23.md', oldDay);
+    const preview = await vault.initVault(false);
+    expect(preview.actions).toContainEqual({
+      op: 'update',
+      to: 'Plans/Daily/2026/11-November/2026-11-23.md',
+    });
+    expect(read('Plans/Daily/2026/11-November/2026-11-23.md')).toBe(oldDay);
+
+    await vault.initVault(true);
+    const day = read('Plans/Daily/2026/11-November/2026-11-23.md');
+    const headings = day.split('\n').filter((l) => /^#{2,3} /.test(l));
+    expect(headings).toEqual([
+      '## Habits',
+      '## Projects',
+      '## Areas',
+      '## Ad-hoc',
+      '### Earlier days',
+      '## Done',
+      '## Log',
+    ]);
+    expect(day).toContain('- [x] Walk [[Gym and walks]]');
+    expect(day).toContain(
+      '## Ad-hoc\n\n- [ ] Attend the meetup [[GDG Wrocław]] #M ⏳ 2026-11-23\n\n### Earlier days',
+    );
+    expect(day).toContain(
+      'scheduled on or before 2026-11-23\npath regex matches /^1\\.Projects\\//\ngroup by folder\ngroup by filename\n```',
+    );
+    expect(day).toContain('path does not include {{query.file.path}}');
+    expect(day).toContain(
+      'done on 2026-11-23\ngroup by folder\ngroup by filename\n```',
+    );
+    expect(day).not.toContain('group by function');
+    expect(day).toContain(
+      'path regex matches /^2\\.Areas\\//\ngroup by filename\n```',
+    );
+    expect(
+      (await vault.initVault(false)).actions.filter((a) => a.op === 'update'),
+    ).toEqual([]);
+  });
+
+  it('upgrades the old built-in templates and a flat day plan at its new path', async () => {
+    put(
+      'Plans/Templates/Weekly.md',
+      [
+        '# {{title}}',
+        '',
+        '## Goals',
+        '',
+        '## This week',
+        '',
+        '```tasks\nnot done\nscheduled in {{title}}\ngroup by folder\n```',
+        '',
+        '## Ad-hoc',
+        '',
+        '## Done',
+        '',
+        '```tasks\ndone in {{title}}\ngroup by folder\n```',
+        '',
+        '## Review',
+        '',
+      ].join('\n'),
+    );
+    put(
+      'Plans/Daily/2026-11-01.md',
+      '# 2026-11-01\n\n## Today\n\n```tasks\nnot done\nscheduled on or before 2026-11-01\ngroup by folder\n```\n\n## Ad-hoc\n',
+    );
+    const preview = await vault.initVault(false);
+    expect(preview.actions.filter((a) => a.op === 'update')).toEqual([
+      { op: 'update', to: 'Plans/Daily/2026/11-November/2026-11-01.md' },
+      { op: 'update', to: 'Plans/Templates/Weekly.md' },
+    ]);
+    await vault.initVault(true);
+    expect(read('Plans/Templates/Weekly.md')).toBe(TEMPLATES.week);
+    expect(read('Plans/Daily/2026/11-November/2026-11-01.md')).toContain(
+      '## Projects',
+    );
+  });
+
+  it('moves a plan with the earlier JavaScript grouping onto the built-in grouping', async () => {
+    const fn = (body: string) => `group by function ${body}`;
+    const split = "const p = task.file.path.split('/');";
+    const unit = fn(
+      `${split} return p[0] === '1.Projects' && p[2] === 'Workstreams' ? p[3].replace(/\\.md$/, '') : p[0] === '2.Areas' ? p[1].replace(/\\.md$/, '') : '';`,
+    );
+    const owner = fn(
+      `${split} return p[0] === '1.Projects' ? p[1] : p[0] === '2.Areas' ? 'Areas' : p[0] === 'Plans' ? 'Ad-hoc' : p[0];`,
+    );
+    const project = fn("task.file.path.split('/')[1]");
+    const scripted = [
+      '# 2026-11-23',
+      '',
+      '## Habits',
+      '',
+      '## Projects',
+      '',
+      `\`\`\`tasks\nnot done\nscheduled on or before 2026-11-23\npath regex matches /^1\\.Projects\\//\n${project}\n${unit}\n\`\`\``,
+      '',
+      '## Areas',
+      '',
+      `\`\`\`tasks\nnot done\nscheduled on or before 2026-11-23\npath regex matches /^2\\.Areas\\//\n${unit}\n\`\`\``,
+      '',
+      '## Ad-hoc',
+      '',
+      '### Earlier days',
+      '',
+      '```tasks\nnot done\nscheduled on or before 2026-11-23\npath regex matches /^Plans\\//\npath does not include {{query.file.path}}\n```',
+      '',
+      '## Done',
+      '',
+      `\`\`\`tasks\ndone on 2026-11-23\n${owner}\n${unit}\n\`\`\``,
+      '',
+      '## Log',
+      '',
+    ].join('\n');
+    put('Plans/Daily/2026/11-November/2026-11-23.md', scripted);
+    await vault.initVault(true);
+    expect(read('Plans/Daily/2026/11-November/2026-11-23.md')).toBe(
+      TEMPLATES.day.replace(/\{\{title\}\}/g, '2026-11-23'),
+    );
+  });
+
+  it('leaves a plan whose queries were edited by hand and says so', async () => {
+    const edited =
+      '# 2026-11-24\n\n## Today\n\n```tasks\nnot done\nscheduled on or before 2026-11-24\ngroup by folder\nsort by priority\n```\n';
+    put('Plans/Daily/2026/11-November/2026-11-24.md', edited);
+    const preview = await vault.initVault(false);
+    expect(preview.actions.filter((a) => a.op === 'update')).toEqual([]);
+    expect(preview.warnings).toContain(
+      'plan queries left as they are, because they differ from the built-in ones: Plans/Daily/2026/11-November/2026-11-24.md',
+    );
+    await vault.initVault(true);
+    expect(read('Plans/Daily/2026/11-November/2026-11-24.md')).toBe(edited);
   });
 
   it('never touches Coach/', async () => {

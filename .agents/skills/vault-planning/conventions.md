@@ -91,14 +91,14 @@ Tasks never link goals. A task serves a goal through their shared owner: a week 
 
 ## Plan sections
 
-| Level         | Sections                                                                                   |
-| ------------- | ------------------------------------------------------------------------------------------ |
-| Year, quarter | Goals, Review                                                                              |
-| Month         | Goals, Scheduled (query), Ad-hoc, Review                                                   |
-| Week          | Goals, This week (query), Ad-hoc, Done (query), Review                                     |
-| Day           | Today (query: not done, scheduled on or before the day), Habits, Ad-hoc, Done (query), Log |
+| Level         | Sections                                                                                                       |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| Year, quarter | Goals, Review                                                                                                  |
+| Month         | Goals, Scheduled (query), Ad-hoc, Review                                                                       |
+| Week          | Goals, This week (query), Ad-hoc, Done (query), Review                                                         |
+| Day           | Habits, Projects (query), Areas (query), Ad-hoc (its own lines, then an Earlier days query), Done (query), Log |
 
-The queries are live only in Obsidian with the Tasks plugin. The day query shows overdue tasks too, so an unfinished task stays visible every day until it is moved or its week rolls over.
+The queries are live only in Obsidian with the Tasks plugin. They select tasks by the folder they are written in and group them by folder, then note, so a workstream's tasks show under its project's folder (ADR-KI-0072). They use no JavaScript, which Tasks turns off by default. An ad-hoc task stays under Ad-hoc whatever it links. The day queries show overdue tasks too, so an unfinished task stays visible every day until it is moved or its week rolls over.
 
 ## Closing a period
 

@@ -7,9 +7,17 @@ You plan by talking to an AI coding agent, such as Claude Code, Codex, Cursor, G
 ## Set it up
 
 1. Connect your agent to the vault server: see [Setup](setup.md#5-connect-your-ai-agent-optional).
-2. Install the [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) community plugin in Obsidian. Tasks and habits are written in its syntax, and the lists in your plans are its queries.
-3. Run `npm run coach -- init` once. It creates `Plans/` with a template for each kind of plan.
-4. Read [your planning rules](../../.agents/skills/vault-planning/rules.md) and change them to suit you, for example which work goes early in the week.
+2. Install the [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) community plugin in Obsidian and enable it. Tasks and habits are written in its syntax, and the lists in your plans are its queries. Without it, the lists show as raw text.
+3. Optionally, install [Periodic Notes](https://github.com/liamcain/obsidian-periodic-notes), so you can open a plan from Obsidian. Turn on daily, weekly and monthly notes, and set each to match where ai-coach keeps plans:
+
+   | Notes   | Format                   | Template                  | Folder          |
+   | ------- | ------------------------ | ------------------------- | --------------- |
+   | Daily   | `YYYY/M-MMMM/YYYY-MM-DD` | `Plans/Templates/Daily`   | `Plans/Daily`   |
+   | Weekly  | `gggg-[W]ww`             | `Plans/Templates/Weekly`  | `Plans/Weekly`  |
+   | Monthly | `YYYY-MM`                | `Plans/Templates/Monthly` | `Plans/Monthly` |
+
+4. Run `npm run coach -- init` once. It creates `Plans/` with a template for each kind of plan.
+5. Read [your planning rules](../../.agents/skills/vault-planning/rules.md) and change them to suit you, for example which work goes early in the week.
 
 ## The pieces
 
@@ -82,6 +90,23 @@ The rules are `every day`, `every weekday`, `every weekend` and `every week on <
 Tick them in Obsidian. An unticked check is a **missed day**. It's never carried over, never overdue and never moved: tomorrow starts fresh. Reviews count, for each habit, how many of its days you kept and your current streak.
 
 Work that still has to happen after you miss a day, such as a cleaning cycle, is a repeating task, not a habit. To aim higher, turn a habit into a goal: "Gym 4 times" this week.
+
+## Your day plan
+
+Open a day plan and you see your day sorted by kind of work. Each task shows once, under the note it lives in:
+
+| Section    | What it shows                                                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `Habits`   | the day's habit checks                                                                                                        |
+| `Projects` | project tasks due today or overdue, under their project's folder, then their note: the workstream, or the project note itself |
+| `Areas`    | area tasks due today or overdue, under the area's name                                                                        |
+| `Ad-hoc`   | tasks you wrote into this day plan, then under `Earlier days` the ad-hoc tasks still open from earlier plans                  |
+| `Done`     | what you ticked today, under its folder, then its note                                                                        |
+| `Log`      | your notes on the day                                                                                                         |
+
+To work on a task in its project, click the link after it. That opens the workstream or area note at the task's heading. An ad-hoc task stays under `Ad-hoc` even when it links an area. Week and month plans group their tasks the same way: folder first, then note. The lists use only what Tasks offers out of the box, so you don't need to turn on JavaScript in its settings.
+
+The layout comes from `Plans/Templates/`. If your plans were made with the older layout, which had one `Today` list grouped by folder, run `npm run coach -- init`. Its preview lists every template and plan it would update. It skips any list you edited by hand and names those plans, so you can change them yourself.
 
 ## A planning session
 

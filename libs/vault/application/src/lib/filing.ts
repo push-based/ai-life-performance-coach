@@ -1,6 +1,12 @@
 import type { NoteStore } from './ports/note-store.js';
 import { posix } from '@ai-coach/util-path';
-import { TEMPLATES, TEMPLATES_FOLDER, templatePath } from './plans.js';
+import {
+  TEMPLATES,
+  TEMPLATES_FOLDER,
+  templatePath,
+  hasOldPlanQueries,
+  upgradePlanLayout,
+} from './plans.js';
 import {
   classify,
   COACH_ROOT,
@@ -24,6 +30,7 @@ export type FilingAction =
   | { op: 'create'; to: string }
   | { op: 'move'; from: string; to: string }
   | { op: 'write'; to: string }
+  | { op: 'update'; to: string }
   | { op: 'remove_empty'; from: string };
 
 export interface FilingPlan {
@@ -204,6 +211,29 @@ function planPlanningLayout(
     plan.actions.push({ op: 'write', to });
     contents[to] = TEMPLATES[level];
   }
+
+  const movedTo = new Map(
+    plan.actions.flatMap((a) => (a.op === 'move' ? [[a.from, a.to]] : [])),
+  );
+  const edited: string[] = [];
+  for (const rel of tree.exists(PLANS_ROOT)
+    ? filesUnder(tree, PLANS_ROOT)
+    : []) {
+    if (!rel.endsWith('.md')) continue;
+    const from = posix.join(PLANS_ROOT, rel);
+    const text = tree.text(from);
+    const upgraded = upgradePlanLayout(text);
+    if (upgraded) {
+      const to = movedTo.get(from) ?? from;
+      plan.actions.push({ op: 'update', to });
+      contents[to] = upgraded;
+    }
+    if (hasOldPlanQueries(upgraded ?? text)) edited.push(from);
+  }
+  if (edited.length)
+    plan.warnings.push(
+      `plan queries left as they are, because they differ from the built-in ones: ${edited.join(', ')}`,
+    );
 
   const projectsRoot = PARA_FOLDERS.projects;
   if (
@@ -567,6 +597,9 @@ export async function executeFiling(
         break;
       case 'write':
         await store.writeText(a.to, plan.contents![a.to], { create: true });
+        break;
+      case 'update':
+        await store.replaceText(a.to, plan.contents![a.to]);
         break;
       case 'remove_empty':
         await store.removeEmptyDirs(a.from);
