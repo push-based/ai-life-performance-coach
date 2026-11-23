@@ -90,9 +90,9 @@ describe('isPlanTemplatePath', () => {
     expect(isPlanTemplatePath('Plans/Templates/Daily.md')).toBe(true);
     expect(isPlanTemplatePath('Plans/Templates/Sub/Custom.md')).toBe(true);
     expect(isPlanTemplatePath('Plans/Weekly/2026-W46.md')).toBe(false);
-    expect(isPlanTemplatePath('Plans/Daily/2026/11-November/2026-11-01.md')).toBe(
-      false,
-    );
+    expect(
+      isPlanTemplatePath('Plans/Daily/2026/11-November/2026-11-01.md'),
+    ).toBe(false);
     expect(isPlanTemplatePath('Loose.md')).toBe(false);
   });
 });
