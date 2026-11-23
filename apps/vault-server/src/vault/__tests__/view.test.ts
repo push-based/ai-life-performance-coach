@@ -227,6 +227,49 @@ describe('vault view server', () => {
     expect((await get('/note.json', 'POST')).status).toBe(405);
   });
 
+  it('expands tasks query blocks when serving a daily plan via /note.json', async () => {
+    put(
+      '1.Projects/Expo/Workstreams/Talks.md',
+      '- [ ] Send speaker slides #S ⏳ 2026-11-26\n',
+    );
+    put('2.Areas/Work.md', '- [ ] Check laptop repair #S ⏳ 2026-11-24\n');
+    put(
+      'Plans/Daily/2026/11-November/2026-11-26.md',
+      [
+        '# 2026-11-26',
+        '',
+        '## Projects',
+        '',
+        '```tasks',
+        'not done',
+        'scheduled on or before 2026-11-26',
+        'path regex matches /^1\\.Projects\\//',
+        'group by folder',
+        'group by filename',
+        '```',
+        '',
+        '## Areas',
+        '',
+        '```tasks',
+        'not done',
+        'scheduled on or before 2026-11-26',
+        'path regex matches /^2\\.Areas\\//',
+        'group by filename',
+        '```',
+      ].join('\n'),
+    );
+    const res = await get(
+      `/note.json?note=${encodeURIComponent('Plans/Daily/2026/11-November/2026-11-26.md')}`,
+    );
+    expect(res.status).toBe(200);
+    const text = JSON.parse(res.body).text as string;
+    expect(text).not.toContain('```tasks');
+    expect(text).toContain('Send speaker slides');
+    expect(text).toContain('[[1.Projects/Expo/Workstreams/Talks|Talks]]');
+    expect(text).toContain('Check laptop repair');
+    expect(text).toContain('[[2.Areas/Work|Work]]');
+  });
+
   describe('editing a chapter from the page', () => {
     const ch = '3.Resources/0.Raw/Books/A/B/chapters/01 One.md';
     const content =
