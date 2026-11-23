@@ -140,8 +140,9 @@ export async function writeViewGraph(
     if (isPlanPath(note.path)) continue;
     for (const task of parseTasks(note.path, note.body, null)) {
       if (!task.scheduled) continue;
-      const dayPath = planPathIn({ level: 'day', period: task.scheduled }, (p) =>
-        byPath.has(p),
+      const dayPath = planPathIn(
+        { level: 'day', period: task.scheduled },
+        (p) => byPath.has(p),
       );
       if (!byPath.has(dayPath)) continue;
       addScheduledEdge(dayPath, note.path);
