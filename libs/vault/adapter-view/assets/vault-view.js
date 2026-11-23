@@ -15,6 +15,14 @@
     ['note', 'Notes', ''],
     ['concept', 'Concept notes', 'dia'],
     ['raw', 'Raw resources', 'sq'],
+    ['plan', 'Plans', 'hex'],
+  ];
+  const PLAN_LEVELS = [
+    ['year', 'Yearly'],
+    ['quarter', 'Quarterly'],
+    ['month', 'Monthly'],
+    ['week', 'Weekly'],
+    ['day', 'Daily'],
   ];
   const MASTERY = [
     ['unsparred', 'Unsparred'],
@@ -93,6 +101,7 @@
     hidden: new Set(['archive']),
     hiddenMastery: new Set(),
     hiddenKinds: new Set(),
+    hiddenPlanLevels: new Set(),
     expanded: new Set(),
     openChapters: new Set(),
     query: '',
@@ -111,12 +120,29 @@
       : n.plan
         ? 'plans'
         : n.bucket || 'none';
-  const kindOf = (n) => (n.concept ? 'concept' : n.raw ? 'raw' : 'note');
+  const kindOf = (n) =>
+    n.concept ? 'concept' : n.raw ? 'raw' : n.plan ? 'plan' : 'note';
+  const isOwnerFocus = (n) => {
+    if (!n) return false;
+    const b = bucketOf(n);
+    return b === 'projects' || b === 'workstreams' || b === 'areas';
+  };
+  const dailyAllowed = (n) => {
+    if (n.planLevel !== 'day') return true;
+    const focal = selectedNote();
+    return (
+      focal === n ||
+      isOwnerFocus(focal) ||
+      (focal && focal.planLevel === 'week')
+    );
+  };
   const folded = (n) => n.book && !state.expanded.has(n.book);
   const visible = (n) =>
     !folded(n) &&
     !state.hidden.has(bucketOf(n)) &&
     !state.hiddenKinds.has(kindOf(n)) &&
+    (!n.planLevel || !state.hiddenPlanLevels.has(n.planLevel)) &&
+    dailyAllowed(n) &&
     (n.raw || !state.hiddenMastery.has(n.mastery));
   const matches = (n) =>
     !state.query || (n.title + ' ' + n.id).toLowerCase().includes(state.query);
@@ -135,10 +161,12 @@
           : 'none'
     ];
   };
+  const planFill = (n) =>
+    n.planLevel ? `var(--plan-${n.planLevel})` : 'var(--plans)';
   const fillOf = (n) =>
     n.rawRole === 'index' && n.stage
       ? STAGE_FILL[n.stage]
-      : chapterFill(n) || `var(--${bucketOf(n)})`;
+      : chapterFill(n) || (n.plan ? planFill(n) : `var(--${bucketOf(n)})`);
   const bookCounts = (book) => {
     const chapters = state.chaptersOf.get(book.id) || [];
     const complete = chapters.filter(
@@ -855,6 +883,15 @@
             dia = (k) => `M0,${-k}L${k},0L0,${k}L${-k},0Z`;
           if (ring) el('path', { d: dia(s + 6), ...ring }, g);
           el('path', { d: dia(s), ...shape, 'stroke-linejoin': 'round' }, g);
+        } else if (n.plan) {
+          const s = r + 2,
+            hex = (k) => {
+              const dx = (k * 0.866).toFixed(2),
+                dy = (k * 0.5).toFixed(2);
+              return `M0,${-k}L${dx},${-dy}L${dx},${dy}L0,${k}L${-dx},${dy}L${-dx},${-dy}Z`;
+            };
+          if (ring) el('path', { d: hex(s + 5), ...ring }, g);
+          el('path', { d: hex(s), ...shape, 'stroke-linejoin': 'round' }, g);
         } else {
           if (ring) el('circle', { r: r + 4.5, ...ring }, g);
           el('circle', { r, ...shape }, g);
@@ -1030,6 +1067,19 @@
       keep.add(book);
       for (const c of state.chaptersOf.get(book) || []) keep.add(c.id);
     }
+    const projectWorkstreams =
+      bucketOf(n) === 'projects' && n.container
+        ? new Set(
+            state.nodes
+              .filter(
+                (w) =>
+                  w.workstream &&
+                  w.bucket === 'projects' &&
+                  w.container === n.container,
+              )
+              .map((w) => w.id),
+          )
+        : null;
     for (const [x, y] of state.links) {
       let a = anchor(x),
         b = anchor(y);
@@ -1040,6 +1090,16 @@
       if (!a || !b || a === b) continue;
       if (a.id === n.id) keep.add(b.id);
       if (b.id === n.id) keep.add(a.id);
+      if (projectWorkstreams) {
+        if (projectWorkstreams.has(a.id) && b.planLevel === 'day') {
+          keep.add(a.id);
+          keep.add(b.id);
+        }
+        if (projectWorkstreams.has(b.id) && a.planLevel === 'day') {
+          keep.add(b.id);
+          keep.add(a.id);
+        }
+      }
     }
     return keep;
   }
@@ -1135,6 +1195,7 @@
 
   function select(n) {
     state.selected = n;
+    render();
     const d = $('detail');
     d.textContent = '';
     const parts = !n
@@ -1148,7 +1209,6 @@
             : notePanel(n);
     d.append(...parts.filter(Boolean));
     d.scrollTop = 0;
-    render();
   }
 
   function overview() {
@@ -1302,7 +1362,7 @@
           'button',
           { type: 'button', onclick: () => reveal(m) },
           h('i', {
-            class: `mark${m.concept ? ' dia' : ''}`,
+            class: `mark${m.concept ? ' dia' : m.plan ? ' hex' : ''}`,
             style: { background: fillOf(m) },
           }),
           h(
@@ -1598,7 +1658,9 @@
         : n.workstream
           ? 'Workstream'
           : n.plan
-            ? 'Plan'
+            ? n.planLevel
+              ? `${label(PLAN_LEVELS, n.planLevel)} plan`
+              : 'Plan'
             : 'Note';
     const color = fillOf(n);
     return [
@@ -1645,7 +1707,7 @@
                     'button',
                     { type: 'button', onclick: () => reveal(m) },
                     h('i', {
-                      class: `mark${m.concept ? ' dia' : m.raw ? ' sq' : ''}`,
+                      class: `mark${m.concept ? ' dia' : m.raw ? ' sq' : m.plan ? ' hex' : ''}`,
                       style: { background: fillOf(m) },
                     }),
                     h(
@@ -1653,7 +1715,9 @@
                       { class: 'grow' },
                       h('b', { textContent: m.title }),
                       h('small', {
-                        textContent: label(BUCKETS, bucketOf(m)),
+                        textContent: m.planLevel
+                          ? `${label(PLAN_LEVELS, m.planLevel)} plan`
+                          : label(BUCKETS, bucketOf(m)),
                       }),
                     ),
                   ),
@@ -2645,7 +2709,7 @@
       BUCKETS,
       state.hidden,
       (k) => state.nodes.filter((n) => bucketOf(n) === k).length,
-      (k) => dot('', `var(--${k})`),
+      (k) => dot(k === 'plans' ? 'hex' : '', `var(--${k})`),
     );
     build(
       $('kinds'),
@@ -2653,6 +2717,13 @@
       state.hiddenKinds,
       (k) => state.nodes.filter((n) => kindOf(n) === k).length,
       (k) => dot(KINDS.find((x) => x[0] === k)[2], 'var(--muted)'),
+    );
+    build(
+      $('plan-levels'),
+      PLAN_LEVELS,
+      state.hiddenPlanLevels,
+      (k) => state.nodes.filter((n) => n.planLevel === k).length,
+      (k) => dot('hex', `var(--plan-${k})`),
     );
     build(
       $('mastery'),

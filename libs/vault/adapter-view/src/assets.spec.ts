@@ -13,4 +13,17 @@ describe('view assets', () => {
       expect(urls, file).toEqual([]);
     }
   });
+
+  it('define distinct plan level colours in dark and light themes and hexagon marks', () => {
+    const html = readFileSync(
+      new URL('../assets/vault-view.html', import.meta.url),
+      'utf-8',
+    );
+    for (const level of ['year', 'quarter', 'month', 'week', 'day']) {
+      const matches = html.match(new RegExp(`--plan-${level}:`, 'g')) ?? [];
+      expect(matches.length, `--plan-${level}`).toBe(2);
+    }
+    expect(html).toContain('.mark.hex');
+    expect(html).toContain('id="plan-levels"');
+  });
 });

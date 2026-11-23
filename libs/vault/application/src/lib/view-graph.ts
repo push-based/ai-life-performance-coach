@@ -2,6 +2,7 @@ import { posix } from '@ai-coach/util-path';
 import type { Vault } from './vault.js';
 import type { NoteStore } from './ports/note-store.js';
 import { RAW_TEXT } from './convert.js';
+import { periodAt } from './plans.js';
 import {
   bookProgress,
   citations,
@@ -12,10 +13,15 @@ import {
 import {
   COACH_ROOT,
   type ParaBucket,
+  type PlanLevel,
   buildVaultGraph,
   isPlanPath,
   isPlanTemplatePath,
   isWorkstreamPath,
+  parseTasks,
+  planOf,
+  planPathIn,
+  planPathOf,
   type Mastery,
   type VaultNote,
 } from '@ai-coach/vault-domain';
@@ -34,6 +40,7 @@ export interface VaultViewGraph {
     container: string | null;
     workstream: boolean;
     plan: boolean;
+    planLevel: PlanLevel | null;
     raw: boolean;
     rawRole: 'index' | 'chapter' | null;
 
@@ -64,7 +71,11 @@ export interface VaultViewGraph {
     mastery: Mastery;
     nextReview: string | null;
   }[];
-  edges: { source: string; target: string; kind: 'wikilink' | 'markdown' }[];
+  edges: {
+    source: string;
+    target: string;
+    kind: 'wikilink' | 'markdown' | 'scheduled';
+  }[];
   unresolved: number;
 }
 
@@ -104,6 +115,39 @@ export async function writeViewGraph(
     ),
   );
   const cited = citations(notes);
+  const edges: VaultViewGraph['edges'] = [...g.edges];
+  const seenEdges = new Set(
+    edges.map((e) =>
+      e.source < e.target
+        ? `${e.source}\0${e.target}`
+        : `${e.target}\0${e.source}`,
+    ),
+  );
+  const addScheduledEdge = (source: string, target: string) => {
+    const key =
+      source < target ? `${source}\0${target}` : `${target}\0${source}`;
+    if (seenEdges.has(key)) return;
+    seenEdges.add(key);
+    edges.push({ source, target, kind: 'scheduled' });
+  };
+  for (const note of notes) {
+    const ref = planOf(note.path);
+    if (ref?.level === 'day') {
+      const weekPath = planPathOf(periodAt('week', ref.period));
+      if (byPath.has(weekPath)) addScheduledEdge(weekPath, note.path);
+      continue;
+    }
+    if (isPlanPath(note.path)) continue;
+    for (const task of parseTasks(note.path, note.body, null)) {
+      if (!task.scheduled) continue;
+      const dayPath = planPathIn(
+        { level: 'day', period: task.scheduled },
+        (p) => byPath.has(p),
+      );
+      if (!byPath.has(dayPath)) continue;
+      addScheduledEdge(dayPath, note.path);
+    }
+  }
   const graph: VaultViewGraph = {
     generatedAt: now.toISOString(),
     vaultName: posix.basename(vault.root.split('\\').join('/')),
@@ -121,6 +165,7 @@ export async function writeViewGraph(
         container: n.container,
         workstream: isWorkstreamPath(n.id),
         plan: isPlanPath(n.id),
+        planLevel: planOf(n.id)?.level ?? null,
         raw: n.raw,
         rawRole: note.rawRole,
         concept: note.concept,
@@ -152,7 +197,7 @@ export async function writeViewGraph(
         nextReview: history.get(n.id)!.nextReview,
       };
     }),
-    edges: g.edges,
+    edges,
     unresolved: g.unresolved.length,
   };
   await store.replaceText(GRAPH_FILE, `${JSON.stringify(graph, null, 2)}\n`);
