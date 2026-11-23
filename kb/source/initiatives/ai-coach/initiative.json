@@ -1,6 +1,6 @@
 {
   "name": "ai-coach",
-  "prefix": "AIC",
+  "adr_prefix": "ADR-AIC",
   "domain": "Building and changing ai-coach, the study partner that makes you explain what you have read",
   "tags": [],
   "recommends": []
