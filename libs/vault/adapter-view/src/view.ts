@@ -8,6 +8,7 @@ import {
   compareStructure,
   drawingErrors,
   drawingText,
+  expandTasksQueries,
   type DrawnStructure,
   MAX_SKETCH_BYTES,
 } from '@ai-coach/vault-application';
@@ -54,7 +55,11 @@ export async function noteBody(
   path: string,
 ): Promise<NoteBody | null> {
   const note = await vault.note(path);
-  return note ? { note: note.path, title: note.title, text: note.body } : null;
+  if (!note) return null;
+  const text = note.body.includes('```tasks')
+    ? expandTasksQueries(note.path, note.body, await vault.notes())
+    : note.body;
+  return { note: note.path, title: note.title, text };
 }
 
 const MAX_BODY = 64 * 1024;

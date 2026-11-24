@@ -16,5 +16,6 @@ export * from './lib/plansview.js';
 export * from './lib/record.js';
 export * from './lib/review.js';
 export * from './lib/rollover.js';
+export * from './lib/tasks-query.js';
 export * from './lib/view-graph.js';
 export * from './lib/ports/note-store.js';
