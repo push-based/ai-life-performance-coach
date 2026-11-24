@@ -1,7 +1,7 @@
 # ai-coach
 
-[![CI](https://github.com/push-based/ai-performance-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/push-based/ai-performance-coach/actions/workflows/ci.yml)
-[![Docs](https://img.shields.io/badge/docs-site-2f6f5e)](https://push-based.github.io/ai-performance-coach/)
+[![CI](https://github.com/push-based/ai-life-performance-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/push-based/ai-life-performance-coach/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-site-2f6f5e)](https://push-based.github.io/ai-life-performance-coach/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Organize your notes, learn what you read until you can teach it, and plan your days, all in one Obsidian vault.**
@@ -13,7 +13,7 @@ ai-coach works on your own notes in an [Obsidian](https://obsidian.md) vault. It
 - **See.** It shows your vault in the browser: the graph of your notes, your sources chapter by chapter, your plans and how far you've climbed with each idea.
 - **Plan.** With an AI coding agent such as Claude Code or Codex, it plans your year down to your day: goals, projects, tasks and daily habits.
 
-**📖 The full documentation is a [Docusaurus](https://docusaurus.io) site: [push-based.github.io/ai-performance-coach](https://push-based.github.io/ai-performance-coach/)**, with search.
+**📖 The full documentation is a [Docusaurus](https://docusaurus.io) site: [push-based.github.io/ai-life-performance-coach](https://push-based.github.io/ai-life-performance-coach/)**, with search.
 
 ## Organize: Projects, Areas, Resources, Archive
 
@@ -164,7 +164,7 @@ npm run coach -- view                            # open your vault in the browse
 | See how it's built, and why    | [Architecture](ARCHITECTURE.md) · [Decisions](kb/README.md)                       |
 | Change the code                | [Contributing](CONTRIBUTING.md)                                                   |
 
-All of these pages are built from the Markdown in this repository and published to the [documentation site](https://push-based.github.io/ai-performance-coach/).
+All of these pages are built from the Markdown in this repository and published to the [documentation site](https://push-based.github.io/ai-life-performance-coach/).
 
 ## Code from kb-template
 

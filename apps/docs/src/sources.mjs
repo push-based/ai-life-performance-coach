@@ -2,7 +2,7 @@ import { globSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const REPOSITORY = 'push-based/ai-performance-coach';
+export const REPOSITORY = 'push-based/ai-life-performance-coach';
 export const BRANCH = 'main';
 export const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 
