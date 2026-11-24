@@ -103,7 +103,14 @@ The [planning skills](.agents/skills/README.md) work in any AI coding agent that
 | A [Gemini API key](https://aistudio.google.com/apikey) (optional)          | the online judge                          | see Google's pricing     |
 | An AI coding agent (optional), such as Claude Code or Codex                | the planning skills                       | that agent's plan or key |
 
-Your vault is a folder of plain Markdown files, so it stays readable without any of these. For planning, also install the [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) community plugin in Obsidian: tasks and habits use its syntax.
+Your vault is a folder of plain Markdown files, so it stays readable without any of these. For planning, install these Obsidian community plugins (Settings → Community plugins → Browse):
+
+| Plugin                                                                | Needed      | What it's for                                                                                                  |
+| --------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------- |
+| [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks)       | yes         | shows the task lists in your plans; without it they show as raw text. Tasks and habits use its syntax          |
+| [Periodic Notes](https://github.com/liamcain/obsidian-periodic-notes) | recommended | opens today's and this week's plan from Obsidian; set it up as in [Planning](docs/guide/planning.md#set-it-up) |
+
+You don't need to turn on JavaScript in the Tasks settings.
 
 ### 2. Pull a local model
 

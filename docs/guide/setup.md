@@ -16,7 +16,10 @@ This page gets ai-coach running against your vault. When you're done, `coach due
 
 [Download Obsidian](https://obsidian.md/download) and open a folder as a vault, or use the vault you have. A vault is a folder of plain Markdown files: ai-coach reads and writes those files, and Obsidian is where you read and mark them.
 
-If you plan with an AI agent, also install the [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) community plugin (Settings → Community plugins → Browse → "Tasks"). Tasks and habits are written in its syntax, and it ticks off repeating tasks for you.
+If you plan with an AI agent, also install two community plugins (Settings → Community plugins → Browse), then enable each one:
+
+- [Tasks](https://github.com/obsidian-tasks-group/obsidian-tasks), required. Tasks and habits are written in its syntax, the lists in your plans are its queries, and it ticks off repeating tasks for you. Without it, a plan shows its lists as raw text. You don't need to turn on JavaScript in its settings.
+- [Periodic Notes](https://github.com/liamcain/obsidian-periodic-notes), recommended. It opens today's or this week's plan from Obsidian. Set it up as [Planning](planning.md#set-it-up) shows, so the plans it creates land where ai-coach writes them.
 
 ### Ollama
 

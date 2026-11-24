@@ -137,13 +137,14 @@ describe('planning', () => {
 });
 
 describe('day plans', () => {
-  it('the day template has a Habits section before Ad-hoc', () => {
-    expect(TEMPLATES.day.indexOf('## Habits')).toBeGreaterThan(
-      TEMPLATES.day.indexOf('## Today'),
+  it('the day template lists habits, projects, areas and ad-hoc tasks in that order', () => {
+    const at = (h: string) => TEMPLATES.day.indexOf(`\n## ${h}\n`);
+    const order = ['Habits', 'Projects', 'Areas', 'Ad-hoc', 'Done', 'Log'].map(
+      at,
     );
-    expect(TEMPLATES.day.indexOf('## Habits')).toBeLessThan(
-      TEMPLATES.day.indexOf('## Ad-hoc'),
-    );
+    expect(order.every((i) => i > 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(TEMPLATES.day).not.toContain('## Today');
   });
 
   it('plan_period adds the habits due that day to a new day plan', async () => {
@@ -156,7 +157,7 @@ describe('day plans', () => {
       '- [ ] Water before coffee [[Morning routine]]',
     ]);
     expect(r.content).toContain(
-      '## Habits\n\n- [ ] Gym [[Gym]]\n- [ ] Up at 6:00 [[Morning routine]]\n- [ ] Water before coffee [[Morning routine]]\n\n## Ad-hoc',
+      '## Habits\n\n- [ ] Gym [[Gym]]\n- [ ] Up at 6:00 [[Morning routine]]\n- [ ] Water before coffee [[Morning routine]]\n\n## Projects',
     );
   });
 
