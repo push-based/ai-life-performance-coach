@@ -22,7 +22,7 @@ CI runs format, lint, test, build and typecheck on every push to `main` and ever
 
 ## Documentation
 
-The [documentation site](https://push-based.github.io/ai-performance-coach/) is built from the Markdown in this repository and deploys from `main` ([ADR-AIC-0032](kb/source/initiatives/ai-coach/decisions/ADR-AIC-0032-publish-the-docs-with-docusaurus-from-the-markdown-where-it-lives.md)). Edit the files where they are; `apps/docs` only arranges them.
+The [documentation site](https://push-based.github.io/ai-life-performance-coach/) is built from the Markdown in this repository and deploys from `main` ([ADR-AIC-0032](kb/source/initiatives/ai-coach/decisions/ADR-AIC-0032-publish-the-docs-with-docusaurus-from-the-markdown-where-it-lives.md)). Edit the files where they are; `apps/docs` only arranges them.
 
 ```sh
 npx nx serve docs                 # preview the site while you edit
