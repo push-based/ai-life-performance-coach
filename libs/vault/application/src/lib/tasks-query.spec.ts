@@ -12,9 +12,12 @@ const note = (path: string, body: string): VaultNote => ({
   coachId: null,
   raw: false,
   rawKind: null,
+  rawAuthor: null,
+  rawWork: null,
   convertedFrom: null,
   rawRole: null,
   concept: false,
+  pageRange: null,
 });
 
 describe('expandTasksQueries', () => {
