@@ -468,6 +468,29 @@ describe('graph labels and book folding', () => {
     });
   });
 
+  it("marks only a project's own note as the project", async () => {
+    put('1.Projects/Expo/Expo.md', '# Expo\n');
+    put('1.Projects/Expo/Talk Flow.md', '# Talk Flow\n');
+    put('1.Projects/Expo/Workstreams/Talks.md', '# Talks\n');
+    const graph = await vault.viewGraph();
+    const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
+    expect(node('1.Projects/Expo/Expo.md')).toMatchObject({
+      bucket: 'projects',
+      project: true,
+      workstream: false,
+    });
+    expect(node('1.Projects/Expo/Talk Flow.md')).toMatchObject({
+      bucket: 'projects',
+      project: false,
+      workstream: false,
+    });
+    expect(node('1.Projects/Expo/Workstreams/Talks.md')).toMatchObject({
+      bucket: 'projects',
+      project: false,
+      workstream: true,
+    });
+  });
+
   it('marks planning notes under Plans/ with their plan level separately from out-of-place notes and excludes Plans/Templates/', async () => {
     put('Plans/Yearly/2026.md', '# 2026\n');
     put('Plans/Quarterly/2026-Q4.md', '# 2026-Q4\n');

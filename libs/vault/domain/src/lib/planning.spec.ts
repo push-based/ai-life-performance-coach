@@ -5,6 +5,7 @@ import type { VaultListing } from './listing.js';
 import {
   isPlanPath,
   isPlanTemplatePath,
+  isProjectNotePath,
   isWorkstreamPath,
   planning,
 } from './planning.js';
@@ -72,6 +73,19 @@ describe('isWorkstreamPath', () => {
       isWorkstreamPath('1.Projects/Expo/Intermediate Packets/Packet.md'),
     ).toBe(false);
     expect(isWorkstreamPath('3.Resources/Workstreams/Other.md')).toBe(false);
+  });
+});
+
+describe('isProjectNotePath', () => {
+  it("matches only a project's own note named after its folder", () => {
+    expect(isProjectNotePath('1.Projects/Expo/Expo.md')).toBe(true);
+    expect(isProjectNotePath('4.Archive/Old/Old.md')).toBe(true);
+    expect(isProjectNotePath('1.Projects/Expo/Talk Flow.md')).toBe(false);
+    expect(isProjectNotePath('1.Projects/Expo/Workstreams/Expo.md')).toBe(
+      false,
+    );
+    expect(isProjectNotePath('1.Projects/Expo.md')).toBe(false);
+    expect(isProjectNotePath('2.Areas/Work/Work.md')).toBe(false);
   });
 });
 
