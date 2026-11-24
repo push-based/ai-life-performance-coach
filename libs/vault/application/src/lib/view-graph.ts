@@ -17,6 +17,7 @@ import {
   buildVaultGraph,
   isPlanPath,
   isPlanTemplatePath,
+  isProjectNotePath,
   isWorkstreamPath,
   parseTasks,
   planOf,
@@ -38,6 +39,7 @@ export interface VaultViewGraph {
     label: string;
     bucket: ParaBucket | null;
     container: string | null;
+    project: boolean;
     workstream: boolean;
     plan: boolean;
     planLevel: PlanLevel | null;
@@ -163,6 +165,7 @@ export async function writeViewGraph(
         label: shortLabel(note),
         bucket: n.bucket,
         container: n.container,
+        project: isProjectNotePath(n.id),
         workstream: isWorkstreamPath(n.id),
         plan: isPlanPath(n.id),
         planLevel: planOf(n.id)?.level ?? null,

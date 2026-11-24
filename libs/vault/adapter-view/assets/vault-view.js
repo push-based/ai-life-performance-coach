@@ -5,6 +5,7 @@
     ['inbox', 'Inbox'],
     ['projects', 'Projects'],
     ['workstreams', 'Workstreams'],
+    ['project-notes', 'Project notes'],
     ['areas', 'Areas'],
     ['resources', 'Resources'],
     ['plans', 'Plans'],
@@ -119,7 +120,9 @@
       ? 'workstreams'
       : n.plan
         ? 'plans'
-        : n.bucket || 'none';
+        : n.bucket === 'projects' && !n.project
+          ? 'project-notes'
+          : n.bucket || 'none';
   const kindOf = (n) =>
     n.concept ? 'concept' : n.raw ? 'raw' : n.plan ? 'plan' : 'note';
   const isOwnerFocus = (n) => {
@@ -1657,11 +1660,13 @@
         ? 'Raw resource'
         : n.workstream
           ? 'Workstream'
-          : n.plan
-            ? n.planLevel
-              ? `${label(PLAN_LEVELS, n.planLevel)} plan`
-              : 'Plan'
-            : 'Note';
+          : n.project
+            ? 'Project'
+            : n.plan
+              ? n.planLevel
+                ? `${label(PLAN_LEVELS, n.planLevel)} plan`
+                : 'Plan'
+              : 'Note';
     const color = fillOf(n);
     return [
       card(

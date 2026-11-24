@@ -23,6 +23,15 @@ export function isWorkstreamPath(relPath: string): boolean {
   );
 }
 
+export function isProjectNotePath(relPath: string): boolean {
+  const parts = relPath.split('/');
+  return (
+    (parts[0] === PARA_FOLDERS.projects || parts[0] === PARA_FOLDERS.archive) &&
+    parts.length === 3 &&
+    parts[2] === `${parts[1]}.md`
+  );
+}
+
 export function isPlanPath(relPath: string): boolean {
   return relPath.startsWith(`${PLANS_ROOT}/`);
 }
