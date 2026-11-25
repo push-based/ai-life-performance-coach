@@ -1,6 +1,6 @@
 ---
 doc_type: adr
-id: ADR-AIC-0058
+id: ADR-AIC-0059
 title: "Migrate the vault view to an Angular layered application with frontend-owned DTOs"
 summary: "The vault view UI grew to over 7,400 lines of untyped vanilla HTML and JavaScript inside libs/vault/adapter-view/assets alongside a separate Angular climb-board app. We introduce a single Angular 21 layered application (scope:vault-view, architecture:layered) with strict frontend-owned HTTP DTOs, built as an Nx task dependency of vault-adapter-view and migrated incrementally across six pull requests while keeping scope:vault strictly hexagonal."
 status: draft
@@ -12,7 +12,7 @@ links: ["ADR-AIC-0051","ADR-AIC-0052"]
 tags: ["view","architecture","angular"]
 ---
 
-# ADR-AIC-0058: Migrate the vault view to an Angular layered application with frontend-owned DTOs
+# ADR-AIC-0059: Migrate the vault view to an Angular layered application with frontend-owned DTOs
 
 ## Context
 
