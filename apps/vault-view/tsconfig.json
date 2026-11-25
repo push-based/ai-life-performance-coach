@@ -17,7 +17,10 @@
       "@ai-coach/vault-view-data-access": [
         "../../libs/vault-view/data-access/src/index.ts"
       ],
-      "@ai-coach/vault-view-ui": ["../../libs/vault-view/ui/src/index.ts"]
+      "@ai-coach/vault-view-ui": ["../../libs/vault-view/ui/src/index.ts"],
+      "@ai-coach/vault-view-feat-plans": [
+        "../../libs/vault-view/feat-plans/src/index.ts"
+      ]
     }
   },
   "angularCompilerOptions": {
