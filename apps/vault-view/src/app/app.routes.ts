@@ -1,4 +1,5 @@
 import type { Routes } from '@angular/router';
+import { ClimbPageComponent } from '@ai-coach/vault-view-feat-climb';
 import { PlansPageComponent } from '@ai-coach/vault-view-feat-plans';
 import { ShellPlaceholderComponent } from './shell-placeholder.component.js';
 
@@ -18,12 +19,7 @@ export const appRoutes: Routes = [
   },
   {
     path: 'climb',
-    component: ShellPlaceholderComponent,
-    data: {
-      section: 'Climb',
-      description:
-        'The climb view and drawing board will be migrated here in PR 3.',
-    },
+    component: ClimbPageComponent,
   },
   { path: '**', redirectTo: '' },
 ];

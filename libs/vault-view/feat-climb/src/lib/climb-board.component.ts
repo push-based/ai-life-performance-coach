@@ -1,10 +1,8 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  Injector,
-  inject,
-  signal,
-} from '@angular/core';
+import { Component, Injector, inject, signal } from '@angular/core';
+import type {
+  BoardDrawingDto,
+  StructureDto,
+} from '@ai-coach/vault-view-data-access';
 import {
   NgDiagramComponent,
   NgDiagramModelService,
@@ -18,21 +16,13 @@ import {
 import {
   ConceptNodeComponent,
   LayerNodeComponent,
-  type ConceptData,
-  type LayerData,
-} from './nodes';
+  type BoardConceptData,
+  type BoardLayerData,
+} from './climb-board-nodes.component.js';
 
-export interface BoardInput {
-  concepts: ConceptData[];
-  prefill?: {
-    groups: { name: string; concepts: { path: string }[] }[];
-    buildsOn: { from: string; to: string }[];
-  } | null;
-}
-
-export interface Drawing {
-  groups: { name: string; concepts: string[] }[];
-  builds_on: { from: string; to: string }[];
+export interface ClimbBoardInput {
+  concepts: BoardConceptData[];
+  prefill?: StructureDto | null;
 }
 
 const LAYER = { width: 300, height: 130 };
@@ -41,27 +31,27 @@ const TRAY_X = 24;
 type BoardConfig = NonNullable<ReturnType<NgDiagramComponent['config']>>;
 
 @Component({
-  selector: 'climb-board',
+  selector: 'vault-climb-board',
   imports: [NgDiagramComponent],
   providers: [provideNgDiagram()],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @for (m of models(); track m) {
       <ng-diagram [model]="m" [config]="config" [nodeTemplateMap]="templates" />
     }
   `,
 })
-export class BoardComponent {
+export class ClimbBoardComponent {
   private readonly injector = inject(Injector);
   private readonly service = inject(NgDiagramModelService);
   private seq = 0;
   private model: ModelAdapter = initializeModel({}, this.injector);
-  readonly models = signal<ModelAdapter[]>([this.model]);
-  readonly templates = new NgDiagramNodeTemplateMap([
+
+  public readonly models = signal<ModelAdapter[]>([this.model]);
+  public readonly templates = new NgDiagramNodeTemplateMap([
     ['concept', ConceptNodeComponent],
     ['layer', LayerNodeComponent],
   ]);
-  readonly config: BoardConfig = {
+  public readonly config: BoardConfig = {
     computeNodeId: () => `n${++this.seq}`,
     computeEdgeId: () => `e${++this.seq}`,
     grouping: {
@@ -87,7 +77,7 @@ export class BoardComponent {
     zoom: { min: 0.4, max: 2 },
   };
 
-  load(input: BoardInput): void {
+  public load(input: ClimbBoardInput): void {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
     const layerOf = new Map<string, string>();
@@ -107,7 +97,7 @@ export class BoardComponent {
         size: LAYER,
         autoSize: false,
         resizable: true,
-        data: { name: g.name } satisfies LayerData,
+        data: { name: g.name } satisfies BoardLayerData,
       } as Node);
     });
     const inGroup = new Map(
@@ -131,12 +121,12 @@ export class BoardComponent {
         type: 'concept',
         position,
         ...(gid ? { groupId: gid } : {}),
-        data: { path: c.path, title: c.title } satisfies ConceptData,
+        data: { path: c.path, title: c.title } satisfies BoardConceptData,
       } as Node);
     });
     for (const e of input.prefill?.buildsOn ?? []) {
       const [source, target] = [layerOf.get(e.from), layerOf.get(e.to)];
-      if (source && target)
+      if (source && target) {
         edges.push({
           id: `e${++this.seq}`,
           source,
@@ -146,18 +136,19 @@ export class BoardComponent {
           targetArrowhead: 'ng-diagram-arrow',
           data: {},
         });
+      }
     }
     this.model = initializeModel({ nodes, edges }, this.injector);
     this.models.set([this.model]);
   }
 
-  addGroup(): void {
+  public addGroup(): void {
     const layers = this.model.getNodes().filter((n) => n.type === 'layer');
     const top = layers.length
       ? layers.reduce((a, n) => (n.position.y < a.position.y ? n : a))
       : null;
     let position = { x: 260, y: 320 };
-    if (top)
+    if (top) {
       position =
         top.position.y - LAYER.height - 50 >= 20
           ? { x: top.position.x, y: top.position.y - LAYER.height - 50 }
@@ -166,6 +157,7 @@ export class BoardComponent {
                 Math.max(...layers.map((n) => n.position.x)) + LAYER.width + 40,
               y: 320,
             };
+    }
     const node = {
       id: `n${++this.seq}`,
       type: 'layer',
@@ -175,27 +167,27 @@ export class BoardComponent {
       size: LAYER,
       autoSize: false,
       resizable: true,
-      data: { name: '' } satisfies LayerData,
+      data: { name: '' } satisfies BoardLayerData,
     } as Node;
     void this.service.addNodes([node]);
   }
 
-  drawing(): Drawing {
+  public drawing(): BoardDrawingDto {
     const nodes = this.model.getNodes();
     const layers = nodes.filter((n) => n.type === 'layer');
-    const name = (id: string) =>
+    const nameOf = (id: string) =>
       (
-        (nodes.find((n) => n.id === id)?.data as LayerData | undefined)?.name ??
-        ''
+        (nodes.find((n) => n.id === id)?.data as BoardLayerData | undefined)
+          ?.name ?? ''
       ).trim();
     return {
       groups: layers.map((l) => ({
-        name: (l.data as LayerData).name.trim(),
+        name: (l.data as BoardLayerData).name.trim(),
         concepts: nodes
           .filter(
             (n) => n.type === 'concept' && 'groupId' in n && n.groupId === l.id,
           )
-          .map((n) => (n.data as ConceptData).path),
+          .map((n) => (n.data as BoardConceptData).path),
       })),
       builds_on: this.model
         .getEdges()
@@ -204,7 +196,7 @@ export class BoardComponent {
             layers.some((l) => l.id === e.source) &&
             layers.some((l) => l.id === e.target),
         )
-        .map((e) => ({ from: name(e.source), to: name(e.target) })),
+        .map((e) => ({ from: nameOf(e.source), to: nameOf(e.target) })),
     };
   }
 }

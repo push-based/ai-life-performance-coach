@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ai-coach/vault-view-data-access": "*",
+    "@ai-coach/vault-view-feat-climb": "*",
     "@ai-coach/vault-view-feat-plans": "*",
     "@ai-coach/vault-view-ui": "*",
     "@ai-coach/vault-view-util": "*",
@@ -19,6 +20,7 @@
     "@angular/core": "21.2.25",
     "@angular/platform-browser": "21.2.25",
     "@angular/router": "21.2.25",
+    "ng-diagram": "1.4.0",
     "rxjs": "7.8.2",
     "tslib": "^2.3.0"
   },

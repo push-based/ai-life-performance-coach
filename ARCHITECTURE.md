@@ -56,7 +56,7 @@ The ports are the interfaces in `libs/coach/application/src/lib/ports/`: the vau
 All executable code lives in `apps/` and `libs/<domain>/<lib>` (ADR-AIC-0051). Non-code repository content stays at the root (`kb/`, `docs/`, `README.md`, `ARCHITECTURE.md`, `CONTRIBUTING.md`). Two architectural styles coexist under `@nx/enforce-module-boundaries`:
 
 - **`architecture:hexagonal`** for backend domains (`scope:coach`, `scope:vault`): `type:domain`, `type:application`, `type:adapter`, and `type:app`.
-- **`architecture:layered`** for frontend applications (`scope:climb-board`, `scope:docs`, and future UIs): `type:app`, `type:feat`, `type:ui`, `type:data-access`, `type:util`.
+- **`architecture:layered`** for frontend applications (`scope:vault-view`, `scope:docs`, and future UIs): `type:app`, `type:feat`, `type:ui`, `type:data-access`, `type:util`.
 - **`scope:shared`** (`type:util`): pure TypeScript utilities (no external npm deps, no Node built-ins) importable by any scope, including hexagonal `domain` and `application`.
 
 | Project                          | Tags                                                                              | Contains                                                                                                                                                                                                                                                  | May import                                                                               |
@@ -77,7 +77,7 @@ All executable code lives in `apps/` and `libs/<domain>/<lib>` (ADR-AIC-0051). N
 | `libs/vault/adapter-pdf`         | `scope:vault`, `architecture:hexagonal`, `type:adapter`, `adapter:vault-pdf`      | `readPdf`: a PDF's pages, metadata and outline                                                                                                                                                                                                            | core; `pdfjs-dist`                                                                       |
 | `libs/vault/adapter-view`        | `scope:vault`, `architecture:hexagonal`, `type:adapter`, `adapter:vault-view`     | The graph view's loopback HTTP server and its pages in `assets/`                                                                                                                                                                                          | core; Node                                                                               |
 | `apps/vault-server`              | `scope:vault`, `architecture:hexagonal`, `type:app`, `app:vault-server`           | The MCP vault server and the `coach-vault` binary (`serve`, `view`): one tool per vault ability, and `composeVault`, where the vault's ports meet their adapters                                                                                          | `scope:vault` libs, `scope:shared` `type:util`; `@modelcontextprotocol/sdk`, `zod`, Node |
-| `apps/climb-board`               | `scope:climb-board`, `architecture:layered`, `type:app`, `app:climb-board`        | The Angular drawing board of the climb page, built into `libs/vault/adapter-view`'s assets                                                                                                                                                                | `scope:climb-board` layered libs, `scope:shared` `type:util`; Angular, `ng-diagram`      |
+| `apps/vault-view`                | `scope:vault-view`, `architecture:layered`, `type:app`, `app:vault-view`          | The Angular layered frontend for the vault view (including the climb drawing board), built as an Nx dependency of `libs/vault/adapter-view`                                                                                                               | `scope:vault-view` layered libs, `scope:shared` `type:util`; Angular, `ng-diagram`       |
 | `apps/docs`                      | `scope:docs`, `architecture:layered`, `type:app`, `app:docs`                      | The Docusaurus documentation site                                                                                                                                                                                                                         | `scope:docs` layered libs, `scope:shared` `type:util`; Docusaurus                        |
 
 Adapters never import each other, and nothing imports `apps/*`. Nothing in `scope:coach` imports `scope:vault`: the coach reaches the vault only over MCP, through `adapter-vault-mcp` (ADR-AIC-0048). Each project's README says what it does in plain words:
@@ -100,7 +100,7 @@ Adapters never import each other, and nothing imports `apps/*`. Nothing in `scop
 | [`libs/vault/adapter-pdf`](libs/vault/adapter-pdf/README.md)                 | Reads the text of a PDF book.                                                   |
 | [`libs/vault/adapter-view`](libs/vault/adapter-view/README.md)               | Serves the graph view in your browser.                                          |
 | [`apps/vault-server`](apps/vault-server/README.md)                           | Offers the vault as MCP tools to the coach and to AI agents.                    |
-| [`apps/climb-board`](apps/climb-board/README.md)                             | The drawing board on the climb page.                                            |
+| [`apps/vault-view`](apps/vault-view/README.md)                               | The Angular layered frontend for the vault view.                                |
 
 ## Ports and who provides them
 
@@ -138,7 +138,7 @@ Adapters never import each other, and nothing imports `apps/*`. Nothing in `scop
 
 `npm exec nx run-many -- -t lint` runs `@nx/enforce-module-boundaries` with the tags above (ADR-AIC-0051):
 
-- `scope:*` isolates domains (`scope:coach`, `scope:vault`, `scope:climb-board`, `scope:docs`), allowing each to depend only on itself and `scope:shared`.
+- `scope:*` isolates domains (`scope:coach`, `scope:vault`, `scope:vault-view`, `scope:docs`), allowing each to depend only on itself and `scope:shared`.
 - `architecture:hexagonal` and `architecture:layered` isolate architectural styles, allowing each to depend only on its own style and `scope:shared`.
 - `onlyDependOnLibsWithTags` keeps hexagonal dependencies inward (`domain` ← `application` ← `adapter` ← `app`) and enforces layered frontend rules (`app` → `feat`/`ui`/`data-access`/`util`; `feat` → `ui`/`data-access`/`util` with no `feat` → `feat`; `ui` → `ui`/`util`; `data-access` → `data-access`/`util`; `util` → `util`).
 - `allowedExternalImports` is a whitelist per tag: empty for `domain`, `application`, and `scope:shared`, and only its own SDK for each adapter and hexagonal app.

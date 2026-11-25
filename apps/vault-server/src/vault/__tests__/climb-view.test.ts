@@ -168,31 +168,24 @@ afterEach(async () => {
 });
 
 describe('the climb page', () => {
-  it('serves the page with its token and the climb of every concept', async () => {
+  it('serves the Angular climb page with its token and the climb of every concept', async () => {
     const page = await call('/climb');
     expect(page.status).toBe(200);
     expect(page.body).toContain(
       '<meta name="vault-token" content="test-token">',
     );
-    expect(page.body).toContain('<script src="/climb-view.js">');
+    expect(page.body).toContain('<vault-root></vault-root>');
+    expect(page.body).toContain('main.js');
     expect(String(page.headers['content-security-policy'])).toContain(
       "default-src 'none'",
     );
-    expect((await call('/climb-view.js')).status).toBe(200);
-    expect(page.body).toContain(
-      '<script type="module" src="/climb-board/main.js">',
-    );
-    expect(page.body).toContain(
-      '<link rel="stylesheet" href="/climb-board/styles.css" />',
-    );
-    const board = await call('/climb-board/main.js');
-    expect(board.status).toBe(200);
-    expect(board.headers['content-type']).toBe(
+    const bundle = await call('/main.js');
+    expect(bundle.status).toBe(200);
+    expect(bundle.headers['content-type']).toBe(
       'text/javascript; charset=utf-8',
     );
-    expect(board.body).toContain('climbBoard');
-    expect(board.body).not.toMatch(/\beval\(|new Function\(/);
-    expect((await call('/climb-board/styles.css')).status).toBe(200);
+    expect(bundle.body).not.toMatch(/\beval\(|new Function\(/);
+    expect((await call('/styles.css')).status).toBe(200);
     const data = await getJson('/climb.json');
     expect(data.concepts.map((c: { title: string }) => c.title).sort()).toEqual(
       ['Components', 'Design tokens', 'Patterns', 'Primitives'],

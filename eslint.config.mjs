@@ -67,10 +67,6 @@ export default [
               onlyDependOnLibsWithTags: ['scope:vault', 'scope:shared'],
             },
             {
-              sourceTag: 'scope:climb-board',
-              onlyDependOnLibsWithTags: ['scope:climb-board', 'scope:shared'],
-            },
-            {
               sourceTag: 'scope:vault-view',
               onlyDependOnLibsWithTags: ['scope:vault-view', 'scope:shared'],
             },

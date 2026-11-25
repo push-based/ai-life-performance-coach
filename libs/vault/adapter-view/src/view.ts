@@ -331,6 +331,7 @@ export function createVaultViewServer(
         return send(405, 'text/plain; charset=utf-8', 'Method not allowed');
       if (
         path === '/plans' ||
+        path === '/climb' ||
         path === '/app' ||
         path === '/app/' ||
         path === '/app/plans' ||
@@ -380,33 +381,6 @@ export function createVaultViewServer(
           200,
           'text/javascript; charset=utf-8',
           asset('vault-view.js'),
-        );
-      if (path === '/climb') {
-        const page = asset('climb-view.html')
-          .toString('utf-8')
-          .replace(
-            '</head>',
-            `  <meta name="vault-token" content="${token}">\n</head>`,
-          );
-        return send(200, 'text/html; charset=utf-8', page);
-      }
-      if (path === '/climb-view.js')
-        return send(
-          200,
-          'text/javascript; charset=utf-8',
-          asset('climb-view.js'),
-        );
-      if (path === '/climb-board/main.js')
-        return send(
-          200,
-          'text/javascript; charset=utf-8',
-          asset('climb-board/main.js'),
-        );
-      if (path === '/climb-board/styles.css')
-        return send(
-          200,
-          'text/css; charset=utf-8',
-          asset('climb-board/styles.css'),
         );
       if (path === '/climb.json')
         return json(200, {

@@ -6,7 +6,7 @@
 - `/plans`: your goals beside your effort over time.
 - `/climb`: the climb page with its drawing board.
 
-The pages are plain HTML and JavaScript in [`assets/`](assets). The board on `/climb` is built from [`apps/climb-board`](../../../apps/climb-board/README.md), and its output is committed in `assets/climb-board/`. Writes from a page need the token the server put into that page.
+The graph page (`/`) is plain HTML and JavaScript in [`assets/`](assets), while `/plans` and `/climb` (including the structure drawing board) are served from the Angular app built by [`apps/vault-view`](../../../apps/vault-view/README.md) via Nx build dependency. Writes from a page need the token the server put into that page.
 
 Start it with `npm run coach -- view`.
 

@@ -1,9 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  input,
-} from '@angular/core';
+import { Component, inject, input } from '@angular/core';
 import {
   NgDiagramModelService,
   NgDiagramPortComponent,
@@ -13,29 +8,28 @@ import {
   type SimpleNode,
 } from 'ng-diagram';
 
-export interface ConceptData {
+export interface BoardConceptData {
   path: string;
   title: string;
 }
-export interface LayerData {
+
+export interface BoardLayerData {
   name: string;
 }
 
 @Component({
-  selector: 'cb-concept-node',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  selector: 'vault-concept-node',
   template: `<div class="concept" [title]="node().data.path">
     {{ node().data.title }}
   </div>`,
 })
-export class ConceptNodeComponent implements NgDiagramNodeTemplate<ConceptData> {
-  readonly node = input.required<SimpleNode<ConceptData>>();
+export class ConceptNodeComponent implements NgDiagramNodeTemplate<BoardConceptData> {
+  public readonly node = input.required<SimpleNode<BoardConceptData>>();
 }
 
 @Component({
-  selector: 'cb-layer-node',
+  selector: 'vault-layer-node',
   imports: [NgDiagramPortComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="layer" [class.highlighted]="node().highlighted">
       <input
@@ -52,11 +46,11 @@ export class ConceptNodeComponent implements NgDiagramNodeTemplate<ConceptData> 
     <ng-diagram-port id="builds-on" type="source" side="bottom" />
   `,
 })
-export class LayerNodeComponent implements NgDiagramGroupNodeTemplate<LayerData> {
-  readonly node = input.required<GroupNode<LayerData>>();
+export class LayerNodeComponent implements NgDiagramGroupNodeTemplate<BoardLayerData> {
+  public readonly node = input.required<GroupNode<BoardLayerData>>();
   private readonly model = inject(NgDiagramModelService);
 
-  rename(name: string): void {
+  public rename(name: string): void {
     this.model.updateNodeData(this.node().id, { ...this.node().data, name });
   }
 }
