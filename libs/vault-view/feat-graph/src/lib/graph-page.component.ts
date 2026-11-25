@@ -1,158 +1,126 @@
 import { Component, inject, viewChild } from '@angular/core';
-import {
-  GraphStore,
-  type GraphNodeDto,
-} from '@ai-coach/vault-view-data-access';
-import {
-  bucketOfNode,
-  fillOfNode,
-  GRAPH_BUCKETS,
-  isGlobalShortcut,
-  labelOf,
-} from '@ai-coach/vault-view-util';
+import { GraphStore } from '@ai-coach/vault-view-data-access';
+import { isGlobalShortcut } from '@ai-coach/vault-view-util';
+import { GraphCanvasComponent } from './graph-canvas.component.js';
 import { GraphDetailPanelComponent } from './graph-detail-panel.component.js';
 import { GraphFiltersComponent } from './graph-filters.component.js';
 
 @Component({
   selector: 'vault-graph-page',
-  imports: [GraphFiltersComponent, GraphDetailPanelComponent],
+  imports: [
+    GraphCanvasComponent,
+    GraphFiltersComponent,
+    GraphDetailPanelComponent,
+  ],
   host: {
     '(document:keydown)': 'onKeydown($event)',
   },
   template: `
-    <div class="vault-graph-shell">
-      @if (store.filtersOpen()) {
-        <vault-graph-filters />
-      }
+    <vault-graph-canvas />
 
-      <section class="vault-graph-stage">
-        <div class="stage-bar">
-          <button
-            type="button"
-            class="icon-btn"
-            [attr.aria-pressed]="store.filtersOpen()"
-            (click)="store.toggleFilters()"
-          >
-            <span class="txt">Filters</span>
-          </button>
-          <span class="status">
-            {{ store.visibleNodes().length }} of {{ store.nodes().length }}
-            notes
-          </span>
-        </div>
+    <button
+      type="button"
+      class="icon-btn glass filters-toggle hide-present"
+      [class.open]="store.filtersOpen()"
+      [attr.aria-pressed]="store.filtersOpen()"
+      title="Toggle filters (/)"
+      (click)="store.toggleFilters()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 6h16M7 12h10M10 18h4" />
+      </svg>
+      <span class="txt">Filters</span>
+    </button>
 
-        @if (store.error(); as err) {
-          <p class="err">{{ err }}</p>
-        } @else {
-          <div class="node-grid">
-            @for (n of store.visibleNodes().slice(0, 120); track n.id) {
-              <button
-                type="button"
-                class="node-card"
-                [class.selected]="store.selectedId() === n.id"
-                (click)="store.select(n.id)"
-              >
-                <i class="dot" [style.background]="fillOf(n)"></i>
-                <span class="meta">
-                  <b>{{ n.title }}</b>
-                  <small>{{ bucketLabel(n) }}</small>
-                </span>
-              </button>
-            }
-          </div>
-        }
-      </section>
+    @if (store.filtersOpen()) {
+      <div class="filters-dock hide-present">
+        <vault-graph-filters (searchSubmit)="onSearchSubmit()" />
+      </div>
+    }
 
+    @if (store.error(); as err) {
+      <div class="glass error-banner" role="alert">{{ err }}</div>
+    }
+
+    <div class="detail-dock">
       <vault-graph-detail-panel />
     </div>
   `,
   styles: `
-    .vault-graph-shell {
-      display: flex;
-      gap: 16px;
-      height: 100vh;
-      padding: 92px 16px 16px;
-    }
-    .vault-graph-stage {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      overflow: auto;
-    }
-    .stage-bar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .status {
-      font-size: 12.5px;
-      color: var(--muted);
-    }
-    .node-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-      gap: 8px;
-      padding-bottom: 16px;
-    }
-    .node-card {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
+    .filters-toggle {
+      position: fixed;
+      top: 92px;
+      left: 16px;
+      z-index: 5;
       border-radius: 12px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      color: inherit;
-      font: inherit;
-      text-align: left;
-      cursor: pointer;
+      transition: left 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
-    .node-card:hover {
-      border-color: var(--line-strong);
+    .filters-toggle.open {
+      left: 300px;
     }
-    .node-card.selected {
-      border-color: var(--accent);
-      background: var(--accent-soft);
+    .filters-dock {
+      position: fixed;
+      top: 92px;
+      left: 16px;
+      bottom: 16px;
+      z-index: 4;
     }
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex: none;
+    .detail-dock {
+      position: fixed;
+      top: 92px;
+      right: 16px;
+      bottom: 16px;
+      z-index: 4;
     }
-    .meta {
-      min-width: 0;
-      flex: 1;
-    }
-    .meta b {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .meta small {
-      color: var(--muted);
-      font-size: 11.5px;
-    }
-    .err {
+    .error-banner {
+      position: fixed;
+      top: 92px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 6;
+      padding: 10px 16px;
       color: var(--wrong);
+      font-size: 13px;
+    }
+    @media (max-width: 960px) {
+      .filters-toggle.open {
+        left: 16px;
+      }
+      .filters-dock {
+        top: auto;
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        max-height: 38vh;
+      }
+      .detail-dock {
+        top: auto;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        max-height: 52vh;
+      }
     }
   `,
 })
 export class GraphPageComponent {
   public readonly store = inject(GraphStore);
   private readonly filters = viewChild(GraphFiltersComponent);
+  private readonly canvas = viewChild(GraphCanvasComponent);
 
-  public fillOf(n: GraphNodeDto): string {
-    return fillOfNode(n);
-  }
-
-  public bucketLabel(n: GraphNodeDto): string {
-    return labelOf(GRAPH_BUCKETS, bucketOfNode(n));
+  public onSearchSubmit(): void {
+    const q = this.store.query().trim();
+    if (!q) return;
+    const shown = this.store.canvasVisibleIds();
+    const hit =
+      this.store
+        .nodes()
+        .find((n) => shown.has(n.id) && this.store.matchesQuery(n)) ??
+      this.store.nodes().find((n) => this.store.matchesQuery(n));
+    if (!hit) return;
+    this.store.expandBookForNode(hit);
+    this.store.select(hit.id);
+    this.canvas()?.frameNode(hit.id);
   }
 
   public onKeydown(ev: KeyboardEvent): void {
@@ -161,8 +129,35 @@ export class GraphPageComponent {
       ev.preventDefault();
       if (!this.store.filtersOpen()) this.store.toggleFilters();
       setTimeout(() => this.filters()?.focusSearch(), 0);
-    } else if (ev.key === 'Escape' && this.store.selectedId()) {
-      this.store.select(null);
+      return;
+    }
+    if (ev.key === 'f' || ev.key === 'F') {
+      this.canvas()?.fitAll();
+      return;
+    }
+    if (ev.key === '+' || ev.key === '=') {
+      this.canvas()?.zoomIn();
+      return;
+    }
+    if (ev.key === '-' || ev.key === '_') {
+      this.canvas()?.zoomOut();
+      return;
+    }
+    if (ev.key === 'Escape') {
+      const selPage = this.store.selectedPage();
+      if (selPage) {
+        this.store.clearSelectedPage();
+        return;
+      }
+      const sel = this.store.selectedNode();
+      if (sel?.book) {
+        this.store.select(sel.book);
+        this.canvas()?.frameNode(sel.book);
+        return;
+      }
+      if (sel) {
+        this.store.select(null);
+      }
     }
   }
 }

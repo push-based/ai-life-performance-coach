@@ -5,3 +5,4 @@ export * from './lib/plans.js';
 export * from './lib/climb.js';
 export * from './lib/markdown.js';
 export * from './lib/graph.js';
+export * from './lib/graph-layout.js';
