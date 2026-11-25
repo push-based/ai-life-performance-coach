@@ -11,6 +11,7 @@
 | Intermediate Packet | `1.Projects/<P>/Intermediate Packets/`                                                                                                                 | the reusable output harvested when a workstream is done. Always write "Intermediate Packet" in full, never "IP"                                                                                                                                                                                            |
 
 Status vocabulary:
+
 - Projects and areas: `todo | in-progress | blocked | done`.
 - Workstreams: `draft | ready | in-progress | finished | migrated` (legacy `todo` reads as `ready` and `done` as `finished`).
 
