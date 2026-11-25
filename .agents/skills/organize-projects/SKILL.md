@@ -45,7 +45,7 @@ For a **recurring yearly project** (`rules.md`), also add the hand-off task to s
 
 ## Create a workstream
 
-Settle: the project, the name, `status` (`todo` or `in-progress`), one paragraph on what it delivers and when it is done, a link to its area if it has one, and its first tasks (shaped as in `add-task`, with full Tasks syntax: sizes, dates, `🔁`, `🆔`/`⛔`, subtasks).
+Settle: the project, the name, `status` (`draft`, `ready`, `in-progress`, `finished` or `migrated`, default `draft`), one paragraph on what it delivers and when it is done, a link to its area if it has one, and its first tasks (shaped as in `add-task`, with full Tasks syntax: sizes, dates, `🔁`, `🆔`/`⛔`, subtasks).
 
 A note workstream holds its tasks in one note; a **folder** workstream (`Workstreams/<W>/<W>.md`) can later receive task notes, pictures and files. Prefer a folder when the workstream will collect files or many batches of tasks (Marketing); a note when it is a single list (Deep clean).
 
@@ -83,8 +83,8 @@ The `add_tasks` preview can only run once the workstream note exists: execute `c
 On request, or when a planning skill finds trouble, list from `planning_overview`:
 
 - projects without `deadline` or `done_when`, and workstreams and areas without `status`;
-- projects with all workstreams `done`: ready to close;
-- workstreams `done`: ready to harvest;
+- projects with all workstreams `finished` or `migrated`: ready to close;
+- workstreams `finished`: ready to harvest;
 - open tasks with no size;
 - notes the planner warns about.
 
@@ -92,7 +92,7 @@ Fix what the user agrees to: `set_frontmatter` for a missing `status`, `deadline
 
 ## Finish a workstream
 
-1. Show its open tasks first; each is done (`update_task` `state: "done"`), dropped (`state: "cancelled"`) or moved elsewhere. Then `set_frontmatter {note, set: {status: "done"}}`.
+1. Show its open tasks first; each is done (`update_task` `state: "done"`), dropped (`state: "cancelled"`) or moved elsewhere. Then `set_frontmatter {note, set: {status: "finished"}}`.
 2. `harvest_workstream {project, workstream}` lists candidates. Go through them with the user: which would another project start from (a checklist, a template, a message, a design)? Name each packet for its reuse ("Speaker announcement checklist") and describe it in the user's words.
-3. Preview with `packets`, show, **ask**, execute. Each becomes a note in `1.Projects/<P>/Intermediate Packets/`.
+3. Preview with `packets`, show, **ask**, execute. Each becomes a note in `1.Projects/<P>/Intermediate Packets/`, and the workstream's status becomes `migrated`.
 4. When the whole project is done, archiving it (`archive_project`, ADR-AIC-0022 for which knowledge notes to keep) moves the packets to `3.Resources/Intermediate Packets/<P>/`.

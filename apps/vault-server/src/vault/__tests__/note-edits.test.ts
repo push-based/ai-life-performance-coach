@@ -950,7 +950,7 @@ describe('create_workstream', () => {
     expect(
       read('1.Projects/DevFest2026/Workstreams/Sponsors/Sponsors.md'),
     ).toBe(
-      '---\nstatus: todo\narea: "[[Sport]]"\n---\n# Sponsors\n\nWho pays for what.\n',
+      '---\nstatus: draft\narea: "[[Sport]]"\n---\n# Sponsors\n\nWho pays for what.\n',
     );
     expect(read('1.Projects/DevFest2026/DevFest2026.md')).toMatch(
       /## Workstreams\n\n- \[\[Talks\]\]\n- \[\[Sponsors\]\]\n$/,

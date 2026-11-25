@@ -413,7 +413,7 @@ export interface Vault {
   plansView(span?: string, by?: string): Promise<PlansView | { error: string }>;
 }
 
-export type HarvestResult = Omit<HarvestPlan, 'writes'> & {
+export type HarvestResult = Omit<HarvestPlan, 'writes' | 'updates'> & {
   executed: boolean;
   contents: Record<string, string>;
 };
@@ -876,7 +876,7 @@ export function createVault(deps: VaultDeps, opts: VaultOptions = {}): Vault {
         packets,
         localDate(now()),
       );
-      const { writes, ...shown } = plan;
+      const { writes, updates: _updates, ...shown } = plan;
       const ok =
         execute &&
         !plan.errors.length &&

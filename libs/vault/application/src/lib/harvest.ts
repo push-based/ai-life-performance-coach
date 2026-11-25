@@ -1,6 +1,7 @@
 import type { NoteStore } from './ports/note-store.js';
 import { posix } from '@ai-coach/util-path';
 import { safeName } from './filing.js';
+import { setFrontmatter } from './note-edits.js';
 import {
   noteResolver,
   DATED_SIGNIFIER,
@@ -39,6 +40,8 @@ export interface HarvestPlan {
   collisions: string[];
 
   writes: Record<string, string>;
+
+  updates: Record<string, string>;
 
   copies: { from: string; to: string }[];
 }
@@ -116,6 +119,7 @@ export function harvestWorkstream(
     warnings: [],
     collisions: [],
     writes: {},
+    updates: {},
     copies: [],
   };
   const p = planning(tree, notes);
@@ -135,9 +139,9 @@ export function harvestWorkstream(
     );
     return out;
   }
-  if (ws.status !== 'done')
+  if (ws.status !== 'finished')
     out.errors.push(
-      `${workstream} is ${ws.status ?? 'without a status'}: set its status to done first, then harvest it`,
+      `${workstream} is ${ws.status ?? 'without a status'}: set its status to finished first, then harvest it`,
     );
 
   const byPath = new Map(notes.map((n) => [n.path, n]));
@@ -264,6 +268,18 @@ export function harvestWorkstream(
   }
   if (!out.packets.length && !out.errors.length)
     out.warnings.push('no packet written');
+  if (
+    out.packets.length &&
+    !out.errors.length &&
+    !out.collisions.length &&
+    ws.note
+  ) {
+    const statusEdit = setFrontmatter(tree, notes, ws.note, {
+      status: 'migrated',
+    });
+    if (statusEdit.writes[ws.note])
+      out.updates[ws.note] = statusEdit.writes[ws.note];
+  }
   return out;
 }
 
@@ -276,6 +292,8 @@ export async function executeHarvest(
   for (const c of plan.copies) await store.copyFile(c.from, c.to);
   for (const [path, text] of Object.entries(plan.writes))
     await store.writeText(path, text, { create: true });
+  for (const [path, text] of Object.entries(plan.updates))
+    await store.replaceText(path, text);
 }
 
 export const isPacket = (n: VaultNote) => n.frontmatter.type === PACKET_TYPE;

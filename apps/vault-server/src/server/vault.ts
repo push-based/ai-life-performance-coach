@@ -43,7 +43,7 @@ Show the user a filing preview before executing it: moves change where their not
 Every planning write previews first and returns the versions of the notes it changes: show the user the before/after, then re-run with execute: true and those versions, so a note edited in Obsidian meanwhile is refused rather than overwritten
 - 'roll_over' — at the start of a new week, month or quarter, move the closed period's open work into it at high priority with a #slipped/<period> tag; preview and show the user what slipped first
 - 'review_period' — where a period's effort went per project, workstream and area, how its goals stand down the chain, and what slipped
-- 'harvest_workstream' — when a workstream is done, list its candidates, agree with the user which are reusable, and write them as Intermediate Packets (always write the name in full, never 'IP')
+- 'harvest_workstream' — when a workstream is finished, list its candidates, agree with the user which are reusable, write them as Intermediate Packets (always write the name in full, never 'IP'), and mark the workstream migrated
 
 Only notes under 3.Resources are sparred, raw resources included. Sessions live in Coach/sessions/; a note's coach_id ties it to its sessions wherever it moves.
 

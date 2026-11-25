@@ -152,12 +152,41 @@ describe('planning', () => {
       ['Expo', '1.Projects/Expo/Expo.md', 'in-progress'],
     ]);
     expect(p.projects[1].workstreams.map((w) => [w.name, w.status])).toEqual([
-      ['Talks', 'todo'],
+      ['Talks', 'ready'],
     ]);
     expect(p.areas.map((a) => a.name)).toEqual(['Health']);
     expect(p.tasks.map((t) => t.text)).toEqual(['Book the venue', 'Walk']);
     expect(p.warnings).toContain(
       '1.Projects/Empty: no project note 1.Projects/Empty/Empty.md',
     );
+  });
+
+  it('parses the five workstream statuses and maps legacy todo and done', () => {
+    const notes = [
+      note('1.Projects/Expo/Expo.md', '---\nstatus: in-progress\n---\n'),
+      note('1.Projects/Expo/Workstreams/A.md', '---\nstatus: draft\n---\n'),
+      note('1.Projects/Expo/Workstreams/B.md', '---\nstatus: ready\n---\n'),
+      note(
+        '1.Projects/Expo/Workstreams/C.md',
+        '---\nstatus: in-progress\n---\n',
+      ),
+      note('1.Projects/Expo/Workstreams/D.md', '---\nstatus: finished\n---\n'),
+      note('1.Projects/Expo/Workstreams/E.md', '---\nstatus: migrated\n---\n'),
+      note('1.Projects/Expo/Workstreams/F.md', '---\nstatus: done\n---\n'),
+      note('1.Projects/Expo/Workstreams/G.md', '---\nstatus: unknown\n---\n'),
+    ];
+    const p = planning(listingOf(notes.map((n) => n.path)), notes);
+    expect(p.projects[0].workstreams.map((w) => [w.name, w.status])).toEqual([
+      ['A', 'draft'],
+      ['B', 'ready'],
+      ['C', 'in-progress'],
+      ['D', 'finished'],
+      ['E', 'migrated'],
+      ['F', 'finished'],
+      ['G', null],
+    ]);
+    expect(p.warnings).toEqual([
+      '1.Projects/Expo/Workstreams/G.md: status "unknown" is not one of draft, ready, in-progress, finished, migrated',
+    ]);
   });
 });

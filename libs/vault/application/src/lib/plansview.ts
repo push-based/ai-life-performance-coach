@@ -12,6 +12,7 @@ import {
   type Owner,
   type PlanLevel,
   type Status,
+  type WorkstreamStatus,
   type VaultNote,
   type VaultTree,
 } from '@ai-coach/vault-domain';
@@ -44,7 +45,7 @@ export interface Row {
 
   project: string | null;
   archived: boolean;
-  status: Status | null;
+  status: Status | WorkstreamStatus | null;
 
   note: string | null;
   deadline: string | null;

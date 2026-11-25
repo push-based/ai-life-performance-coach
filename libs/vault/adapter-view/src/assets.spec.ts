@@ -26,4 +26,26 @@ describe('view assets', () => {
     expect(html).toContain('.mark.hex');
     expect(html).toContain('id="plan-levels"');
   });
+
+  it('define distinct workstream state colours in dark and light themes and filter chips', () => {
+    const html = readFileSync(
+      new URL('../assets/vault-view.html', import.meta.url),
+      'utf-8',
+    );
+    for (const state of [
+      'draft',
+      'ready',
+      'in-progress',
+      'finished',
+      'migrated',
+    ]) {
+      const matches = html.match(new RegExp(`--ws-${state}:`, 'g')) ?? [];
+      expect(matches.length, `--ws-${state}`).toBe(2);
+    }
+    expect(html).toContain('.mark.ws-draft');
+    expect(html).toContain('.mark.ws-ready');
+    expect(html).toContain('.mark.ws-finished');
+    expect(html).toContain('.mark.ws-migrated');
+    expect(html).toContain('id="workstream-states"');
+  });
 });

@@ -10,7 +10,10 @@
 | Plan                | `Plans/Yearly/YYYY.md`, `Plans/Quarterly/YYYY-Qn.md`, `Plans/Monthly/YYYY-MM.md`, `Plans/Weekly/YYYY-Www.md`, `Plans/Daily/YYYY/M-Month/YYYY-MM-DD.md` | made from `Plans/Templates/`. A day sits in its year's folder and its month's folder, such as `2026/11-November/`; take a day plan's path from `plan_period`, `plan_days` or `planning_overview`, since a vault not yet moved by `init_vault` keeps old days at `Plans/Daily/YYYY-MM-DD.md` (ADR-AIC-0035) |
 | Intermediate Packet | `1.Projects/<P>/Intermediate Packets/`                                                                                                                 | the reusable output harvested when a workstream is done. Always write "Intermediate Packet" in full, never "IP"                                                                                                                                                                                            |
 
-Status vocabulary, for projects, workstreams and areas: `todo | in-progress | blocked | done`.
+Status vocabulary:
+
+- Projects and areas: `todo | in-progress | blocked | done`.
+- Workstreams: `draft | ready | in-progress | finished | migrated` (legacy `todo` reads as `ready` and `done` as `finished`).
 
 A task belongs to the note it is written in: a task in a workstream note (or any note in a folder workstream) belongs to that workstream, a task anywhere else in a project folder belongs to the project, a task in an area note belongs to the area. A task in a plan belongs to whatever its **first** link names.
 

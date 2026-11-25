@@ -19,6 +19,8 @@ import {
   planning,
   planOf,
   STATUSES,
+  WORKSTREAM_STATUSES,
+  isWorkstreamPath,
   SIZE_WEIGHTS,
   WORKSTREAMS_FOLDER,
   PACKETS_FOLDER,
@@ -889,13 +891,16 @@ export function setFrontmatter(
       );
     if (MACHINE_KEYS.includes(k))
       out.errors.push(`${k} is written by the vault tools, not by hand`);
+    const allowedStatuses = isWorkstreamPath(note.path)
+      ? WORKSTREAM_STATUSES
+      : STATUSES;
     if (
       k === 'status' &&
       v !== null &&
-      !(STATUSES as readonly string[]).includes(String(v))
+      !(allowedStatuses as readonly string[]).includes(String(v))
     )
       out.errors.push(
-        `status "${String(v)}" is not one of ${STATUSES.join(', ')}`,
+        `status "${String(v)}" is not one of ${allowedStatuses.join(', ')}`,
       );
     if (
       k === 'deadline' &&
@@ -1125,9 +1130,11 @@ export function createWorkstream(
     out.errors.push(`${pr.name} already has a workstream ${name}`);
     return out;
   }
-  const status = input.status ?? 'todo';
-  if (!(STATUSES as readonly string[]).includes(status))
-    out.errors.push(`status "${status}" is not one of ${STATUSES.join(', ')}`);
+  const status = input.status ?? 'draft';
+  if (!(WORKSTREAM_STATUSES as readonly string[]).includes(status))
+    out.errors.push(
+      `status "${status}" is not one of ${WORKSTREAM_STATUSES.join(', ')}`,
+    );
   const area = input.area
     ? p.areas.find((a) => a.name === input.area)
     : undefined;
