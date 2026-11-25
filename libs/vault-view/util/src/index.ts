@@ -3,3 +3,5 @@ export * from './lib/shortcuts.js';
 export * from './lib/links.js';
 export * from './lib/plans.js';
 export * from './lib/climb.js';
+export * from './lib/markdown.js';
+export * from './lib/graph.js';

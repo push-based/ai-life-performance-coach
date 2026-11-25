@@ -5,3 +5,5 @@ export * from './lib/plans.dto.js';
 export * from './lib/plans.store.js';
 export * from './lib/climb.dto.js';
 export * from './lib/climb.store.js';
+export * from './lib/graph.dto.js';
+export * from './lib/graph.store.js';

@@ -23,6 +23,9 @@
       ],
       "@ai-coach/vault-view-feat-climb": [
         "../../libs/vault-view/feat-climb/src/index.ts"
+      ],
+      "@ai-coach/vault-view-feat-graph": [
+        "../../libs/vault-view/feat-graph/src/index.ts"
       ]
     }
   },
