@@ -176,12 +176,7 @@ export class ShellHeaderComponent {
   public readonly navItems = input<ShellNavItem[]>([
     { label: 'Graph', route: '/', title: 'Vault link graph', external: true },
     { label: 'Plans', route: '/plans', title: 'Plans: goals and effort' },
-    {
-      label: 'Climb',
-      route: '/climb',
-      title: 'Climb: seven learning steps',
-      external: true,
-    },
+    { label: 'Climb', route: '/climb', title: 'Climb: seven learning steps' },
   ]);
 
   public readonly themeToggle = output<void>();

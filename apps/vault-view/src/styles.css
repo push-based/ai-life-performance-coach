@@ -1,3 +1,5 @@
+@import 'ng-diagram/styles.css';
+
 :root {
   color-scheme: dark;
   --font:
@@ -40,6 +42,13 @@
   --slip: #fbbf24;
   --done-rgb: 52, 211, 153;
   --planned: #8fa8ff;
+  --done: #34d399;
+  --done-soft: rgba(52, 211, 153, 0.18);
+  --teach: #fbbf24;
+  --teach-soft: rgba(251, 191, 36, 0.2);
+  --wrong: #fb7185;
+  --canvas: #0b101b;
+  --ink: #eef2f8;
 }
 
 :root[data-theme='light'] {
@@ -79,6 +88,13 @@
   --slip: #d97706;
   --done-rgb: 16, 185, 129;
   --planned: #4f6ef7;
+  --done: #059669;
+  --done-soft: rgba(5, 150, 105, 0.14);
+  --teach: #d97706;
+  --teach-soft: rgba(217, 119, 6, 0.16);
+  --wrong: #e11d48;
+  --canvas: #ffffff;
+  --ink: #0f172a;
 }
 
 * {
@@ -160,4 +176,54 @@ body {
 
 body.present .hide-present {
   display: none;
+}
+
+vault-climb-board {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+vault-climb-board ng-diagram {
+  flex: 1;
+}
+
+vault-climb-board .concept {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font: 13px/1.2 var(--font);
+  background: var(--ngd-node-bg-primary-default);
+  color: var(--ngd-txt-primary-default);
+  border: 1px solid var(--ngd-node-stroke-primary-default);
+  white-space: nowrap;
+  cursor: grab;
+}
+
+vault-climb-board .layer {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  padding: 8px;
+  border: 1.5px dashed var(--ngd-node-stroke-primary-default);
+  background: color-mix(
+    in srgb,
+    var(--ngd-node-bg-primary-default) 55%,
+    transparent
+  );
+}
+
+vault-climb-board .layer.highlighted {
+  border-style: solid;
+  border-color: var(--ngd-colors-acc-500, #8fa8ff);
+}
+
+vault-climb-board .layer .name {
+  width: 100%;
+  font: 600 14px/1.2 var(--font);
+  background: transparent;
+  color: var(--ngd-txt-primary-default);
+  border: none;
+  border-bottom: 1px solid var(--ngd-ui-border-color);
+  padding: 4px 2px;
+  outline: none;
 }

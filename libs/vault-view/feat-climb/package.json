@@ -1,0 +1,27 @@
+{
+  "name": "@ai-coach/vault-view-feat-climb",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "@org/source": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "nx": {
+    "tags": [
+      "scope:vault-view",
+      "architecture:layered",
+      "type:feat"
+    ]
+  },
+  "dependencies": {
+    "@ai-coach/vault-view-data-access": "*",
+    "@ai-coach/vault-view-ui": "*",
+    "@ai-coach/vault-view-util": "*",
+    "@angular/common": "21.2.25",
+    "@angular/core": "21.2.25",
+    "ng-diagram": "1.4.0"
+  }
+}
