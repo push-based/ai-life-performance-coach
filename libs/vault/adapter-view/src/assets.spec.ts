@@ -1,37 +1,46 @@
 import { readFileSync } from 'node:fs';
 
+const APP_STYLES = new URL(
+  '../../../../apps/vault-view/src/styles.css',
+  import.meta.url,
+);
+const APP_INDEX = new URL(
+  '../../../../apps/vault-view/src/index.html',
+  import.meta.url,
+);
+const FILTERS_COMPONENT = new URL(
+  '../../../vault-view/feat-graph/src/lib/graph-filters.component.ts',
+  import.meta.url,
+);
+
 describe('view assets', () => {
   it('reference nothing off the machine', () => {
-    for (const file of ['vault-view.html', 'vault-view.js']) {
-      const text = readFileSync(
-        new URL(`../assets/${file}`, import.meta.url),
-        'utf-8',
-      );
+    for (const [label, url] of [
+      ['index.html', APP_INDEX],
+      ['styles.css', APP_STYLES],
+    ] as const) {
+      const text = readFileSync(url, 'utf-8');
       const urls = (
         text.match(/\b(?:https?:)?\/\/[\w.-]+\.[a-z]{2,}[^\s"'`)]*/gi) ?? []
       ).filter((u) => u !== 'http://www.w3.org/2000/svg');
-      expect(urls, file).toEqual([]);
+      expect(urls, label).toEqual([]);
     }
   });
 
   it('define distinct plan level colours in dark and light themes and hexagon marks', () => {
-    const html = readFileSync(
-      new URL('../assets/vault-view.html', import.meta.url),
-      'utf-8',
-    );
+    const css = readFileSync(APP_STYLES, 'utf-8');
+    const filters = readFileSync(FILTERS_COMPONENT, 'utf-8');
     for (const level of ['year', 'quarter', 'month', 'week', 'day']) {
-      const matches = html.match(new RegExp(`--plan-${level}:`, 'g')) ?? [];
+      const matches = css.match(new RegExp(`--plan-${level}:`, 'g')) ?? [];
       expect(matches.length, `--plan-${level}`).toBe(2);
     }
-    expect(html).toContain('.mark.hex');
-    expect(html).toContain('id="plan-levels"');
+    expect(filters).toContain('.mark.hex');
+    expect(filters).toContain('Plan levels');
   });
 
   it('define distinct workstream state colours in dark and light themes and filter chips', () => {
-    const html = readFileSync(
-      new URL('../assets/vault-view.html', import.meta.url),
-      'utf-8',
-    );
+    const css = readFileSync(APP_STYLES, 'utf-8');
+    const filters = readFileSync(FILTERS_COMPONENT, 'utf-8');
     for (const state of [
       'draft',
       'ready',
@@ -39,13 +48,13 @@ describe('view assets', () => {
       'finished',
       'migrated',
     ]) {
-      const matches = html.match(new RegExp(`--ws-${state}:`, 'g')) ?? [];
+      const matches = css.match(new RegExp(`--ws-${state}:`, 'g')) ?? [];
       expect(matches.length, `--ws-${state}`).toBe(2);
     }
-    expect(html).toContain('.mark.ws-draft');
-    expect(html).toContain('.mark.ws-ready');
-    expect(html).toContain('.mark.ws-finished');
-    expect(html).toContain('.mark.ws-migrated');
-    expect(html).toContain('id="workstream-states"');
+    expect(filters).toContain('.mark.ws-draft');
+    expect(filters).toContain('.mark.ws-ready');
+    expect(filters).toContain('.mark.ws-finished');
+    expect(filters).toContain('.mark.ws-migrated');
+    expect(filters).toContain('Workstream states');
   });
 });

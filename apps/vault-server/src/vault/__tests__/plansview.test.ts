@@ -255,7 +255,7 @@ describe('the plans page on the view server', () => {
     );
     expect((await get('/main.js')).status).toBe(200);
     expect((await get('/styles.css')).status).toBe(200);
-    expect((await get('/')).body).toContain('href="/plans"');
+    expect((await get('/')).body).toContain('<vault-root></vault-root>');
   });
 
   it('answers /plans.json, defaulting to this quarter by week, and 400 for a bad span', async () => {
