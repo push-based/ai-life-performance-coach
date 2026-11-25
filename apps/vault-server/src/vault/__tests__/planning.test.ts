@@ -314,7 +314,7 @@ describe('planning', () => {
         'Workshops',
         '1.Projects/Expo2026/Workstreams/Workshops.md',
         '1.Projects/Expo2026/Workstreams/Workshops.md',
-        'done',
+        'finished',
         1,
       ],
     ]);

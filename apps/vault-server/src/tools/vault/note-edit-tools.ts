@@ -241,7 +241,7 @@ export function setFrontmatterTool(vault: Vault): ToolDef {
   return defineTool({
     name: 'set_frontmatter',
     description:
-      "Set or remove frontmatter keys of a note under the PARA folders or Plans/ (ADR-KI-0064), changing only those keys' lines: a project's status, deadline or done_when, a workstream's or area's status. status must be todo, in-progress, blocked or done, and deadline YYYY-MM-DD; null removes a key. Refuses keys the vault tools own (coach_id, converted_from, raw_role, pages, climb, group, groups) and raw text. Preview, then execute: true with the preview's versions.",
+      "Set or remove frontmatter keys of a note under the PARA folders or Plans/ (ADR-KI-0064), changing only those keys' lines: a project's status, deadline or done_when, a workstream's or area's status. Project and area status must be todo, in-progress, blocked or done; workstream status must be draft, ready, in-progress, finished or migrated; deadline is YYYY-MM-DD; null removes a key. Refuses keys the vault tools own (coach_id, converted_from, raw_role, pages, climb, group, groups) and raw text. Preview, then execute: true with the preview's versions.",
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
@@ -325,7 +325,7 @@ export function createWorkstreamTool(vault: Vault): ToolDef {
   return defineTool({
     name: 'create_workstream',
     description:
-      "Start a workstream in an active project (ADR-KI-0064): writes 1.Projects/<Project>/Workstreams/<Name>.md, or <Name>/<Name>.md with folder: true for one that will hold several notes or files, with its status (default todo), an optional description and an optional area linked in its frontmatter, and lists it under the project note's ## Workstreams. Preview, then execute: true with the preview's versions.",
+      "Start a workstream in an active project (ADR-KI-0064): writes 1.Projects/<Project>/Workstreams/<Name>.md, or <Name>/<Name>.md with folder: true for one that will hold several notes or files, with its status (default draft), an optional description and an optional area linked in its frontmatter, and lists it under the project note's ## Workstreams. Preview, then execute: true with the preview's versions.",
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
@@ -335,7 +335,9 @@ export function createWorkstreamTool(vault: Vault): ToolDef {
       project: z.string().describe('The project folder name, e.g. DevFest2026'),
       name: z.string().min(1).describe('e.g. Talks'),
       folder: z.boolean().optional(),
-      status: z.enum(['todo', 'in-progress', 'blocked', 'done']).optional(),
+      status: z
+        .enum(['draft', 'ready', 'in-progress', 'finished', 'migrated'])
+        .optional(),
       description: z.string().optional(),
       area: z.string().optional().describe('An area name, e.g. Health'),
       execute: EXECUTE,
