@@ -23,6 +23,19 @@ export function isWorkstreamPath(relPath: string): boolean {
   );
 }
 
+export function workstreamMainNotePath(relPath: string): string | null {
+  if (!isWorkstreamPath(relPath)) return null;
+  const parts = relPath.split('/');
+  if (parts.length === 4) return relPath;
+  return posix.join(
+    parts[0],
+    parts[1],
+    WORKSTREAMS_FOLDER,
+    parts[3],
+    `${parts[3]}.md`,
+  );
+}
+
 export function isProjectNotePath(relPath: string): boolean {
   const parts = relPath.split('/');
   return (
@@ -61,6 +74,24 @@ const PERIOD: Record<PlanLevel, RegExp> = {
 
 export const STATUSES = ['todo', 'in-progress', 'blocked', 'done'] as const;
 export type Status = (typeof STATUSES)[number];
+
+export const WORKSTREAM_STATUSES = [
+  'draft',
+  'ready',
+  'in-progress',
+  'finished',
+  'migrated',
+] as const;
+export type WorkstreamStatus = (typeof WORKSTREAM_STATUSES)[number];
+
+export function parseWorkstreamStatus(value: unknown): WorkstreamStatus | null {
+  if (typeof value !== 'string') return null;
+  if ((WORKSTREAM_STATUSES as readonly string[]).includes(value))
+    return value as WorkstreamStatus;
+  if (value === 'todo') return 'ready';
+  if (value === 'done') return 'finished';
+  return null;
+}
 
 export const SIZE_WEIGHTS = { S: 1, M: 3, L: 8 } as const;
 export type Size = keyof typeof SIZE_WEIGHTS;
@@ -336,7 +367,7 @@ export interface Workstream {
   path: string;
 
   note: string | null;
-  status: Status | null;
+  status: WorkstreamStatus | null;
 
   notes: string[];
 }
@@ -411,6 +442,20 @@ function statusOf(
   return null;
 }
 
+function workstreamStatusOf(
+  note: VaultNote | undefined,
+  warnings: string[],
+): WorkstreamStatus | null {
+  const s = note?.frontmatter.status;
+  if (s === undefined || s === null) return null;
+  const parsed = parseWorkstreamStatus(s);
+  if (parsed) return parsed;
+  warnings.push(
+    `${note!.path}: status "${String(s)}" is not one of ${WORKSTREAM_STATUSES.join(', ')}`,
+  );
+  return null;
+}
+
 const text = (v: unknown) =>
   typeof v === 'string' && v.trim()
     ? v.trim()
@@ -472,7 +517,10 @@ export function planning(listing: VaultListing, notes: VaultNote[]): Planning {
       workstreams: units(listing, ws, notes).map((u) => ({
         ...u,
         project: name,
-        status: statusOf(byPath.get(u.note ?? ''), archived ? [] : warnings),
+        status: workstreamStatusOf(
+          byPath.get(u.note ?? ''),
+          archived ? [] : warnings,
+        ),
       })),
       packets: notes
         .filter((n) => under(n.path, posix.join(folder, PACKETS_FOLDER)))
@@ -573,7 +621,7 @@ export function planning(listing: VaultListing, notes: VaultNote[]): Planning {
   const finished = new Set<string>();
   for (const pr of projects) {
     for (const w of pr.workstreams)
-      if (pr.archived || w.status === 'done')
+      if (pr.archived || w.status === 'finished' || w.status === 'migrated')
         w.notes.forEach((n) => finished.add(n));
     if (pr.archived)
       for (const n of notes) if (under(n.path, pr.folder)) finished.add(n.path);

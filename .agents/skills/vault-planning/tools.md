@@ -192,7 +192,7 @@ Each day is planned as `plan_period` plans a day, and missing day plans are crea
 
 `{ "note": "1.Projects/Podcast/Podcast.md", "set": { "status": "in-progress", "done_when": "20 episodes published" } }`
 
-Changes only the named keys' lines. `status` is `todo | in-progress | blocked | done`, `deadline` is `YYYY-MM-DD`, `null` removes a key. Refuses `coach_id`, `converted_from`, `raw_role` and `pages`.
+Changes only the named keys' lines. `status` is `todo | in-progress | blocked | done` for projects and areas, and `draft | ready | in-progress | finished | migrated` for workstreams; `deadline` is `YYYY-MM-DD`, `null` removes a key. Refuses `coach_id`, `converted_from`, `raw_role` and `pages`.
 
 ### `edit_note`: prose and tables in a note's body
 
@@ -203,7 +203,7 @@ For a description, a table column, a project note's text, a plan's `## Review`, 
 
 ### `create_workstream`
 
-`{ "project": "Conference2026", "name": "Talks", "folder": false, "status": "todo", "description": "<one paragraph>", "area": "Public Speaking" }`
+`{ "project": "Conference2026", "name": "Talks", "folder": false, "status": "draft", "description": "<one paragraph>", "area": "Public Speaking" }`
 
 Writes `1.Projects/<P>/Workstreams/<W>.md` (or `<W>/<W>.md` with `folder: true`) with its status, description and area in frontmatter, and lists it under the project note's `## Workstreams`. The project must be active. Add its first tasks after with `add_tasks`.
 
@@ -222,7 +222,7 @@ A workstream is made with `create_workstream`, not these. A task note is for a l
 
 ### `harvest_workstream`
 
-For a workstream whose `status` is `done`: call without `packets` to list candidates, agree with the user which are worth reusing and how to describe them, then preview with `packets` and execute.
+For a workstream whose `status` is `finished` (legacy `done` also accepted): call without `packets` to list candidates, agree with the user which are worth reusing and how to describe them, then preview with `packets` and execute. Executing also sets the workstream's status to `migrated`.
 
 ## What no tool can do
 

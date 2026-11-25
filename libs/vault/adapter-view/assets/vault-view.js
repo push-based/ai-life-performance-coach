@@ -25,6 +25,13 @@
     ['week', 'Weekly'],
     ['day', 'Daily'],
   ];
+  const WORKSTREAM_STATES = [
+    ['draft', 'Draft'],
+    ['ready', 'Ready for start'],
+    ['in-progress', 'In progress'],
+    ['finished', 'Finished'],
+    ['migrated', 'Migrated to Intermediate Packet'],
+  ];
   const MASTERY = [
     ['unsparred', 'Unsparred'],
     ['attempted', 'Attempted'],
@@ -103,6 +110,7 @@
     hiddenMastery: new Set(),
     hiddenKinds: new Set(),
     hiddenPlanLevels: new Set(),
+    hiddenWorkstreamStates: new Set(),
     expanded: new Set(),
     openChapters: new Set(),
     query: '',
@@ -145,6 +153,10 @@
     !state.hidden.has(bucketOf(n)) &&
     !state.hiddenKinds.has(kindOf(n)) &&
     (!n.planLevel || !state.hiddenPlanLevels.has(n.planLevel)) &&
+    (!n.workstream ||
+      n.bucket !== 'projects' ||
+      !n.workstreamStatus ||
+      !state.hiddenWorkstreamStates.has(n.workstreamStatus)) &&
     dailyAllowed(n) &&
     (n.raw || !state.hiddenMastery.has(n.mastery));
   const matches = (n) =>
@@ -166,10 +178,19 @@
   };
   const planFill = (n) =>
     n.planLevel ? `var(--plan-${n.planLevel})` : 'var(--plans)';
+  const workstreamFill = (n) =>
+    n.workstreamStatus
+      ? `var(--ws-${n.workstreamStatus})`
+      : 'var(--workstreams)';
   const fillOf = (n) =>
     n.rawRole === 'index' && n.stage
       ? STAGE_FILL[n.stage]
-      : chapterFill(n) || (n.plan ? planFill(n) : `var(--${bucketOf(n)})`);
+      : chapterFill(n) ||
+        (n.plan
+          ? planFill(n)
+          : n.workstream && n.bucket === 'projects'
+            ? workstreamFill(n)
+            : `var(--${bucketOf(n)})`);
   const bookCounts = (book) => {
     const chapters = state.chaptersOf.get(book.id) || [];
     const complete = chapters.filter(
@@ -895,6 +916,74 @@
             };
           if (ring) el('path', { d: hex(s + 5), ...ring }, g);
           el('path', { d: hex(s), ...shape, 'stroke-linejoin': 'round' }, g);
+        } else if (
+          n.workstream &&
+          n.bucket === 'projects' &&
+          n.workstreamStatus
+        ) {
+          if (ring) el('circle', { r: r + 4.5, ...ring }, g);
+          if (n.workstreamStatus === 'draft') {
+            el(
+              'circle',
+              {
+                r,
+                class: 'shape',
+                fill,
+                'fill-opacity': 0.16,
+                stroke: selected ? 'var(--text)' : hit ? 'var(--accent)' : fill,
+                'stroke-width': selected || hit ? 2.5 : 2,
+                'stroke-dasharray': '3 2.5',
+                filter: selected ? 'url(#glow)' : '',
+              },
+              g,
+            );
+          } else if (n.workstreamStatus === 'ready') {
+            el(
+              'circle',
+              {
+                r,
+                class: 'shape',
+                fill: 'var(--bg)',
+                stroke: selected ? 'var(--text)' : hit ? 'var(--accent)' : fill,
+                'stroke-width': 2.5,
+                filter: selected ? 'url(#glow)' : '',
+              },
+              g,
+            );
+          } else if (n.workstreamStatus === 'finished') {
+            el('circle', { r, ...shape }, g);
+            el(
+              'path',
+              {
+                d: `M${(-r * 0.42).toFixed(2)},${(r * 0.04).toFixed(2)}L${(-r * 0.1).toFixed(2)},${(r * 0.36).toFixed(2)}L${(r * 0.45).toFixed(2)},${(-r * 0.32).toFixed(2)}`,
+                fill: 'none',
+                stroke: 'var(--halo)',
+                'stroke-width': 1.8,
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+              },
+              g,
+            );
+          } else if (n.workstreamStatus === 'migrated') {
+            el(
+              'circle',
+              {
+                r: r + 3.5,
+                fill: 'none',
+                stroke: fill,
+                'stroke-width': 1.6,
+                opacity: 0.85,
+              },
+              g,
+            );
+            el(
+              'circle',
+              { r: Math.max(3, r - 0.5), ...shape, 'fill-opacity': 0.78 },
+              g,
+            );
+          } else {
+            el('circle', { r, ...shape }, g);
+          }
         } else {
           if (ring) el('circle', { r: r + 4.5, ...ring }, g);
           el('circle', { r, ...shape }, g);
@@ -1683,6 +1772,17 @@
       card(
         rows([
           ['PARA', label(BUCKETS, bucketOf(n))],
+          ...(n.workstream && n.workstreamStatus
+            ? [
+                [
+                  'Status',
+                  pill(
+                    label(WORKSTREAM_STATES, n.workstreamStatus),
+                    workstreamFill(n),
+                  ),
+                ],
+              ]
+            : []),
           ...(n.raw
             ? []
             : [
@@ -2729,6 +2829,35 @@
       state.hiddenPlanLevels,
       (k) => state.nodes.filter((n) => n.planLevel === k).length,
       (k) => dot('hex', `var(--plan-${k})`),
+    );
+    build(
+      $('workstream-states'),
+      WORKSTREAM_STATES,
+      state.hiddenWorkstreamStates,
+      (k) =>
+        state.nodes.filter(
+          (n) =>
+            n.workstream && n.bucket === 'projects' && n.workstreamStatus === k,
+        ).length,
+      (k) => {
+        const color = `var(--ws-${k})`;
+        if (k === 'draft')
+          return h('i', {
+            class: 'mark ws-draft',
+            style: { borderColor: color },
+          });
+        if (k === 'ready')
+          return h('i', {
+            class: 'mark ws-ready',
+            style: { borderColor: color },
+          });
+        if (k === 'migrated')
+          return h('i', {
+            class: 'mark ws-migrated',
+            style: { background: color, color },
+          });
+        return dot(k === 'finished' ? 'ws-finished' : '', color);
+      },
     );
     build(
       $('mastery'),

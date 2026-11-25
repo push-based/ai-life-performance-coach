@@ -14,15 +14,18 @@ import {
   COACH_ROOT,
   type ParaBucket,
   type PlanLevel,
+  type WorkstreamStatus,
   buildVaultGraph,
   isPlanPath,
   isPlanTemplatePath,
   isProjectNotePath,
   isWorkstreamPath,
   parseTasks,
+  parseWorkstreamStatus,
   planOf,
   planPathIn,
   planPathOf,
+  workstreamMainNotePath,
   type Mastery,
   type VaultNote,
 } from '@ai-coach/vault-domain';
@@ -41,6 +44,7 @@ export interface VaultViewGraph {
     container: string | null;
     project: boolean;
     workstream: boolean;
+    workstreamStatus: WorkstreamStatus | null;
     plan: boolean;
     planLevel: PlanLevel | null;
     raw: boolean;
@@ -159,6 +163,14 @@ export async function writeViewGraph(
         note.rawRole === 'chapter'
           ? posix.join(posix.dirname(posix.dirname(n.id)), RAW_TEXT)
           : null;
+      const workstream = isWorkstreamPath(n.id);
+      const mainWorkstream = workstream
+        ? byPath.get(workstreamMainNotePath(n.id) ?? '')
+        : undefined;
+      const workstreamStatus = workstream
+        ? (parseWorkstreamStatus(note.frontmatter.status) ??
+          parseWorkstreamStatus(mainWorkstream?.frontmatter.status))
+        : null;
       return {
         id: n.id,
         title: n.title,
@@ -166,7 +178,8 @@ export async function writeViewGraph(
         bucket: n.bucket,
         container: n.container,
         project: isProjectNotePath(n.id),
-        workstream: isWorkstreamPath(n.id),
+        workstream,
+        workstreamStatus,
         plan: isPlanPath(n.id),
         planLevel: planOf(n.id)?.level ?? null,
         raw: n.raw,

@@ -128,7 +128,7 @@ describe('harvest_workstream', () => {
         '2026-11-30',
       ).errors,
     ).toEqual([
-      'Marketing is in-progress: set its status to done first, then harvest it',
+      'Marketing is in-progress: set its status to finished first, then harvest it',
     ]);
     expect(
       harvestWorkstream(
@@ -192,6 +192,7 @@ describe('harvest_workstream', () => {
     expect(read(`${WS}/Workshops.md`)).toContain(
       '- [x] Found ⏫ ✅ 2026-10-01',
     );
+    expect(read(`${WS}/Workshops.md`)).toContain('status: migrated');
     const edges = buildVaultGraph(await scanVault(dir))
       .edges.filter((e) => e.source === path)
       .map((e) => e.target);

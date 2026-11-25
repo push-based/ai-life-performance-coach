@@ -501,30 +501,68 @@ describe('graph labels and book folding', () => {
     ).toMatchObject({ concept: true, label: 'Idea' });
   });
 
-  it('marks workstream notes while keeping their PARA bucket', async () => {
+  it('marks workstream notes with their status while keeping their PARA bucket', async () => {
     put('1.Projects/Expo/Expo.md', '# Expo\n');
-    put('1.Projects/Expo/Workstreams/Talks.md', '# Talks\n');
+    put(
+      '1.Projects/Expo/Workstreams/Talks.md',
+      '---\nstatus: draft\n---\n# Talks\n',
+    );
+    put(
+      '1.Projects/Expo/Workstreams/Speakers.md',
+      '---\nstatus: ready\n---\n# Speakers\n',
+    );
+    put(
+      '1.Projects/Expo/Workstreams/Marketing/Marketing.md',
+      '---\nstatus: in-progress\n---\n# Marketing\n',
+    );
     put('1.Projects/Expo/Workstreams/Marketing/Merch/Badges.md', '# Badges\n');
+    put(
+      '1.Projects/Expo/Workstreams/Venue.md',
+      '---\nstatus: finished\n---\n# Venue\n',
+    );
+    put(
+      '1.Projects/Expo/Workstreams/Sponsors.md',
+      '---\nstatus: migrated\n---\n# Sponsors\n',
+    );
     put('4.Archive/Old/Workstreams/Task.md', '# Task\n');
     const graph = await vault.viewGraph();
     const node = (id: string) => graph.nodes.find((n) => n.id === id)!;
     expect(node('1.Projects/Expo/Expo.md')).toMatchObject({
       bucket: 'projects',
       workstream: false,
+      workstreamStatus: null,
     });
     expect(node('1.Projects/Expo/Workstreams/Talks.md')).toMatchObject({
       bucket: 'projects',
       workstream: true,
+      workstreamStatus: 'draft',
+    });
+    expect(node('1.Projects/Expo/Workstreams/Speakers.md')).toMatchObject({
+      bucket: 'projects',
+      workstream: true,
+      workstreamStatus: 'ready',
     });
     expect(
       node('1.Projects/Expo/Workstreams/Marketing/Merch/Badges.md'),
     ).toMatchObject({
       bucket: 'projects',
       workstream: true,
+      workstreamStatus: 'in-progress',
+    });
+    expect(node('1.Projects/Expo/Workstreams/Venue.md')).toMatchObject({
+      bucket: 'projects',
+      workstream: true,
+      workstreamStatus: 'finished',
+    });
+    expect(node('1.Projects/Expo/Workstreams/Sponsors.md')).toMatchObject({
+      bucket: 'projects',
+      workstream: true,
+      workstreamStatus: 'migrated',
     });
     expect(node('4.Archive/Old/Workstreams/Task.md')).toMatchObject({
       bucket: 'archive',
       workstream: true,
+      workstreamStatus: null,
     });
   });
 
