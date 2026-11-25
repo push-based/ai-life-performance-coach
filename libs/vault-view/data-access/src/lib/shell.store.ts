@@ -9,13 +9,13 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ShellStore {
-  readonly theme = signal<ThemeMode>(
+  public readonly theme = signal<ThemeMode>(
     resolveInitialTheme(globalThis.location?.search ?? '', readStoredTheme()),
   );
-  readonly present = signal<boolean>(
+  public readonly present = signal<boolean>(
     hasPresentQuery(globalThis.location?.search ?? ''),
   );
-  readonly refreshCount = signal(0);
+  public readonly refreshCount = signal(0);
 
   constructor() {
     effect(() => {
@@ -32,24 +32,24 @@ export class ShellStore {
     });
   }
 
-  setTheme(mode: ThemeMode, persist = true): void {
+  public setTheme(mode: ThemeMode, persist = true): void {
     this.theme.set(mode);
     if (persist) writeStoredTheme(mode);
   }
 
-  toggleTheme(): void {
+  public toggleTheme(): void {
     this.setTheme(this.theme() === 'dark' ? 'light' : 'dark', true);
   }
 
-  setPresent(active: boolean): void {
+  public setPresent(active: boolean): void {
     this.present.set(active);
   }
 
-  togglePresent(): void {
+  public togglePresent(): void {
     this.present.update((active) => !active);
   }
 
-  triggerRefresh(): void {
+  public triggerRefresh(): void {
     this.refreshCount.update((c) => c + 1);
   }
 }

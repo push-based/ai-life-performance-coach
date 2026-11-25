@@ -29,9 +29,9 @@ import { isGlobalShortcut } from '@ai-coach/vault-view-util';
   `,
 })
 export class AppComponent {
-  readonly shell = inject(ShellStore);
+  public readonly shell = inject(ShellStore);
 
-  onKeydown(ev: KeyboardEvent): void {
+  public onKeydown(ev: KeyboardEvent): void {
     if (!isGlobalShortcut(ev)) return;
     if (ev.key === 'p' || ev.key === 'P') {
       ev.preventDefault();

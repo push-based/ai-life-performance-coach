@@ -162,17 +162,17 @@ export interface ShellNavItem {
   `,
 })
 export class ShellHeaderComponent {
-  readonly title = input<string>('Vault');
-  readonly subtitle = input<string>('Second brain');
-  readonly theme = input<ThemeMode>('dark');
-  readonly present = input<boolean>(false);
-  readonly navItems = input<ShellNavItem[]>([
+  public readonly title = input<string>('Vault');
+  public readonly subtitle = input<string>('Second brain');
+  public readonly theme = input<ThemeMode>('dark');
+  public readonly present = input<boolean>(false);
+  public readonly navItems = input<ShellNavItem[]>([
     { label: 'Graph', route: '/', title: 'Vault link graph' },
     { label: 'Plans', route: '/plans', title: 'Plans: goals and effort' },
     { label: 'Climb', route: '/climb', title: 'Climb: seven learning steps' },
   ]);
 
-  readonly themeToggle = output<void>();
-  readonly presentToggle = output<void>();
-  readonly refreshClick = output<void>();
+  public readonly themeToggle = output<void>();
+  public readonly presentToggle = output<void>();
+  public readonly refreshClick = output<void>();
 }

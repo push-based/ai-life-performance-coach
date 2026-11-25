@@ -25,5 +25,5 @@ import { Component, input } from '@angular/core';
   `,
 })
 export class GlassCardComponent {
-  readonly heading = input<string>('');
+  public readonly heading = input<string>('');
 }

@@ -31,6 +31,6 @@ import {
   `,
 })
 export class ShellPlaceholderComponent {
-  readonly section = input<string>('Vault');
-  readonly description = input<string>('');
+  public readonly section = input<string>('Vault');
+  public readonly description = input<string>('');
 }

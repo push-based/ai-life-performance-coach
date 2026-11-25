@@ -28,6 +28,6 @@ import { Component, input } from '@angular/core';
   `,
 })
 export class StatusPillComponent {
-  readonly label = input.required<string>();
-  readonly color = input<string>('var(--accent)');
+  public readonly label = input.required<string>();
+  public readonly color = input<string>('var(--accent)');
 }
