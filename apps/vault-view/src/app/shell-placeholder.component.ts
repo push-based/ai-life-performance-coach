@@ -1,20 +1,21 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { Component, input } from '@angular/core';
 import {
   GlassCardComponent,
   StatusPillComponent,
 } from '@ai-coach/vault-view-ui';
 
 @Component({
-  selector: 'vv-shell-placeholder',
+  selector: 'vault-shell-placeholder',
   imports: [GlassCardComponent, StatusPillComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="placeholder">
-      <vv-glass-card [heading]="section()">
+      <vault-glass-card [heading]="section()">
         <p class="copy">{{ description() }}</p>
-        <vv-status-pill label="Angular shell ready" color="var(--complete)" />
-      </vv-glass-card>
+        <vault-status-pill
+          label="Angular shell ready"
+          color="var(--complete)"
+        />
+      </vault-glass-card>
     </div>
   `,
   styles: `
@@ -30,9 +31,6 @@ import {
   `,
 })
 export class ShellPlaceholderComponent {
-  private readonly route = inject(ActivatedRoute);
-  readonly section = () =>
-    String(this.route.snapshot.data['section'] ?? 'Vault view');
-  readonly description = () =>
-    String(this.route.snapshot.data['description'] ?? '');
+  readonly section = input<string>('Vault');
+  readonly description = input<string>('');
 }

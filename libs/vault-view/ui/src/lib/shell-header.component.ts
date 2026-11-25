@@ -1,9 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  input,
-  output,
-} from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import type { ThemeMode } from '@ai-coach/vault-view-util';
 
@@ -14,11 +9,10 @@ export interface ShellNavItem {
 }
 
 @Component({
-  selector: 'vv-shell-header',
+  selector: 'vault-shell-header',
   imports: [RouterLink, RouterLinkActive],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="glass vv-header">
+    <header class="glass vault-header">
       <div class="brand">
         <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
           <rect
@@ -121,7 +115,7 @@ export interface ShellNavItem {
     </header>
   `,
   styles: `
-    .vv-header {
+    .vault-header {
       position: fixed;
       top: 16px;
       left: 16px;
@@ -168,7 +162,7 @@ export interface ShellNavItem {
   `,
 })
 export class ShellHeaderComponent {
-  readonly title = input<string>('Vault view');
+  readonly title = input<string>('Vault');
   readonly subtitle = input<string>('Second brain');
   readonly theme = input<ThemeMode>('dark');
   readonly present = input<boolean>(false);

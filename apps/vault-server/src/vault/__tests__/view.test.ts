@@ -120,7 +120,7 @@ describe('vault view server', () => {
     const page = await get('/app');
     expect(page.status).toBe(200);
     expect(page.body).toContain(`<meta name="vault-token" content="${TOKEN}">`);
-    expect(page.body).toContain('<vv-root></vv-root>');
+    expect(page.body).toContain('<vault-root></vault-root>');
     expect(page.headers['content-security-policy']).toMatch(
       /default-src 'none'; script-src 'self';.*connect-src 'self'/,
     );

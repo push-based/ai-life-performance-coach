@@ -1,10 +1,9 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { Component, input } from '@angular/core';
 
 @Component({
-  selector: 'vv-glass-card',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  selector: 'vault-glass-card',
   template: `
-    <section class="glass vv-card">
+    <section class="glass vault-card">
       @if (heading()) {
         <h3>{{ heading() }}</h3>
       }
@@ -12,7 +11,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     </section>
   `,
   styles: `
-    .vv-card {
+    .vault-card {
       padding: 20px 20px 22px;
     }
     h3 {

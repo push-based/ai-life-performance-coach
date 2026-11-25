@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { effect, Injectable, signal } from '@angular/core';
 import {
   hasPresentQuery,
   readStoredTheme,
@@ -9,22 +9,31 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ShellStore {
-  readonly theme = signal<ThemeMode>('dark');
-  readonly present = signal(false);
+  readonly theme = signal<ThemeMode>(
+    resolveInitialTheme(globalThis.location?.search ?? '', readStoredTheme()),
+  );
+  readonly present = signal<boolean>(
+    hasPresentQuery(globalThis.location?.search ?? ''),
+  );
   readonly refreshCount = signal(0);
 
-  init(): void {
-    const search = globalThis.location?.search ?? '';
-    const initial = resolveInitialTheme(search, readStoredTheme());
-    this.setTheme(initial, false);
-    if (hasPresentQuery(search)) this.setPresent(true);
+  constructor() {
+    effect(() => {
+      const mode = this.theme();
+      if (globalThis.document?.documentElement) {
+        globalThis.document.documentElement.dataset['theme'] = mode;
+      }
+    });
+    effect(() => {
+      const active = this.present();
+      if (globalThis.document?.body) {
+        globalThis.document.body.classList.toggle('present', active);
+      }
+    });
   }
 
   setTheme(mode: ThemeMode, persist = true): void {
     this.theme.set(mode);
-    if (globalThis.document?.documentElement) {
-      globalThis.document.documentElement.dataset['theme'] = mode;
-    }
     if (persist) writeStoredTheme(mode);
   }
 
@@ -34,13 +43,10 @@ export class ShellStore {
 
   setPresent(active: boolean): void {
     this.present.set(active);
-    if (globalThis.document?.body) {
-      globalThis.document.body.classList.toggle('present', active);
-    }
   }
 
   togglePresent(): void {
-    this.setPresent(!this.present());
+    this.present.update((active) => !active);
   }
 
   triggerRefresh(): void {

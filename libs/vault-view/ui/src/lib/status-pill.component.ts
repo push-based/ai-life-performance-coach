@@ -1,11 +1,10 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { Component, input } from '@angular/core';
 
 @Component({
-  selector: 'vv-status-pill',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  selector: 'vault-status-pill',
   template: `
     <span
-      class="vv-pill"
+      class="vault-pill"
       [style.color]="color()"
       [style.border-color]="color()"
       [style.background]="
@@ -16,7 +15,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     </span>
   `,
   styles: `
-    .vv-pill {
+    .vault-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;

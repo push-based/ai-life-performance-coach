@@ -1,45 +1,35 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  inject,
-  type OnInit,
-} from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ShellStore } from '@ai-coach/vault-view-data-access';
 import { ShellHeaderComponent } from '@ai-coach/vault-view-ui';
 import { isGlobalShortcut } from '@ai-coach/vault-view-util';
 
 @Component({
-  selector: 'vv-root',
+  selector: 'vault-root',
   imports: [RouterOutlet, ShellHeaderComponent],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(document:keydown)': 'onKeydown($event)',
   },
   template: `
-    <vv-shell-header
+    <vault-shell-header
       [theme]="shell.theme()"
       [present]="shell.present()"
       (themeToggle)="shell.toggleTheme()"
       (presentToggle)="shell.togglePresent()"
       (refreshClick)="shell.triggerRefresh()"
     />
-    <main class="vv-main">
+    <main class="vault-main">
       <router-outlet />
     </main>
   `,
   styles: `
-    .vv-main {
+    .vault-main {
       min-height: 100vh;
     }
   `,
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   readonly shell = inject(ShellStore);
-
-  ngOnInit(): void {
-    this.shell.init();
-  }
 
   onKeydown(ev: KeyboardEvent): void {
     if (!isGlobalShortcut(ev)) return;
