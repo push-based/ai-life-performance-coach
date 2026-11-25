@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": { "analytics": false, "packageManager": "npm" },
+  "newProjectRoot": ".",
+  "projects": {
+    "vault-view": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist",
+            "browser": "src/main.ts",
+            "index": "src/index.html",
+            "baseHref": "/app/",
+            "tsConfig": "tsconfig.json",
+            "styles": ["src/styles.css"],
+            "outputHashing": "none",
+            "optimization": true,
+            "sourceMap": false,
+            "extractLicenses": false,
+            "budgets": [
+              {
+                "type": "initial",
+                "maximumWarning": "500kb",
+                "maximumError": "1mb"
+              }
+            ]
+          }
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "buildTarget": "vault-view:build"
+          }
+        }
+      }
+    }
+  }
+}

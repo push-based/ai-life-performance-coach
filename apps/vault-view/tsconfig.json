@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "paths": {
+      "@ai-coach/vault-view-util": ["../../libs/vault-view/util/src/index.ts"],
+      "@ai-coach/vault-view-data-access": [
+        "../../libs/vault-view/data-access/src/index.ts"
+      ],
+      "@ai-coach/vault-view-ui": ["../../libs/vault-view/ui/src/index.ts"]
+    }
+  },
+  "angularCompilerOptions": {
+    "strictTemplates": true,
+    "strictInjectionParameters": true
+  },
+  "files": ["src/main.ts"]
+}
