@@ -6,6 +6,7 @@ export interface ShellNavItem {
   label: string;
   route: string;
   title: string;
+  external?: boolean;
 }
 
 @Component({
@@ -55,15 +56,21 @@ export interface ShellNavItem {
 
       <nav class="nav" aria-label="Vault views">
         @for (item of navItems(); track item.route) {
-          <a
-            class="icon-btn"
-            [routerLink]="item.route"
-            routerLinkActive="active"
-            [routerLinkActiveOptions]="{ exact: item.route === '/' }"
-            [title]="item.title"
-          >
-            <span class="txt">{{ item.label }}</span>
-          </a>
+          @if (item.external) {
+            <a class="icon-btn" [href]="item.route" [title]="item.title">
+              <span class="txt">{{ item.label }}</span>
+            </a>
+          } @else {
+            <a
+              class="icon-btn"
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: item.route === '/' }"
+              [title]="item.title"
+            >
+              <span class="txt">{{ item.label }}</span>
+            </a>
+          }
         }
       </nav>
 
@@ -167,9 +174,14 @@ export class ShellHeaderComponent {
   public readonly theme = input<ThemeMode>('dark');
   public readonly present = input<boolean>(false);
   public readonly navItems = input<ShellNavItem[]>([
-    { label: 'Graph', route: '/', title: 'Vault link graph' },
+    { label: 'Graph', route: '/', title: 'Vault link graph', external: true },
     { label: 'Plans', route: '/plans', title: 'Plans: goals and effort' },
-    { label: 'Climb', route: '/climb', title: 'Climb: seven learning steps' },
+    {
+      label: 'Climb',
+      route: '/climb',
+      title: 'Climb: seven learning steps',
+      external: true,
+    },
   ]);
 
   public readonly themeToggle = output<void>();

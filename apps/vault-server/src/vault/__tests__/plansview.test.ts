@@ -245,14 +245,16 @@ describe('the plans page on the view server', () => {
     await new Promise((r) => server.close(r));
   });
 
-  it('serves the page and its script under the same CSP, and the graph links to it', async () => {
+  it('serves the Angular plans page and its assets under the same CSP, and the graph links to it', async () => {
     const page = await get('/plans');
     expect(page.status).toBe(200);
-    expect(page.body).toContain('<script src="plans-view.js"></script>');
+    expect(page.body).toContain('<vault-root></vault-root>');
+    expect(page.body).toContain('main.js');
     expect(String(page.headers['content-security-policy'])).toContain(
       "default-src 'none'",
     );
-    expect((await get('/plans-view.js')).status).toBe(200);
+    expect((await get('/main.js')).status).toBe(200);
+    expect((await get('/styles.css')).status).toBe(200);
     expect((await get('/')).body).toContain('href="/plans"');
   });
 

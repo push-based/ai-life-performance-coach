@@ -33,6 +33,13 @@
   --archive: #64748b;
   --complete: #34d399;
   --highlight: #fbbf24;
+  --met: #34d399;
+  --open: #8fa8ff;
+  --missed: #fb7185;
+  --dropped: #64748b;
+  --slip: #fbbf24;
+  --done-rgb: 52, 211, 153;
+  --planned: #8fa8ff;
 }
 
 :root[data-theme='light'] {
@@ -65,6 +72,13 @@
   --archive: #94a3b8;
   --complete: #10b981;
   --highlight: #f59e0b;
+  --met: #059669;
+  --open: #4f6ef7;
+  --missed: #e11d48;
+  --dropped: #94a3b8;
+  --slip: #d97706;
+  --done-rgb: 16, 185, 129;
+  --planned: #4f6ef7;
 }
 
 * {

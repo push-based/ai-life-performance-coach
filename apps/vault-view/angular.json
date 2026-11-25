@@ -15,7 +15,7 @@
             "outputPath": "dist",
             "browser": "src/main.ts",
             "index": "src/index.html",
-            "baseHref": "/app/",
+            "baseHref": "/",
             "tsConfig": "tsconfig.json",
             "styles": ["src/styles.css"],
             "outputHashing": "none",

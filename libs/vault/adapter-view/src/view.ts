@@ -330,6 +330,7 @@ export function createVaultViewServer(
       if (req.method !== 'GET' && req.method !== 'HEAD')
         return send(405, 'text/plain; charset=utf-8', 'Method not allowed');
       if (
+        path === '/plans' ||
         path === '/app' ||
         path === '/app/' ||
         path === '/app/plans' ||
@@ -345,8 +346,15 @@ export function createVaultViewServer(
           );
         return send(200, 'text/html; charset=utf-8', page);
       }
-      if (path.startsWith('/app/')) {
-        const file = path.slice('/app/'.length);
+      if (
+        path.startsWith('/app/') ||
+        path === '/main.js' ||
+        path === '/styles.css' ||
+        /^\/chunk-[A-Za-z0-9_-]+\.js$/.test(path)
+      ) {
+        const file = path.startsWith('/app/')
+          ? path.slice('/app/'.length)
+          : path.slice(1);
         const content = angularAsset(file);
         if (!content)
           return send(404, 'text/plain; charset=utf-8', 'Not found');
@@ -373,8 +381,6 @@ export function createVaultViewServer(
           'text/javascript; charset=utf-8',
           asset('vault-view.js'),
         );
-      if (path === '/plans')
-        return send(200, 'text/html; charset=utf-8', asset('plans-view.html'));
       if (path === '/climb') {
         const page = asset('climb-view.html')
           .toString('utf-8')
@@ -421,12 +427,6 @@ export function createVaultViewServer(
           ? send(200, 'image/png', png)
           : send(404, 'text/plain; charset=utf-8', 'Not found');
       }
-      if (path === '/plans-view.js')
-        return send(
-          200,
-          'text/javascript; charset=utf-8',
-          asset('plans-view.js'),
-        );
       if (path === '/plans.json') {
         const view = await vault.plansView(
           url.searchParams.get('span') ?? undefined,

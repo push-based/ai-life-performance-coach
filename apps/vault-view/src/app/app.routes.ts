@@ -1,4 +1,5 @@
 import type { Routes } from '@angular/router';
+import { PlansPageComponent } from '@ai-coach/vault-view-feat-plans';
 import { ShellPlaceholderComponent } from './shell-placeholder.component.js';
 
 export const appRoutes: Routes = [
@@ -13,11 +14,7 @@ export const appRoutes: Routes = [
   },
   {
     path: 'plans',
-    component: ShellPlaceholderComponent,
-    data: {
-      section: 'Plans',
-      description: 'The plans view will be migrated here in PR 2.',
-    },
+    component: PlansPageComponent,
   },
   {
     path: 'climb',

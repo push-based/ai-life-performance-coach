@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ai-coach/vault-view-data-access": "*",
+    "@ai-coach/vault-view-feat-plans": "*",
     "@ai-coach/vault-view-ui": "*",
     "@ai-coach/vault-view-util": "*",
     "@angular/common": "21.2.25",
