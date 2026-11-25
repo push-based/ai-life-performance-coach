@@ -65,6 +65,9 @@
   --wrong: #fb7185;
   --canvas: #0b101b;
   --ink: #eef2f8;
+  --edge: rgba(148, 163, 184, 0.2);
+  --edge-spoke: rgba(148, 163, 184, 0.13);
+  --edge-reading: #e879f9;
 }
 
 :root[data-theme='light'] {
@@ -127,6 +130,9 @@
   --wrong: #e11d48;
   --canvas: #ffffff;
   --ink: #0f172a;
+  --edge: rgba(15, 23, 42, 0.16);
+  --edge-spoke: rgba(15, 23, 42, 0.1);
+  --edge-reading: #c026d3;
 }
 
 * {

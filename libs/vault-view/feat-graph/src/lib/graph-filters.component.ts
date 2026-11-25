@@ -1,4 +1,10 @@
-import { Component, type ElementRef, inject, viewChild } from '@angular/core';
+import {
+  Component,
+  type ElementRef,
+  inject,
+  output,
+  viewChild,
+} from '@angular/core';
 import { GraphStore } from '@ai-coach/vault-view-data-access';
 import {
   bucketOfNode,
@@ -32,6 +38,7 @@ import {
           spellcheck="false"
           [value]="store.query()"
           (input)="store.setQuery($any($event.target).value)"
+          (keydown.enter)="submitSearch()"
           (keydown.escape)="clearSearch(searchInput)"
         />
         <kbd>/</kbd>
@@ -287,6 +294,7 @@ import {
 })
 export class GraphFiltersComponent {
   public readonly store = inject(GraphStore);
+  public readonly searchSubmit = output<void>();
   private readonly searchRef =
     viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
@@ -298,6 +306,10 @@ export class GraphFiltersComponent {
 
   public focusSearch(): void {
     this.searchRef()?.nativeElement.focus();
+  }
+
+  public submitSearch(): void {
+    this.searchSubmit.emit();
   }
 
   public clearSearch(inputEl: HTMLInputElement): void {
