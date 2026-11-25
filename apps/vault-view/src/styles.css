@@ -51,6 +51,8 @@
   --bold: #22d3ee;
   --complete: #34d399;
   --highlight: #fbbf24;
+  --bold-ink: #8ef0ff;
+  --highlight-ink: #1d1400;
   --met: #34d399;
   --open: #8fa8ff;
   --missed: #fb7185;
@@ -116,6 +118,8 @@
   --bold: #0891b2;
   --complete: #10b981;
   --highlight: #f59e0b;
+  --bold-ink: #0b6278;
+  --highlight-ink: #1d1400;
   --met: #059669;
   --open: #4f6ef7;
   --missed: #e11d48;

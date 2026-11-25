@@ -14,8 +14,6 @@ import {
 } from '@ai-coach/vault-application';
 import { type AssertionMark } from '@ai-coach/vault-domain';
 
-const ASSETS = new URL('../assets/', import.meta.url);
-const asset = (name: string) => readFileSync(new URL(name, ASSETS));
 const ANGULAR_APP = new URL(
   '../../../../apps/vault-view/dist/browser/',
   import.meta.url,
@@ -330,6 +328,8 @@ export function createVaultViewServer(
       if (req.method !== 'GET' && req.method !== 'HEAD')
         return send(405, 'text/plain; charset=utf-8', 'Method not allowed');
       if (
+        path === '/' ||
+        path === '/index.html' ||
         path === '/plans' ||
         path === '/climb' ||
         path === '/app' ||
@@ -367,21 +367,6 @@ export function createVaultViewServer(
         if (!type) return send(404, 'text/plain; charset=utf-8', 'Not found');
         return send(200, type, content);
       }
-      if (path === '/' || path === '/index.html') {
-        const page = asset('vault-view.html')
-          .toString('utf-8')
-          .replace(
-            '</head>',
-            `  <meta name="vault-token" content="${token}">\n</head>`,
-          );
-        return send(200, 'text/html; charset=utf-8', page);
-      }
-      if (path === '/vault-view.js')
-        return send(
-          200,
-          'text/javascript; charset=utf-8',
-          asset('vault-view.js'),
-        );
       if (path === '/climb.json')
         return json(200, {
           ...(await vault.climbView()),

@@ -6,3 +6,4 @@ export * from './lib/climb.js';
 export * from './lib/markdown.js';
 export * from './lib/graph.js';
 export * from './lib/graph-layout.js';
+export * from './lib/distill.js';

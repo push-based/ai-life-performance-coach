@@ -1,6 +1,7 @@
 import { Component, inject, viewChild } from '@angular/core';
 import { GraphStore } from '@ai-coach/vault-view-data-access';
 import { isGlobalShortcut } from '@ai-coach/vault-view-util';
+import { FocusReaderComponent } from './focus-reader.component.js';
 import { GraphCanvasComponent } from './graph-canvas.component.js';
 import { GraphDetailPanelComponent } from './graph-detail-panel.component.js';
 import { GraphFiltersComponent } from './graph-filters.component.js';
@@ -11,6 +12,7 @@ import { GraphFiltersComponent } from './graph-filters.component.js';
     GraphCanvasComponent,
     GraphFiltersComponent,
     GraphDetailPanelComponent,
+    FocusReaderComponent,
   ],
   host: {
     '(document:keydown)': 'onKeydown($event)',
@@ -45,6 +47,12 @@ import { GraphFiltersComponent } from './graph-filters.component.js';
     <div class="detail-dock">
       <vault-graph-detail-panel />
     </div>
+
+    <vault-focus-reader />
+
+    @if (store.toast(); as t) {
+      <div class="toast glass" [class]="t.kind" role="status">{{ t.text }}</div>
+    }
   `,
   styles: `
     .filters-toggle {
@@ -81,6 +89,34 @@ import { GraphFiltersComponent } from './graph-filters.component.js';
       padding: 10px 16px;
       color: var(--wrong);
       font-size: 13px;
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 64px;
+      transform: translateX(-50%);
+      z-index: 40;
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .toast.done {
+      border-color: var(--complete);
+      color: var(--complete);
+    }
+    .toast.warn {
+      border-color: var(--attempted);
+      color: var(--attempted);
+    }
+    .toast.bold {
+      border-color: var(--bold);
+      color: var(--bold);
+    }
+    .toast.highlight {
+      border-color: var(--highlight);
+      color: var(--highlight);
     }
     @media (max-width: 960px) {
       .filters-toggle.open {
@@ -125,13 +161,64 @@ export class GraphPageComponent {
 
   public onKeydown(ev: KeyboardEvent): void {
     if (!isGlobalShortcut(ev)) return;
+
+    if (this.store.focusPage()) {
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        this.store.closeFocus();
+      } else if (ev.key === 'ArrowRight') {
+        ev.preventDefault();
+        this.store.stepFocusPage(1);
+      } else if (ev.key === 'ArrowLeft') {
+        ev.preventDefault();
+        this.store.stepFocusPage(-1);
+      }
+      return;
+    }
+
+    const key = ev.key.toLowerCase();
+    if (key === 'e') {
+      const selPage = this.store.selectedPage();
+      if (selPage) {
+        ev.preventDefault();
+        this.store.openFocus(selPage.chapterId, selPage.page);
+        return;
+      }
+      const sel = this.store.selectedNode();
+      if (sel?.distill?.pages.length) {
+        ev.preventDefault();
+        this.store.openFocus(sel.id, sel.distill.pages[0].page);
+        return;
+      }
+    }
+
+    if (ev.key === 'ArrowRight') {
+      if (this.store.selectedPage()) {
+        ev.preventDefault();
+        this.store.stepSelectedPage(1);
+        return;
+      }
+      const sel = this.store.selectedNode();
+      if (sel?.distill?.pages.length) {
+        ev.preventDefault();
+        this.store.selectPage(sel.id, sel.distill.pages[0].page);
+        return;
+      }
+    }
+
+    if (ev.key === 'ArrowLeft' && this.store.selectedPage()) {
+      ev.preventDefault();
+      this.store.stepSelectedPage(-1);
+      return;
+    }
+
     if (ev.key === '/') {
       ev.preventDefault();
       if (!this.store.filtersOpen()) this.store.toggleFilters();
       setTimeout(() => this.filters()?.focusSearch(), 0);
       return;
     }
-    if (ev.key === 'f' || ev.key === 'F') {
+    if (key === 'f') {
       this.canvas()?.fitAll();
       return;
     }
@@ -144,8 +231,7 @@ export class GraphPageComponent {
       return;
     }
     if (ev.key === 'Escape') {
-      const selPage = this.store.selectedPage();
-      if (selPage) {
+      if (this.store.selectedPage()) {
         this.store.clearSelectedPage();
         return;
       }

@@ -7,6 +7,7 @@ import { StatusPillComponent } from '@ai-coach/vault-view-ui';
 import {
   bucketOfNode,
   chapterFillOf,
+  distillMarkLabel,
   fillOfNode,
   GRAPH_BUCKETS,
   GRAPH_CHAPTER_STATE_LABEL,
@@ -22,13 +23,92 @@ import {
   workstreamFillOf,
 } from '@ai-coach/vault-view-util';
 import { NoteReaderComponent } from './note-reader.component.js';
+import { PassageEditorComponent } from './passage-editor.component.js';
+import { SummaryEditorComponent } from './summary-editor.component.js';
 
 @Component({
   selector: 'vault-graph-detail-panel',
-  imports: [StatusPillComponent, NoteReaderComponent],
+  imports: [
+    StatusPillComponent,
+    NoteReaderComponent,
+    PassageEditorComponent,
+    SummaryEditorComponent,
+  ],
   template: `
     <aside class="glass vault-detail" aria-live="polite">
-      @if (store.selectedNode(); as n) {
+      @if (selectedPageInfo(); as pi) {
+        <section class="card">
+          <span class="eyebrow">
+            <i [style.background]="pi.markColor"></i>
+            Page {{ pi.page.page }}
+          </span>
+          <h2>{{ pi.chapter.title }}</h2>
+          <div class="pills">
+            <vault-status-pill [label]="pi.markLabel" [color]="pi.markColor" />
+            @if (pi.page.summary) {
+              <vault-status-pill label="Page summary" color="var(--complete)" />
+            }
+          </div>
+          <div class="actions">
+            <button
+              type="button"
+              class="btn primary"
+              title="Read and distil in the middle of the screen (E)"
+              (click)="store.openFocus(pi.chapter.id, pi.page.page)"
+            >
+              Edit mode
+            </button>
+            <button
+              type="button"
+              class="btn"
+              (click)="store.clearSelectedPage()"
+            >
+              ↑ Chapter
+            </button>
+            <a class="btn" [href]="pi.obsidianHref">Obsidian</a>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="pager">
+            <button
+              type="button"
+              class="btn"
+              [disabled]="!pi.hasPrev"
+              title="Previous page (←)"
+              (click)="store.stepSelectedPage(-1)"
+            >
+              ← Prev
+            </button>
+            <span class="muted">
+              Page {{ pi.pageIndex + 1 }} of {{ pi.totalPages }} in this chapter
+            </span>
+            <button
+              type="button"
+              class="btn"
+              [disabled]="!pi.hasNext"
+              title="Next page (→)"
+              (click)="store.stepSelectedPage(1)"
+            >
+              Next →
+            </button>
+          </div>
+        </section>
+
+        <section class="card">
+          <vault-passage-editor
+            [chapterId]="pi.chapter.id"
+            [page]="pi.page.page"
+          />
+        </section>
+
+        <section class="card">
+          <p class="hint-text">
+            Select text to bold or highlight it. Changes are saved to the
+            chapter note, so Obsidian shows them at once.
+          </p>
+        </section>
+      } @else if (store.selectedNode(); as n) {
         @if (n.rawRole === 'index') {
           <section class="card">
             <span class="eyebrow">
@@ -97,6 +177,16 @@ import { NoteReaderComponent } from './note-reader.component.js';
               </button>
             }
             <div class="actions">
+              @if (n.distill.pages.length) {
+                <button
+                  type="button"
+                  class="btn primary"
+                  title="Read and distil in the middle of the screen (E)"
+                  (click)="store.openFocus(n.id, n.distill.pages[0].page)"
+                >
+                  Edit mode
+                </button>
+              }
               <a class="btn" [href]="obsidianHref(n.id)">Open in Obsidian</a>
             </div>
           </section>
@@ -111,18 +201,30 @@ import { NoteReaderComponent } from './note-reader.component.js';
             </div>
             <div class="cells pages">
               @for (p of n.distill.pages; track p.page) {
-                <span
+                <button
+                  type="button"
                   class="cell"
                   [class.empty]="p.empty"
                   [class.summ]="p.summary"
                   [style.background]="
                     p.empty ? 'transparent' : pageFill(p.mark)
                   "
+                  (click)="store.selectPage(n.id, p.page)"
                 >
                   {{ p.page }}
-                </span>
+                </button>
               }
             </div>
+          </section>
+
+          <section class="card">
+            <vault-summary-editor
+              title="Chapter summary"
+              hint="The whole chapter in your own words. Writing it completes the chapter."
+              emptyLabel="Write the chapter summary to complete it"
+              [value]="chapterSummaryOf(n)"
+              [saveFn]="saveChapterSummaryFn(n.id)"
+            />
           </section>
         } @else {
           <section class="card">
@@ -382,6 +484,36 @@ import { NoteReaderComponent } from './note-reader.component.js';
     .btn:hover {
       background: var(--raised-2);
     }
+    .btn.primary {
+      background: var(--accent);
+      border-color: transparent;
+      color: #0b1020;
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .pager {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .hint-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
     .tiles {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -594,6 +726,50 @@ export class GraphDetailPanelComponent {
   public readonly nonZeroMastery = computed(() =>
     this.store.masteryStats().filter((m) => m.value > 0),
   );
+
+  public readonly selectedPageInfo = computed(() => {
+    const sel = this.store.selectedPage();
+    if (!sel) return null;
+    const chapter = this.store.byId().get(sel.chapterId);
+    const pages = chapter?.distill?.pages ?? [];
+    const page = pages.find((p) => p.page === sel.page);
+    if (!chapter || !page) return null;
+    const pageIndex = pages.findIndex((p) => p.page === page.page);
+    const vaultName = this.store.graph()?.vaultName ?? '';
+    return {
+      chapter,
+      page,
+      pageIndex,
+      totalPages: pages.length,
+      markLabel: distillMarkLabel(page.mark, page.empty),
+      markColor: page.empty
+        ? 'var(--muted)'
+        : (GRAPH_MARK_FILL[page.mark] ?? 'var(--untouched)'),
+      hasPrev: Boolean(this.store.adjacentPage(chapter.id, page.page, -1)),
+      hasNext: Boolean(this.store.adjacentPage(chapter.id, page.page, 1)),
+      obsidianHref: obsidianUri(
+        vaultName,
+        `${chapter.id.replace(/\.md$/, '')}#Page ${page.page}`,
+      ),
+    };
+  });
+
+  public chapterSummaryOf(n: GraphNodeDto): string | null {
+    const firstPage = n.distill?.pages[0]?.page;
+    if (firstPage === undefined) return null;
+    const cached = this.store.cachedPage(n.id, firstPage);
+    if (!cached) {
+      void this.store.loadPage(n.id, firstPage);
+      return null;
+    }
+    return cached.chapterSummary;
+  }
+
+  public saveChapterSummaryFn(
+    chapterId: string,
+  ): (text: string) => Promise<boolean> {
+    return (text: string) => this.store.saveChapterSummary(chapterId, text);
+  }
 
   public fillOf(n: GraphNodeDto): string {
     return fillOfNode(n);

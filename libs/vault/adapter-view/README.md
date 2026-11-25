@@ -6,7 +6,7 @@
 - `/plans`: your goals beside your effort over time.
 - `/climb`: the climb page with its drawing board.
 
-The graph page (`/`) is plain HTML and JavaScript in [`assets/`](assets), while `/plans` and `/climb` (including the structure drawing board) are served from the Angular app built by [`apps/vault-view`](../../../apps/vault-view/README.md) via Nx build dependency. Writes from a page need the token the server put into that page.
+All pages (`/`, `/plans`, and `/climb`, including the structure drawing board) are served from the Angular app built by [`apps/vault-view`](../../../apps/vault-view/README.md) via Nx build dependency. Writes from a page need the token the server put into that page.
 
 Start it with `npm run coach -- view`.
 

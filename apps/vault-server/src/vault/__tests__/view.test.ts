@@ -106,12 +106,13 @@ describe('vault view server', () => {
   it('serves the page and its script with a CSP that forbids anything off the machine', async () => {
     const page = await get('/');
     expect(page.status).toBe(200);
-    expect(page.body).toContain('<script src="vault-view.js">');
+    expect(page.body).toContain('<vault-root></vault-root>');
+    expect(page.body).toContain(`<meta name="vault-token" content="${TOKEN}">`);
     expect(page.headers['content-security-policy']).toMatch(
       /default-src 'none'; script-src 'self';.*connect-src 'self'/,
     );
     expect(page.headers['referrer-policy']).toBe('no-referrer');
-    const script = await get('/vault-view.js');
+    const script = await get('/main.js');
     expect(script.status).toBe(200);
     expect(script.headers['content-type']).toMatch(/javascript/);
   });

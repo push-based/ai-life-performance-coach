@@ -1,4 +1,8 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpParams,
+} from '@angular/common/http';
 import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import {
   bucketOfNode,
@@ -6,19 +10,29 @@ import {
   GRAPH_MASTERY,
   GRAPH_MASTERY_RING,
   kindOfNode,
+  type DistillMarkOp,
   type GraphBucketKey,
   type GraphKindKey,
   type GraphMasteryKey,
   type GraphWorkstreamStateKey,
 } from '@ai-coach/vault-view-util';
 import { firstValueFrom } from 'rxjs';
-import { type GraphNodeDto, type VaultGraphDto } from './graph.dto.js';
+import {
+  type BookPageDto,
+  type GraphNodeDto,
+  type VaultGraphDto,
+} from './graph.dto.js';
 import { ShellStore } from './shell.store.js';
 import type { VaultNoteBodyDto } from './vault-api.dto.js';
 
 export interface SelectedPageRef {
   chapterId: string;
   page: number;
+}
+
+export interface DistillToast {
+  text: string;
+  kind: 'bold' | 'highlight' | 'clear' | 'done' | 'warn';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -31,8 +45,14 @@ export class GraphStore {
   public readonly error = signal<string | null>(null);
   public readonly selectedId = signal<string | null>(null);
   public readonly selectedPage = signal<SelectedPageRef | null>(null);
+  public readonly focusPage = signal<SelectedPageRef | null>(null);
+  public readonly toast = signal<DistillToast | null>(null);
+  public readonly pageCache = signal<ReadonlyMap<string, BookPageDto>>(
+    new Map(),
+  );
   public readonly query = signal('');
   public readonly filtersOpen = signal(false);
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   public readonly hiddenBuckets = signal<ReadonlySet<GraphBucketKey>>(
     new Set(['archive']),
@@ -427,6 +447,244 @@ export class GraphStore {
     } catch {
       return null;
     }
+  }
+
+  public pageKey(chapterId: string, page: number): string {
+    return `${chapterId}#${page}`;
+  }
+
+  public cachedPage(chapterId: string, page: number): BookPageDto | null {
+    return this.pageCache().get(this.pageKey(chapterId, page)) ?? null;
+  }
+
+  public async loadPage(
+    chapterId: string,
+    page: number,
+    force = false,
+  ): Promise<BookPageDto | null> {
+    const key = this.pageKey(chapterId, page);
+    if (!force) {
+      const existing = this.pageCache().get(key);
+      if (existing) return existing;
+    }
+    const params = new HttpParams()
+      .set('note', chapterId)
+      .set('page', String(page));
+    try {
+      const data = await firstValueFrom(
+        this.http.get<BookPageDto>('/page.json', { params }),
+      );
+      this.pageCache.update((map) => {
+        const next = new Map(map);
+        next.set(key, data);
+        return next;
+      });
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  public openFocus(chapterId: string, page: number): void {
+    this.focusPage.set({ chapterId, page });
+  }
+
+  public closeFocus(): void {
+    const f = this.focusPage();
+    if (!f) return;
+    this.focusPage.set(null);
+    this.selectPage(f.chapterId, f.page);
+  }
+
+  public stepSelectedPage(dir: 1 | -1): void {
+    const cur = this.selectedPage();
+    if (!cur) return;
+    const next = this.adjacentPage(cur.chapterId, cur.page, dir);
+    if (next) this.selectPage(next.chapterId, next.page);
+  }
+
+  public stepFocusPage(dir: 1 | -1): void {
+    const cur = this.focusPage();
+    if (!cur) return;
+    const next = this.adjacentPage(cur.chapterId, cur.page, dir);
+    if (next) this.focusPage.set(next);
+  }
+
+  public adjacentPage(
+    chapterId: string,
+    page: number,
+    dir: 1 | -1,
+  ): SelectedPageRef | null {
+    const chapter = this.byId().get(chapterId);
+    const pages = chapter?.distill?.pages ?? [];
+    const idx = pages.findIndex((p) => p.page === page) + dir;
+    if (idx >= 0 && idx < pages.length) {
+      return { chapterId, page: pages[idx].page };
+    }
+    if (!chapter?.book) return null;
+    const chapters = this.chaptersByBook().get(chapter.book) ?? [];
+    const ci = chapters.findIndex((c) => c.id === chapterId) + dir;
+    const nextChapter = chapters[ci];
+    const nextPages = nextChapter?.distill?.pages ?? [];
+    if (!nextChapter || !nextPages.length) return null;
+    return {
+      chapterId: nextChapter.id,
+      page: dir > 0 ? nextPages[0].page : nextPages[nextPages.length - 1].page,
+    };
+  }
+
+  public async markPassage(
+    chapterId: string,
+    page: number,
+    start: number,
+    end: number,
+    mark: DistillMarkOp,
+  ): Promise<boolean> {
+    const data = this.cachedPage(chapterId, page);
+    if (!data) return false;
+    try {
+      const res = await firstValueFrom(
+        this.http.post<{ text: string }>('/api/mark', {
+          note: chapterId,
+          page,
+          start,
+          end,
+          mark,
+          base: data.text,
+        }),
+      );
+      this.updateCachedPageText(chapterId, page, res.text);
+      this.showToast(
+        mark === 'clear'
+          ? 'Marks cleared'
+          : mark === 'bold'
+            ? 'Bolded'
+            : 'Highlighted',
+        mark,
+      );
+      await this.load();
+      return true;
+    } catch (err) {
+      return this.handleDistillError(chapterId, page, err);
+    }
+  }
+
+  public async savePageSummary(
+    chapterId: string,
+    page: number,
+    text: string,
+  ): Promise<boolean> {
+    const data = this.cachedPage(chapterId, page);
+    try {
+      const res = await firstValueFrom(
+        this.http.post<{ text: string }>('/api/summary', {
+          note: chapterId,
+          page,
+          text,
+          base: data?.text,
+        }),
+      );
+      this.updateCachedPageText(chapterId, page, res.text);
+      this.showToast(
+        text.trim() ? 'Page summary saved' : 'Page summary removed',
+        'done',
+      );
+      await this.load();
+      return true;
+    } catch (err) {
+      return this.handleDistillError(chapterId, page, err);
+    }
+  }
+
+  public async saveChapterSummary(
+    chapterId: string,
+    text: string,
+  ): Promise<boolean> {
+    try {
+      await firstValueFrom(
+        this.http.post<{ text: string }>('/api/summary', {
+          note: chapterId,
+          page: null,
+          text,
+        }),
+      );
+      const trimmed = text.trim() || null;
+      this.pageCache.update((map) => {
+        const next = new Map(map);
+        for (const [k, v] of next) {
+          if (k.startsWith(`${chapterId}#`)) {
+            next.set(k, { ...v, chapterSummary: trimmed });
+          }
+        }
+        return next;
+      });
+      this.showToast(
+        trimmed
+          ? 'Chapter summary saved — chapter complete'
+          : 'Chapter summary removed',
+        'done',
+      );
+      await this.load();
+      return true;
+    } catch (err) {
+      const msg =
+        err instanceof HttpErrorResponse
+          ? ((err.error as { error?: string } | null)?.error ??
+            `Could not save (${err.status})`)
+          : 'Could not save';
+      this.showToast(msg, 'warn');
+      return false;
+    }
+  }
+
+  public showToast(text: string, kind: DistillToast['kind']): void {
+    this.toast.set({ text, kind });
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => {
+      this.toast.set(null);
+      this.toastTimer = null;
+    }, 2600);
+  }
+
+  private updateCachedPageText(
+    chapterId: string,
+    page: number,
+    text: string,
+  ): void {
+    const key = this.pageKey(chapterId, page);
+    this.pageCache.update((map) => {
+      const existing = map.get(key);
+      if (!existing) return map;
+      const next = new Map(map);
+      next.set(key, { ...existing, text });
+      return next;
+    });
+  }
+
+  private async handleDistillError(
+    chapterId: string,
+    page: number,
+    err: unknown,
+  ): Promise<boolean> {
+    if (err instanceof HttpErrorResponse) {
+      const payload = err.error as { error?: string; text?: string } | null;
+      if (err.status === 409 && payload?.text !== undefined) {
+        this.updateCachedPageText(chapterId, page, payload.text);
+        this.showToast(
+          'The page changed in Obsidian — showing the latest',
+          'warn',
+        );
+        await this.load();
+        return false;
+      }
+      this.showToast(
+        payload?.error ?? `Could not save (${err.status})`,
+        'warn',
+      );
+      return false;
+    }
+    this.showToast('Could not save', 'warn');
+    return false;
   }
 
   private isOwnerFocus(n: GraphNodeDto | null): boolean {
