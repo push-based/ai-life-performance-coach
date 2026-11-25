@@ -116,6 +116,23 @@ describe('vault view server', () => {
     expect(script.headers['content-type']).toMatch(/javascript/);
   });
 
+  it('serves the Angular shell at /app with the write token and strict CSP', async () => {
+    const page = await get('/app');
+    expect(page.status).toBe(200);
+    expect(page.body).toContain(`<meta name="vault-token" content="${TOKEN}">`);
+    expect(page.body).toContain('<vv-root></vv-root>');
+    expect(page.headers['content-security-policy']).toMatch(
+      /default-src 'none'; script-src 'self';.*connect-src 'self'/,
+    );
+    const main = await get('/app/main.js');
+    expect(main.status).toBe(200);
+    expect(main.headers['content-type']).toMatch(/javascript/);
+    const styles = await get('/app/styles.css');
+    expect(styles.status).toBe(200);
+    expect(styles.headers['content-type']).toMatch(/text\/css/);
+    expect((await get('/app/../package.json')).status).toBe(404);
+  });
+
   it('serves the graph with PARA buckets and mastery, written to Coach/graph.json, and no note body', async () => {
     const res = await get('/graph.json');
     expect(res.status).toBe(200);

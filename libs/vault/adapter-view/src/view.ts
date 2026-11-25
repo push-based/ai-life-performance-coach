@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { posix } from 'node:path';
@@ -16,6 +16,16 @@ import { type AssertionMark } from '@ai-coach/vault-domain';
 
 const ASSETS = new URL('../assets/', import.meta.url);
 const asset = (name: string) => readFileSync(new URL(name, ASSETS));
+const ANGULAR_APP = new URL(
+  '../../../../apps/vault-view/dist/browser/',
+  import.meta.url,
+);
+const SAFE_ASSET = /^[a-zA-Z0-9._-]+$/;
+const angularAsset = (name: string): Buffer | null => {
+  if (!SAFE_ASSET.test(name)) return null;
+  const target = new URL(name, ANGULAR_APP);
+  return existsSync(target) ? readFileSync(target) : null;
+};
 
 const HEADERS = {
   'Content-Security-Policy':
@@ -319,6 +329,35 @@ export function createVaultViewServer(
       }
       if (req.method !== 'GET' && req.method !== 'HEAD')
         return send(405, 'text/plain; charset=utf-8', 'Method not allowed');
+      if (
+        path === '/app' ||
+        path === '/app/' ||
+        path === '/app/plans' ||
+        path === '/app/climb'
+      ) {
+        const html = angularAsset('index.html');
+        if (!html) return send(404, 'text/plain; charset=utf-8', 'Not found');
+        const page = html
+          .toString('utf-8')
+          .replace(
+            '</head>',
+            `  <meta name="vault-token" content="${token}">\n</head>`,
+          );
+        return send(200, 'text/html; charset=utf-8', page);
+      }
+      if (path.startsWith('/app/')) {
+        const file = path.slice('/app/'.length);
+        const content = angularAsset(file);
+        if (!content)
+          return send(404, 'text/plain; charset=utf-8', 'Not found');
+        const type = file.endsWith('.js')
+          ? 'text/javascript; charset=utf-8'
+          : file.endsWith('.css')
+            ? 'text/css; charset=utf-8'
+            : null;
+        if (!type) return send(404, 'text/plain; charset=utf-8', 'Not found');
+        return send(200, type, content);
+      }
       if (path === '/' || path === '/index.html') {
         const page = asset('vault-view.html')
           .toString('utf-8')

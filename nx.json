@@ -25,7 +25,11 @@
           "watchDepsName": "watch-deps"
         }
       },
-      "exclude": ["apps/climb-board/**"]
+      "exclude": [
+        "apps/climb-board/**",
+        "apps/vault-view/**",
+        "libs/vault-view/**"
+      ]
     },
     {
       "plugin": "@nx/vitest",

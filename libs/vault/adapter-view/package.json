@@ -21,7 +21,15 @@
       "architecture:hexagonal",
       "type:adapter",
       "adapter:vault-view"
-    ]
+    ],
+    "targets": {
+      "build": {
+        "dependsOn": [
+          "^build",
+          "@ai-coach/vault-view:build"
+        ]
+      }
+    }
   },
   "dependencies": {
     "@ai-coach/vault-application": "*",
