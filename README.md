@@ -1,4 +1,4 @@
-![ai-life-performance-coach by PushBased: Set goals across your projects, areas, and habits, then learn deeply and plan every day to accomplish them.](docs/assets/banner.png)
+![ai-life-performance-coach by PushBased: Set goals across your projects, areas, and habits. Break them into workstreams of deliverable tasks to plan your years, quarters, months, weeks, and days. Bring books, articles, and papers, then synthesize them to learn deeply and achieve mastery.](docs/assets/banner.png)
 
 # ai-coach
 
