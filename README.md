@@ -1,4 +1,4 @@
-![ai-life-performance-coach by PushBased: Set goals across your projects, areas, and habits, then learn deeply and plan every day to accomplish them in one Obsidian vault.](docs/assets/banner.png)
+![ai-life-performance-coach by PushBased: Set goals across your projects, areas, and habits, then learn deeply and plan every day to accomplish them.](docs/assets/banner.png)
 
 # ai-coach
 
