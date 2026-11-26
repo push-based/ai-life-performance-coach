@@ -1,3 +1,5 @@
+![ai-coach by PushBased — Organize your notes, learn what you read until you can teach it, and plan your days, all in one Obsidian vault.](docs/assets/banner.png)
+
 # ai-coach
 
 [![CI](https://github.com/push-based/ai-life-performance-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/push-based/ai-life-performance-coach/actions/workflows/ci.yml)

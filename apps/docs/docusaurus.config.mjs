@@ -75,6 +75,7 @@ export default {
     ],
   ],
   themeConfig: {
+    image: 'img/social-preview.png',
     colorMode: { respectPrefersColorScheme: true },
     navbar: {
       title: 'ai-coach',
