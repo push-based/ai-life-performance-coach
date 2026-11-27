@@ -5,6 +5,7 @@ import {
   type ElementRef,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import {
@@ -1062,7 +1063,7 @@ export class GraphCanvasComponent {
       const graph = this.store.graph();
       if (!graph) return;
       const { w, h } = this.viewportSize();
-      const prev = this.homePositions();
+      const prev = untracked(() => this.homePositions());
       const next = computeForceLayout(
         graph.nodes,
         graph.edges,
