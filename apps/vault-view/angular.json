@@ -19,7 +19,14 @@
             "tsConfig": "tsconfig.json",
             "styles": ["src/styles.css"],
             "outputHashing": "none",
-            "optimization": true,
+            "optimization": {
+              "scripts": true,
+              "styles": {
+                "minify": true,
+                "inlineCritical": false
+              },
+              "fonts": true
+            },
             "sourceMap": false,
             "extractLicenses": false,
             "budgets": [
