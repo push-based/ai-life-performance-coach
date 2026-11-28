@@ -2,9 +2,10 @@
 doc_type: adr
 id: ADR-AIC-0034
 title: 'Split the docs into a short README, a user guide and a contributing guide'
-status: accepted
+status: superseded
 initiative: ai-coach
 date: 2026-11-04
+succeeded_by: ['ADR-AIC-0060']
 aliases: ['ADR-0034']
 tags: []
 links: ['ADR-AIC-0001', 'ADR-AIC-0032']
