@@ -38,7 +38,7 @@ npx nx build docs                 # build it and check every link
 | Why it's built that way        | [`kb/`](kb/README.md)                                          |
 | Planning with an AI agent      | [`.agents/skills/README.md`](.agents/skills/README.md)         |
 
-Write for someone new: say who a page is for and what they'll be able to do, use short sentences and "you", and link a term to the [glossary](docs/guide/glossary.md) instead of explaining it twice ([ADR-AIC-0034](kb/source/initiatives/ai-coach/decisions/ADR-AIC-0034-split-the-docs-into-a-short-readme-a-guide-and-contributing.md)).
+Write for someone new: say who a page is for and what they'll be able to do, use short sentences and "you", and link a term to the [glossary](docs/guide/glossary.md) instead of explaining it twice ([ADR-AIC-0060](kb/source/initiatives/ai-coach/decisions/ADR-AIC-0060-standardize-documentation-roles-and-package-readmes-with-an-eight-section-blueprint-and-agent-skill.md)). For package READMEs (`apps/*/README.md`, `libs/*/*/README.md`), follow the eight-section blueprint in the `package-readme` skill (`.agents/skills/package-readme/SKILL.md`).
 
 ## Decision records
 
