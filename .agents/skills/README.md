@@ -39,6 +39,14 @@ Just ask in plain words. Agents that run skills as commands also take them by na
 
 When a request spans periods, the skills run from the largest down: a year before its quarter, a quarter before its month, a month before its week.
 
+### Repository skills
+
+Alongside the planning skills, `.agents/skills/` also holds shared contributor skills for working in this repository:
+
+| Skill            | Say                                                          | It                                                                                                                                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `package-readme` | "write the README for this package", "update package README" | authors or reviews `apps/*/README.md` and `libs/*/*/README.md` using the eight-section architectural blueprint ([ADR-AIC-0060](../../kb/source/initiatives/ai-coach/decisions/ADR-AIC-0060-standardize-documentation-roles-and-package-readmes-with-an-eight-section-blueprint-and-agent-skill.md)) |
+
 ---
 
 ## Set it up
@@ -132,9 +140,10 @@ To keep your own rules out of a public fork, add `.agents/skills/vault-planning/
 │   └── rules.md         your scheduling rules
 ├── plan-day/  plan-week/  plan-month/  plan-quarter/  plan-year/
 ├── add-task/  set-goal/  organize-projects/
-└── review-period/
+├── review-period/
+└── package-readme/      eight-section blueprint for apps/*/README.md and libs/*/*/README.md
 
-.claude/skills/<skill>  →  ../../.agents/skills/<skill>   links for Claude Code
+.claude/skills/<skill>  →  ../../.agents/skills/<skill>   links for Claude Code (and .cursor/, .opencode/, .gemini/, .codex/ for package-readme)
 ```
 
 The skills follow the open [Agent Skills](https://agentskills.io) format, so one copy serves every agent. `.agents/skills/` is the shared folder most agents read. Claude Code reads only `.claude/skills/`, so each skill has a relative link there. Add a new skill to `.agents/skills/` and link it the same way:
